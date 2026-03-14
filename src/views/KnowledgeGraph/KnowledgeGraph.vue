@@ -803,16 +803,23 @@ const handleBookSearch = () => {
 }
 
 // 选择书籍
-const selectBook = (book) => {
+import axios from 'axios'
+
+const selectBook = async (book) => {
   currentBook.value = book
   selectedNode.value = book.title
   showBookSelector.value = false
   
-  // 这里可以添加调用后端API获取书籍章节数据的逻辑
-  // 例如：fetchBookChapters(book.id).then(data => updateGraph(data))
-  
-  // 模拟更新图谱数据
-  updateGraphForBook(book)
+  try {
+    // 调用后端API获取书籍章节数据
+    const response = await axios.get(`/api/books/${book.id}/chapters`)
+    if (response.data.code === 200) {
+      const graphData = response.data.data
+      updateGraph(graphData)
+    }
+  } catch (error) {
+    console.error('获取书籍章节数据失败:', error)
+  }
 }
 
 // 不同书籍的图谱数据

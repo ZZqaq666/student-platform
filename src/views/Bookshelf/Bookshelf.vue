@@ -179,7 +179,9 @@
   <!-- 成功提示 -->
   <transition name="toast">
     <div class="toast" v-if="showSuccessToast">
-      <div class="toast-icon">✓</div>
+      <div class="toast-icon" :class="{ 'error': toastType === 'error' }">
+        {{ toastType === 'success' ? '✓' : '×' }}
+      </div>
       <div class="toast-message">{{ successMessage }}</div>
     </div>
   </transition>
@@ -454,6 +456,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 
@@ -483,26 +486,14 @@ const textbookSearchQuery = ref('')
 // 成功提示
 const showSuccessToast = ref(false)
 const successMessage = ref('')
+const toastType = ref('success')
 
 // 确认删除对话框
 const showDeleteConfirm = ref(false)
 let bookToDelete = null
 
-// 显示成功提示
-const showToast = (message) => {
-  successMessage.value = message
-  showSuccessToast.value = true
-  setTimeout(() => {
-    showSuccessToast.value = false
-  }, 3000)
-}
-
-// 搜索书籍
-const searchBooks = () => {
-  // 搜索功能已经通过计算属性实现，这里只需要触发重新计算
-  // 可以添加额外的搜索逻辑如果需要
-  console.log('搜索书籍:', searchQuery.value)
-}
+// 书籍数据
+const books = ref([])
 
 // 状态筛选
 const statusFilter = ref('')
@@ -517,23 +508,6 @@ const statusOptions = ref([
   { value: 'learning', label: '学习中' },
   { value: 'completed', label: '已完成' }
 ])
-
-// 选择状态
-const selectStatus = (statusValue) => {
-  statusFilter.value = statusValue
-  showStatusDropdown.value = false
-}
-
-// 切换状态下拉菜单
-const toggleStatusDropdown = () => {
-  showStatusDropdown.value = !showStatusDropdown.value
-}
-
-// 获取选中的状态名称
-const getSelectedStatusName = () => {
-  const status = statusOptions.value.find(s => s.value === statusFilter.value)
-  return status ? status.label : '请选择状态'
-}
 
 // 目录标题数据
 const chapterTitles = ref([
@@ -550,99 +524,76 @@ const sectionTitles = ref([
   '典型例题'
 ])
 
-// 书籍数据
-const books = ref([
-  {
-    id: 1,
-    title: '禄学职讲名菜',
-    author: '蓝人书语',
-    cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&h=250&fit=crop',
-    status: 'not-started',
-    progress: 0,
-    lastClicked: new Date('2024-01-15').getTime()
-  },
-  {
-    id: 2,
-    title: '文书法',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=200&h=250&fit=crop',
-    status: 'not-started',
-    progress: 0,
-    lastClicked: new Date('2024-01-10').getTime()
-  },
-  {
-    id: 3,
-    title: '学习书',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=200&h=250&fit=crop',
-    status: 'learning',
-    progress: 50,
-    lastClicked: new Date('2024-01-20').getTime()
-  },
-  {
-    id: 4,
-    title: '师情手册服务',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=200&h=250&fit=crop',
-    status: 'learning',
-    progress: 60,
-    lastClicked: new Date('2024-01-25').getTime()
-  },
-  {
-    id: 5,
-    title: '准论书语',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=200&h=250&fit=crop',
-    status: 'completed',
-    progress: 100,
-    lastClicked: new Date('2024-01-05').getTime()
-  },
-  {
-    id: 6,
-    title: '学习教证',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1531901599431-363981c7e049?w=200&h=250&fit=crop',
-    status: 'not-started',
-    progress: 0,
-    lastClicked: new Date('2024-01-12').getTime()
-  },
-  {
-    id: 7,
-    title: '老教文明谈成',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200&h=250&fit=crop',
-    status: 'learning',
-    progress: 70,
-    lastClicked: new Date('2024-01-18').getTime()
-  },
-  {
-    id: 8,
-    title: '学习问人才',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1542903660-eed4a463d952?w=200&h=250&fit=crop',
-    status: 'learning',
-    progress: 40,
-    lastClicked: new Date('2024-01-22').getTime()
-  },
-  {
-    id: 9,
-    title: '与籍材',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1587825140041-b41b2a7c600e?w=200&h=250&fit=crop',
-    status: 'learning',
-    progress: 80,
-    lastClicked: new Date('2024-01-16').getTime()
-  },
-  {
-    id: 10,
-    title: '借态教学学教育',
-    author: '名人书语',
-    cover: 'https://images.unsplash.com/photo-1512820790803-83ca734da794?w=200&h=250&fit=crop',
-    status: 'completed',
-    progress: 100,
-    lastClicked: new Date('2024-01-08').getTime()
+// 显示提示
+const showToast = (message, isSuccess = true) => {
+  successMessage.value = message
+  showSuccessToast.value = true
+  toastType.value = isSuccess ? 'success' : 'error'
+  setTimeout(() => {
+    showSuccessToast.value = false
+  }, 3000)
+}
+
+// 获取书籍列表
+const fetchBooks = async () => {
+  try {
+    const response = await axios.get('/api/books')
+    books.value = response.data.data
+  } catch (error) {
+    console.error('获取书籍失败:', error)
+    showToast('获取书籍失败', false)
   }
-])
+}
+
+// 搜索书籍
+const searchBooks = async () => {
+  try {
+    const response = await axios.get('/api/books/search', {
+      params: { keyword: searchQuery.value, status: statusFilter.value }
+    })
+    books.value = response.data.data
+  } catch (error) {
+    console.error('搜索书籍失败:', error)
+  }
+}
+
+// 选择状态
+const selectStatus = (statusValue) => {
+  statusFilter.value = statusValue
+  showStatusDropdown.value = false
+  searchBooks()
+}
+
+// 切换状态下拉菜单
+const toggleStatusDropdown = () => {
+  showStatusDropdown.value = !showStatusDropdown.value
+}
+
+// 获取选中的状态名称
+const getSelectedStatusName = () => {
+  const status = statusOptions.value.find(s => s.value === statusFilter.value)
+  return status ? status.label : '请选择状态'
+}
+
+// 在组件挂载时获取书籍列表
+onMounted(() => {
+  fetchBooks()
+  
+  // 检查是否有保存的学习状态
+  const savedStudyState = localStorage.getItem('studyModalState')
+  if (savedStudyState) {
+    const state = JSON.parse(savedStudyState)
+    if (state.showStudyModal && state.studyBook) {
+      studyBook.value = state.studyBook
+      showStudyModal.value = true
+      showQuestionSidebar.value = state.showQuestionSidebar || false
+      userQuestion.value = state.userQuestion || ''
+      showAIAnswer.value = state.showAIAnswer || false
+      // 清除保存的状态，避免重复打开
+      localStorage.removeItem('studyModalState')
+    }
+  }
+})
 
 // 分页相关
 const currentPage = ref(1)
@@ -903,39 +854,29 @@ const toggleSelect = (index) => {
 }
 
 // 批量添加
-const batchAdd = () => {
+const batchAdd = async () => {
   if (selectedBooks.value.length === 0) {
-    alert('请选择要添加的教材')
+    showToast('请选择要添加的教材')
     return
   }
   
-  // 将选择的书籍添加到个人书架
-  selectedBooks.value.forEach(index => {
-    const textbook = textbooks.value[index]
-    if (textbook) {
-      // 生成唯一ID
-      const newId = books.value.length > 0 ? Math.max(...books.value.map(book => book.id)) + 1 : 1
+  try {
+    const booksToAdd = selectedBooks.value.map(index => textbooks.value[index])
+    const response = await axios.post('/api/books/add', { books: booksToAdd })
+    
+    if (response.data.code === 200) {
+      showToast(`已成功添加 ${selectedBooks.value.length} 本教材到个人书架`)
+      await fetchBooks() // 重新获取书籍列表
       
-      // 添加到书架，标记为未完成
-      books.value.push({
-        id: newId,
-        title: textbook.title,
-        author: '未知作者', // 这里可以根据实际情况修改
-        cover: textbook.cover,
-        status: 'not-started', // 标记为未完成
-        progress: 0, // 初始进度为0
-        lastClicked: new Date().getTime() // 当前时间
-      })
+      // 关闭模态框并清空选中列表
+      showAddTextbookModal.value = false
+      selectedBooks.value = []
+      textbookSearchQuery.value = '' // 清空搜索框
     }
-  })
-  
-  // 显示成功消息
-  showToast(`已成功添加 ${selectedBooks.value.length} 本教材到个人书架`)
-  
-  // 关闭模态框并清空选中列表
-  showAddTextbookModal.value = false
-  selectedBooks.value = []
-  textbookSearchQuery.value = '' // 清空搜索框
+  } catch (error) {
+    console.error('添加教材失败:', error)
+    showToast('添加教材失败', false)
+  }
 }
 
 // 删除书籍
@@ -945,20 +886,21 @@ const deleteBook = (bookId) => {
 }
 
 // 确认删除
-const confirmDelete = () => {
+const confirmDelete = async () => {
   if (bookToDelete) {
-    const index = books.value.findIndex(book => book.id === bookToDelete)
-    if (index > -1) {
-      books.value.splice(index, 1)
-      showToast('书籍删除成功')
-      
-      // 检查当前页码是否需要调整
-      if (paginatedBooks.value.length === 0 && currentPage.value > 1) {
-        currentPage.value--
+    try {
+      const response = await axios.delete(`/api/books/${bookToDelete}`)
+      if (response.data.code === 200) {
+        showToast('书籍删除成功')
+        await fetchBooks() // 重新获取书籍列表
       }
+    } catch (error) {
+      console.error('删除书籍失败:', error)
+      showToast('删除书籍失败', false)
+    } finally {
+      showDeleteConfirm.value = false
+      bookToDelete = null
     }
-    showDeleteConfirm.value = false
-    bookToDelete = null
   }
 }
 
@@ -1703,6 +1645,11 @@ const backToHome = () => {
   font-size: 28px;
   font-weight: bold;
   box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+}
+
+.toast-icon.error {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
 }
 
 .toast-message {
@@ -2914,7 +2861,11 @@ const backToHome = () => {
 }
 
 .study-content .sidebar-header {
+<<<<<<< HEAD
   padding: 16px 20px;
+=======
+  padding: 12px 16px;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2923,7 +2874,11 @@ const backToHome = () => {
 }
 
 .study-content .sidebar-header h3 {
+<<<<<<< HEAD
   font-size: 16px;
+=======
+  font-size: 14px;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   font-weight: 600;
   color: #111827;
   margin: 0;
@@ -2945,7 +2900,11 @@ const backToHome = () => {
 /* 目录树 */
 .toc-tree {
   flex: 1;
+<<<<<<< HEAD
   padding: 12px 0;
+=======
+  padding: 8px 0;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   overflow-y: auto;
 }
 
@@ -2954,8 +2913,13 @@ const backToHome = () => {
   padding: 6px 16px;
   cursor: pointer;
   transition: all 0.2s;
+<<<<<<< HEAD
   border-radius: 4px;
   margin: 0 8px;
+=======
+  border-radius: 6px;
+  margin: 2px 8px;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 .toc-item:hover {
@@ -2971,13 +2935,30 @@ const backToHome = () => {
   font-size: 13px;
   display: block;
   line-height: 1.5;
+<<<<<<< HEAD
+=======
+  font-weight: 500;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 .toc-children {
   margin-left: 12px;
   margin-top: 2px;
+<<<<<<< HEAD
   border-left: 1px solid #e5e7eb;
   padding-left: 8px;
+=======
+}
+
+.toc-children .toc-item {
+  padding: 4px 12px;
+  margin: 1px 4px;
+}
+
+.toc-children .toc-title {
+  font-size: 12px;
+  font-weight: 400;
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 /* 阅读区 */

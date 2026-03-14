@@ -69,23 +69,13 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
-// 模拟登录接口
-const loginApi = (data) => new Promise((resolve, reject) => {
-  setTimeout(() => {
-    // 从本地存储获取注册的用户信息
-    const storedUser = localStorage.getItem('user')
-    if (storedUser) {
-      const user = JSON.parse(storedUser)
-      if (user.username === data.username && user.password === data.password) {
-        resolve({ code: 200, data: { token: 'test_token' } })
-      } else {
-        reject(new Error('用户名或密码错误'))
-      }
-    } else {
-      reject(new Error('用户未注册'))
-    }
-  }, 500)
-})
+// 登录API调用
+import axios from 'axios'
+
+const loginApi = async (data) => {
+  const response = await axios.post('/api/login', data)
+  return response.data
+}
 
 const router = useRouter()
 const loginFormRef = ref()

@@ -438,6 +438,20 @@ const from = ref('')
 onMounted(() => {
   from.value = route.query.from || ''
   
+<<<<<<< HEAD
+=======
+  // 获取书籍列表
+  fetchBooks()
+  // 获取课程推荐
+  fetchCourses()
+  // 获取历史问题
+  fetchHistoryQuestions()
+  // 获取考试科目
+  fetchExamSubjects()
+  // 获取备考历史记录
+  fetchExamHistory()
+  
+>>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   // 如果是从学习页面跳转过来的，自动填充问题和选中的文本
   if (route.query.question) {
     question.value = route.query.question
@@ -471,56 +485,39 @@ const searchQuery = ref('')
 // 当前选中的书籍
 const selectedBook = ref(null)
 // 书籍数据
-const books = ref([
-  { name: '高等数学', author: '同济大学数学系' },
-  { name: '大学物理', author: '张三' },
-  { name: '计算机基础', author: '李四' },
-  { name: '英语', author: '王五' }
-])
-// 章节数据（模拟数据，后续由后端提供）
-const chapters = ref([
-  { id: 1, title: '书架导航', children: [] },
-  { id: 2, title: '书架教程导航', children: [
-    { id: 21, title: '教程介绍' },
-    { id: 22, title: '基本操作' },
-    { id: 23, title: '高级功能' }
-  ]},
-  { id: 3, title: '书架教程章项', children: [] },
-  { id: 4, title: '书籍层级项', children: [] },
-  { id: 5, title: '书架有课程', children: [] },
-  { id: 6, title: '视觉层次', children: [] },
-  { id: 7, title: '视觉教程项', children: [] },
-  { id: 8, title: '我創信問链', children: [] }
-])
+const books = ref([])
+// 章节数据
+const chapters = ref([])
 
 // 展开的章节
 const expandedChapters = ref([])
 
-// 模拟不同书籍的章节数据
-const bookChaptersMap = {
-  '高等数学': [
-    { id: 1, title: '第一章 函数与极限', children: [
-      { id: 11, title: '1.1 函数' },
-      { id: 12, title: '1.2 极限' },
-      { id: 13, title: '1.3 连续函数' }
-    ]},
-    { id: 2, title: '第二章 导数与微分', children: [
-      { id: 21, title: '2.1 导数的概念' },
-      { id: 22, title: '2.2 求导法则' },
-      { id: 23, title: '2.3 微分' }
-    ]},
-    { id: 3, title: '第三章 微分中值定理', children: [] }
-  ],
-  '大学物理': [
-    { id: 1, title: '第一章 力学基础', children: [] },
-    { id: 2, title: '第二章 热学', children: [] },
-    { id: 3, title: '第三章 电磁学', children: [] }
-  ],
-  '计算机基础': [
-    { id: 1, title: '第一章 计算机概述', children: [] },
-    { id: 2, title: '第二章 操作系统', children: [] },
-    { id: 3, title: '第三章 网络基础', children: [] }
-  ]
+// 从后端API获取书籍列表
+const fetchBooks = async () => {
+  try {
+    const response = await axios.get('/api/books')
+    if (response.data.code === 200) {
+      books.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取书籍列表失败:', error)
+  }
+}
+
+// 从后端API获取章节数据
+const fetchChapters = async (bookName) => {
+  try {
+    const response = await axios.get('/api/books/chapters', {
+      params: { bookName }
+    })
+    if (response.data.code === 200) {
+      chapters.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取章节数据失败:', error)
+    // 清空章节数据
+    chapters.value = []
+  }
 }
 
 // 返回首页
@@ -533,22 +530,8 @@ const selectBook = (bookName) => {
   selectedBook.value = bookName
   // 重置展开状态
   expandedChapters.value = []
-  // 根据选中的书籍更新章节数据
-  if (bookChaptersMap[bookName]) {
-    chapters.value = bookChaptersMap[bookName]
-  } else {
-    // 默认章节数据
-    chapters.value = [
-      { id: 1, title: '书架导航', children: [] },
-      { id: 2, title: '书架教程导航', children: [] },
-      { id: 3, title: '书架教程章项', children: [] },
-      { id: 4, title: '书籍层级项', children: [] },
-      { id: 5, title: '书架有课程', children: [] },
-      { id: 6, title: '视觉层次', children: [] },
-      { id: 7, title: '视觉教程项', children: [] },
-      { id: 8, title: '我創信問链', children: [] }
-    ]
-  }
+  // 从后端API获取章节数据
+  fetchChapters(bookName)
 }
 
 // 切换章节展开/折叠
@@ -567,11 +550,19 @@ const toggleChapter = (chapterId) => {
 const question = ref('')
 const aiAnswer = ref('')
 const showAnswer = ref(false)
-const historyQuestions = ref([
-  { question: '什么是函数的极限？', answer: '函数的极限是指当自变量趋近于某个值时，函数值趋近于的一个确定的数值...' },
-  { question: '如何求导？', answer: '求导的基本方法包括使用导数的定义、基本导数公式和求导法则...' },
-  { question: '操作系统的基本功能是什么？', answer: '操作系统的基本功能包括进程管理、内存管理、文件系统管理和设备管理...' }
-])
+const historyQuestions = ref([])
+
+// 从后端API获取历史问题
+const fetchHistoryQuestions = async () => {
+  try {
+    const response = await axios.get('/api/questions/history')
+    if (response.data.code === 200) {
+      historyQuestions.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取历史问题失败:', error)
+  }
+}
 
 // 提交问题
 const submitQuestion = () => {
@@ -601,23 +592,20 @@ const selectHistory = (item) => {
   showAnswer.value = true
 }
 
-// 课程数据（后续由后端提供）
-const courses = ref([
-  { 
-    id: 1, 
-    name: '网课推荐', 
-    desc: '综合推荐 — 待', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video1' // 示例链接，后续由后端提供
-  },
-  { 
-    id: 2, 
-    name: '网课推荐', 
-    desc: '综合推荐 — 待', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video2' // 示例链接，后续由后端提供
+// 课程数据
+const courses = ref([])
+
+// 从后端API获取课程推荐
+const fetchCourses = async () => {
+  try {
+    const response = await axios.get('/api/courses/recommend')
+    if (response.data.code === 200) {
+      courses.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取课程推荐失败:', error)
   }
-])
+}
 
 // 打开课程链接
 const openCourseLink = (link) => {
@@ -684,16 +672,10 @@ const deleteImage = () => {
 
 // ==================== 考研/考证问答相关 ====================
 // 考试科目
-const examSubjects = ref([
-  { id: 'builder', name: '一级建造师' },
-  { id: 'cpa', name: '注册会计师' },
-  { id: 'teacher', name: '教师资格证' },
-  { id: 'postgraduate', name: '考研英语' },
-  { id: 'civil', name: '公务员考试' }
-])
+const examSubjects = ref([])
 
 // 选中的考试科目
-const selectedExamSubject = ref('builder')
+const selectedExamSubject = ref('')
 
 // 科目搜索
 const subjectSearchQuery = ref('')
@@ -712,13 +694,31 @@ const filteredSubjects = computed(() => {
   )
 })
 
+// 从后端API获取考试科目
+const fetchExamSubjects = async () => {
+  try {
+    const response = await axios.get('/api/exam/subjects')
+    if (response.data.code === 200) {
+      examSubjects.value = response.data.data
+      // 设置默认选中的科目
+      if (examSubjects.value.length > 0) {
+        selectedExamSubject.value = examSubjects.value[0].id
+        // 获取默认科目的高频考点
+        fetchKeyPoints(examSubjects.value[0].id)
+      }
+    }
+  } catch (error) {
+    console.error('获取考试科目失败:', error)
+  }
+}
+
 // 选择科目
 const selectSubject = (subject) => {
   selectedExamSubject.value = subject.id
   subjectSearchQuery.value = ''
   showSubjectDropdown.value = false
   // 更新高频考点
-  keyPoints.value = subjectKeyPointsMap.value[subject.id] || []
+  fetchKeyPoints(subject.id)
   // 重置选中的考点
   selectedKeyPoint.value = null
 }
@@ -734,42 +734,23 @@ const getSelectedSubjectName = () => {
   return subject ? subject.name : '请选择科目'
 }
 
-// 科目对应的高频考点
-const subjectKeyPointsMap = ref({
-  'builder': [
-    { name: '工程经济' },
-    { name: '项目管理' },
-    { name: '法律法规' },
-    { name: '专业实务' }
-  ],
-  'cpa': [
-    { name: '会计' },
-    { name: '审计' },
-    { name: '财务成本管理' },
-    { name: '经济法' },
-    { name: '税法' },
-    { name: '公司战略与风险管理' }
-  ],
-  'teacher': [
-    { name: '综合素质' },
-    { name: '教育知识与能力' },
-    { name: '学科知识与教学能力' }
-  ],
-  'postgraduate': [
-    { name: '词汇' },
-    { name: '语法' },
-    { name: '阅读理解' },
-    { name: '写作' }
-  ],
-  'civil': [
-    { name: '行政职业能力测验' },
-    { name: '申论' },
-    { name: '专业科目' }
-  ]
-})
-
 // 高频考点
-const keyPoints = ref(subjectKeyPointsMap.value['builder'])
+const keyPoints = ref([])
+
+// 从后端API获取高频考点
+const fetchKeyPoints = async (subjectId) => {
+  try {
+    const response = await axios.get('/api/exam/keypoints', {
+      params: { subjectId }
+    })
+    if (response.data.code === 200) {
+      keyPoints.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取高频考点失败:', error)
+    keyPoints.value = []
+  }
+}
 
 // 选中的考点
 const selectedKeyPoint = ref(null)
@@ -781,59 +762,56 @@ const examQuestion = ref('')
 const examAnswer = ref('')
 
 // 选中的真题
-const selectedPapers = ref([
-  { year: '2024', subject: '工程经济', difficulty: '中等难度' },
-  { year: '2023', subject: '项目管理', difficulty: '较难' },
-  { year: '2022', subject: '法律法规', difficulty: '简单' },
-  { year: '2021', subject: '专业实务', difficulty: '中等难度' },
-  { year: '2020', subject: '工程经济', difficulty: '较难' }
-])
+const selectedPapers = ref([])
+
+// 从后端API获取真题
+const fetchExamPapers = async (subjectId) => {
+  try {
+    const response = await axios.get('/api/exam/papers', {
+      params: { subjectId }
+    })
+    if (response.data.code === 200) {
+      selectedPapers.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取真题失败:', error)
+    selectedPapers.value = []
+  }
+}
 
 // 网课推荐数据
-const examCourses = ref([
-  { 
-    id: 1, 
-    name: '一级建造师实务精讲', 
-    desc: '专业实务模块 - 考点全覆盖', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video1' 
-  },
-  { 
-    id: 2, 
-    name: '注册会计师会计基础', 
-    desc: '会计科目 - 基础理论讲解', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video2' 
-  },
-  { 
-    id: 3, 
-    name: '教师资格证综合素质', 
-    desc: '综合素质模块 - 重点解析', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video3' 
-  },
-  { 
-    id: 4, 
-    name: '考研英语词汇精讲', 
-    desc: '词汇模块 - 高频词汇记忆', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video4' 
-  },
-  { 
-    id: 5, 
-    name: '公务员申论写作', 
-    desc: '申论模块 - 写作技巧提升', 
-    code: '#36CFCC',
-    videoLink: 'https://example.com/video5' 
+const examCourses = ref([])
+
+// 从后端API获取考试网课推荐
+const fetchExamCourses = async (subjectId) => {
+  try {
+    const response = await axios.get('/api/exam/courses', {
+      params: { subjectId }
+    })
+    if (response.data.code === 200) {
+      examCourses.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取考试网课推荐失败:', error)
+    examCourses.value = []
   }
-])
+}
 
 // 备考历史记录
-const examHistory = ref([
-  { question: '如何高效记忆公式？', answer: '建议分模块背诵' },
-  { question: '项目管理的核心流程是什么？', answer: '启动、规划、执行、监控、收尾' },
-  { question: '工程经济中的净现值怎么计算？', answer: 'NPV = ∑(CI-CO)/(1+i)^t' }
-])
+const examHistory = ref([])
+
+// 从后端API获取备考历史记录
+const fetchExamHistory = async () => {
+  try {
+    const response = await axios.get('/api/exam/history')
+    if (response.data.code === 200) {
+      examHistory.value = response.data.data
+    }
+  } catch (error) {
+    console.error('获取备考历史记录失败:', error)
+    examHistory.value = []
+  }
+}
 
 // 考试文件上传相关
 const examFileInput = ref(null)
@@ -896,56 +874,40 @@ const deleteExamImage = () => {
 }
 
 // 提交考点问题
-const submitExamQuestion = () => {
+import axios from 'axios'
+
+const submitExamQuestion = async () => {
   if (!examQuestion.value.trim()) return
   
-  // 模拟AI回答（实际应用中会调用后端API）
-  const answer = `这是关于"${examQuestion.value}"的详细解答：
-
-**核心知识点：**
-- 知识点1：相关概念和定义
-- 知识点2：重要公式和定理
-- 知识点3：解题方法和技巧
-
-**详细解析：**
-这里将根据具体问题生成详细的解答内容，包括步骤分解、公式推导、实例分析等。
-
-**答题技巧：**
-1. 仔细审题，理解问题要求
-2. 回忆相关知识点和公式
-3. 分步骤解答，确保逻辑清晰
-4. 检查答案的正确性
-
-**相关考点：**
-- 考点1：相关联的其他知识点
-- 考点2：常见的考试题型
-- 考点3：易错点和注意事项`
-  
-  // 显示AI回答
-  examAnswer.value = answer
-  
-  // 添加到历史记录
-  examHistory.value.unshift({ 
-    question: examQuestion.value, 
-    answer: answer 
-  })
-  if (examHistory.value.length > 10) {
-    examHistory.value.pop()
+  try {
+    const response = await axios.post('/api/ai-answer', {
+      question: examQuestion.value,
+      subject: selectedExamSubject.value
+    })
+    
+    if (response.data.code === 200) {
+      const answer = response.data.data.answer
+      
+      // 显示AI回答
+      examAnswer.value = answer
+      
+      // 添加到历史记录
+      examHistory.value.unshift({ 
+        question: examQuestion.value, 
+        answer: answer 
+      })
+      if (examHistory.value.length > 10) {
+        examHistory.value.pop()
+      }
+      
+      // 清空输入
+      examQuestion.value = ''
+    }
+  } catch (error) {
+    console.error('获取AI回答失败:', error)
   }
-  
-  // 清空输入
-  examQuestion.value = ''
-  
-  // 实际应用中，这里会调用后端API获取真实的AI回答
-  // 例如：
-  // const response = await fetch('/api/ai-answer', {
-  //   method: 'POST',
-  //   headers: { 'Content-Type': 'application/json' },
-  //   body: JSON.stringify({ question: examQuestion.value, subject: selectedExamSubject.value })
-  // })
-  // const data = await response.json()
-  // examAnswer.value = data.answer
 }
+
 
 // 选择考点
 const selectKeyPoint = (point) => {
