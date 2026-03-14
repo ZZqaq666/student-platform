@@ -3,6 +3,10 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="header-left">
+        <button v-if="from === 'study'" class="back-home-btn" @click="goBackToStudy" style="margin-right: 10px;">
+          <span class="back-icon">←</span>
+          返回学习
+        </button>
         <button class="back-home-btn" @click="goHome">
           <span class="back-icon">←</span>
           返回首页
@@ -421,10 +425,33 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
+
+// 来源信息
+const from = ref('')
+
+// 从URL参数中获取来源信息
+onMounted(() => {
+  from.value = route.query.from || ''
+  
+  // 如果是从学习页面跳转过来的，自动填充问题和选中的文本
+  if (route.query.question) {
+    question.value = route.query.question
+  }
+  if (route.query.bookId) {
+    // 这里可以根据bookId设置选中的书籍
+    // 示例：selectedBook.value = books.value.find(book => book.id === route.query.bookId)
+  }
+})
+
+// 返回学习页面
+const goBackToStudy = () => {
+  router.back()
+}
 
 // 激活的标签页
 const activeTab = ref('智能答疑')

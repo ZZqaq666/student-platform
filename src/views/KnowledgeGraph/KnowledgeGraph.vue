@@ -155,7 +155,6 @@
                   <p>你可以：① 检查关键词是否正确；② 切换到对应课程；③ 查看本课程全部知识点列表</p>
                   <div class="no-results-actions">
                     <button class="action-btn" @click="showAllNodes">查看全部知识点</button>
-                    <button class="action-btn">反馈补充知识点</button>
                   </div>
                   <div class="related-suggestions" v-if="relatedSuggestions.length > 0">
                     <h5>推荐相关知识点</h5>
@@ -1896,9 +1895,9 @@ const addToPractice = () => {
 /* 搜索容器 */
 .search-container {
   position: absolute;
-  top: 60px;
-  left: 50%;
-  transform: translateX(-50%) scale(0.95);
+  top: 80px;
+  right: 20px;
+  transform: scale(0.95);
   width: 400px;
   background: white;
   border-radius: 8px;
@@ -1912,11 +1911,11 @@ const addToPractice = () => {
 @keyframes searchPopup {
   from {
     opacity: 0;
-    transform: translateX(-50%) scale(0.95);
+    transform: scale(0.95);
   }
   to {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: scale(1);
   }
 }
 

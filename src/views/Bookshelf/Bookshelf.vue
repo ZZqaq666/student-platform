@@ -241,9 +241,9 @@
           
           <!-- 操作按钮 -->
           <div class="book-detail-actions">
-            <button class="action-btn primary">开始学习/继续学习</button>
+            <button class="action-btn primary" @click="startStudy(selectedBook)">开始学习/继续学习</button>
             <button class="action-btn">编辑</button>
-            <button class="action-btn">删除书籍</button>
+            <button class="action-btn" @click="deleteBook(selectedBook.id)">删除书籍</button>
           </div>
         </div>
         
@@ -297,13 +297,182 @@
       </div>
     </div>
   </div>
+  
+  <!-- 学习模态框 -->
+  <div class="modal-overlay" v-if="showStudyModal" @click="showStudyModal = false">
+    <div class="modal-content study-modal" @click.stop>
+      <!-- 顶部导航栏 -->
+      <div class="study-header">
+        <div class="header-left">
+          <button class="back-btn" @click="showStudyModal = false">返回</button>
+        </div>
+      </div>
+
+      <!-- 主体内容区 -->
+      <div class="study-content" :class="{ 'with-question-sidebar': showQuestionSidebar }">
+        <!-- 左侧目录区 -->
+        <div class="sidebar">
+          <div class="sidebar-header">
+            <h3>目录</h3>
+            <button class="collapse-btn">▼</button>
+          </div>
+          <div class="toc-tree">
+            <div class="toc-item">
+              <span class="toc-title">第一章</span>
+              <div class="toc-children">
+                <div class="toc-item active">
+                  <span class="toc-title">1.1 知识卡片</span>
+                  <div class="toc-children">
+                    <div class="toc-item">
+                      <span class="toc-title">1.1.1 高亮章节</span>
+                    </div>
+                    <div class="toc-item">
+                      <span class="toc-title">1.1.2 笔记</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="toc-item">
+                  <span class="toc-title">1.2 树形分析</span>
+                  <div class="toc-children">
+                    <div class="toc-item">
+                      <span class="toc-title">1.2.1 高亮章节</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="toc-item">
+              <span class="toc-title">第二章</span>
+              <div class="toc-children">
+                <div class="toc-item">
+                  <span class="toc-title">2.1 高亮</span>
+                </div>
+                <div class="toc-item">
+                  <span class="toc-title">2.2 专业管理</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 中间阅读区 -->
+        <div class="reading-area">
+          <div class="reading-header">
+            <h2>沉浸式</h2>
+            <button class="expand-btn">▼</button>
+          </div>
+          <div class="reading-content" @mouseup="handleTextSelection">
+            <p>知识卡片卡词语的造语句理词中，可以重型正文阅读申述中公务场景。可以将构成正式话的情景正式项，似以方相可使分连句文更传确表达。</p>
+            <p>通俗周易行后是，实场中的文字啊确结，可正实文字对比应写入自己在边的工具应用的内容的类结。苏扬性盘文化社中，备通文</p>
+            
+            <div class="section-title">分清单</div>
+            <div class="checklist">
+              <div class="check-item">
+                <input type="checkbox" checked>
+                <span>选择文中在文中处词语理理理服务</span>
+              </div>
+              <div class="check-item">
+                <input type="checkbox">
+                <span>准备需要位位置标标标注词文</span>
+              </div>
+            </div>
+            
+            <p>一拉训，文选组中的在文字在文的边的理服务，卡片，正文信信正在二分法实用啊应用的可进定义。取后技巧</p>
+            <p>人了似切割，复动的实理可，可始解啊</p>
+            
+            <button class="create-btn">建立新工具</button>
+            
+            <p>需哈，试选择一种检验工具，可检验确，预学中等内容</p>
+            <p>过可还可通过分重组集可应用于中级内容和复习项，流法，</p>
+            <p>能在中公务易场景的可性选择场世界，智与智能服人员交交的最在至理为学习的词，可对照实物过一遍后对复人员的实写的进正正文信写后</p>
+          </div>
+          <div class="pagination">
+            <span>1</span>
+            <span>2</span>
+            <span>3</span>
+            <span>6</span>
+            <span>14</span>
+            <span>›</span>
+          </div>
+        </div>
+
+        <!-- 右侧提问侧边栏 -->
+        <div class="question-sidebar" v-if="showQuestionSidebar">
+          <div class="question-sidebar-header">
+            <h3>提问</h3>
+            <button class="close-btn" @click="showQuestionSidebar = false">×</button>
+          </div>
+          <div class="question-content">
+            <div class="selected-text">
+              <h4>选中的内容：</h4>
+              <p>{{ selectedText }}</p>
+            </div>
+            <div class="question-input" :class="{ 'small': showAIAnswer }">
+              <h4>问题：</h4>
+              <textarea v-model="userQuestion" placeholder="请输入您的问题..."></textarea>
+            </div>
+            <button class="submit-question-btn" v-if="!showAIAnswer" @click="submitQuestion">提交问题</button>
+            
+            <!-- AI回答区域 -->
+            <div class="ai-answer" v-if="showAIAnswer">
+              <h4>AI回答：</h4>
+              <div class="answer-content">
+                <p>{{ aiAnswer }}</p>
+              </div>
+              <button class="detailed-question-btn" @click="goToQACenter">详细提问到个人问答中心</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 文本选择弹出菜单 -->
+      <div class="text-selection-menu" v-if="showSelectionMenu" :style="{ top: selectionMenuTop + 'px', left: selectionMenuLeft + 'px' }">
+        <button class="menu-item" @click="askQuestion">
+          <span class="menu-icon">❓</span>
+          <span>提问</span>
+        </button>
+      </div>
+
+      <!-- 底部工具栏 -->
+      <div class="study-footer">
+        <div class="footer-left">
+          <button class="footer-btn">
+            <span class="btn-icon">📝</span>
+            <span class="btn-text">笔记</span>
+          </button>
+          <button class="footer-btn">
+            <span class="btn-icon">🌙</span>
+            <span class="btn-text">夜间模式</span>
+            <span class="btn-arrow">›</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
+
+// 在组件挂载时检查是否有保存的学习状态
+onMounted(() => {
+  const savedStudyState = localStorage.getItem('studyModalState')
+  if (savedStudyState) {
+    const state = JSON.parse(savedStudyState)
+    if (state.showStudyModal && state.studyBook) {
+      studyBook.value = state.studyBook
+      showStudyModal.value = true
+      showQuestionSidebar.value = state.showQuestionSidebar || false
+      userQuestion.value = state.userQuestion || ''
+      showAIAnswer.value = state.showAIAnswer || false
+      // 清除保存的状态，避免重复打开
+      localStorage.removeItem('studyModalState')
+    }
+  }
+})
 
 // 搜索查询
 const searchQuery = ref('')
@@ -556,12 +725,104 @@ const showBookDetailModal = ref(false)
 const selectedBook = ref(null)
 const showFullCatalog = ref(false)
 
+// 学习模态框
+const showStudyModal = ref(false)
+const studyBook = ref(null)
+
+// 文本选择弹出菜单
+const showSelectionMenu = ref(false)
+const selectionMenuTop = ref(0)
+const selectionMenuLeft = ref(0)
+const selectedText = ref('')
+
+// 提问侧边栏
+const showQuestionSidebar = ref(false)
+const userQuestion = ref('')
+const showAIAnswer = ref(false)
+const aiAnswer = ref('根据您选中的内容，这是一个关于应用内容类结的问题。应用内容类结是指将不同的应用内容进行分类和总结，以便更好地理解和应用。苏扬性盘文化社可能是一个相关的组织或概念，具体含义需要结合上下文来理解。如果您需要更详细的解释，可以点击下方的按钮前往个人问答中心。')
+
 // 打开书籍详情
 const openBookDetail = (book) => {
   selectedBook.value = book
   showBookDetailModal.value = true
   showFullCatalog.value = false
   updateLastClicked(book)
+}
+
+// 开始学习
+const startStudy = (book) => {
+  studyBook.value = book
+  showStudyModal.value = true
+}
+
+// 处理文本选择
+const handleTextSelection = (event) => {
+  const selection = window.getSelection()
+  const text = selection.toString().trim()
+  
+  if (text) {
+    selectedText.value = text
+    
+    // 计算弹出菜单的位置
+    const range = selection.getRangeAt(0)
+    const rect = range.getBoundingClientRect()
+    const modalRect = document.querySelector('.study-modal').getBoundingClientRect()
+    
+    selectionMenuTop.value = rect.bottom - modalRect.top + 10
+    selectionMenuLeft.value = rect.left - modalRect.left + rect.width / 2 - 50
+    
+    showSelectionMenu.value = true
+  } else {
+    showSelectionMenu.value = false
+  }
+}
+
+// 提问函数
+const askQuestion = () => {
+  if (selectedText.value) {
+    // 关闭弹出菜单
+    showSelectionMenu.value = false
+    
+    // 显示提问侧边栏
+    showQuestionSidebar.value = true
+    showAIAnswer.value = false
+    userQuestion.value = ''
+  }
+}
+
+// 提交问题
+const submitQuestion = () => {
+  if (userQuestion.value) {
+    // 显示AI回答
+    showAIAnswer.value = true
+  }
+}
+
+// 跳转到个人问答中心
+const goToQACenter = () => {
+  // 保存学习模态框的状态到 localStorage
+  const studyState = {
+    showStudyModal: true,
+    studyBook: studyBook.value,
+    showQuestionSidebar: showQuestionSidebar.value,
+    userQuestion: userQuestion.value,
+    showAIAnswer: showAIAnswer.value
+  }
+  localStorage.setItem('studyModalState', JSON.stringify(studyState))
+  
+  // 关闭提问侧边栏
+  showQuestionSidebar.value = false
+  
+  // 跳转到个人问答中心，并传递问题、选中的文本和来源信息
+  router.push({
+    path: '/qa',
+    query: {
+      question: userQuestion.value, 
+      selectedText: selectedText.value, 
+      bookId: studyBook.value?.id,
+      from: 'study' // 标记来源为学习页面
+    }
+  })
 }
 
 // 切换完整目录显示
@@ -804,7 +1065,7 @@ const backToHome = () => {
   flex: 1;
   display: flex;
   justify-content: center;
-  margin-right: 20px;
+  margin-right: -177px;
   width: auto;
 }
 
@@ -2151,41 +2412,50 @@ const backToHome = () => {
 /* 成功提示样式 */
 .toast {
   position: fixed;
-  top: 60px;
-  right: 20px;
-  background: rgba(16, 185, 129, 0.95);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.85);
   color: white;
-  padding: 8px 16px;
-  border-radius: 20px;
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+  padding: 20px 32px;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 12px;
   z-index: 2000;
-  animation: slideInRight 0.3s ease, fadeOut 0.3s ease 2.7s;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  backdrop-filter: blur(4px);
-  min-width: auto;
-  max-width: 200px;
+  animation: fadeIn 0.3s ease, fadeOut 0.3s ease 2.7s;
+  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  backdrop-filter: blur(12px);
+  min-width: 200px;
+  max-width: 300px;
+  text-align: center;
 }
 
 .toast:hover {
-  transform: translateX(-4px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
+  transform: translate(-50%, -50%) scale(1.05);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.4);
 }
 
 .toast-icon {
-  font-size: 14px;
+  font-size: 24px;
   font-weight: bold;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.4);
 }
 
 .toast-message {
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 500;
   font-family: 'Microsoft YaHei', sans-serif;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
 /* 确认删除对话框样式 */
@@ -2335,5 +2605,729 @@ const backToHome = () => {
 .modal-enter-from .confirm-modal,
 .modal-leave-to .confirm-modal {
   transform: scale(0.9);
+}
+/* 学习模态框样式 */
+.study-modal {
+  max-width: 90vw;
+  max-height: 90vh;
+  width: 1400px;
+  height: 800px;
+  overflow: hidden;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+/* 学习模态框头部 */
+.study-header {
+  background: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.study-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.study-header .back-btn, .study-header .menu-btn, .study-header .search-btn {
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.study-header .back-btn:hover, .study-header .menu-btn:hover, .study-header .search-btn:hover {
+  background: #e5e7eb;
+}
+
+.study-header .menu-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.study-header .header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.study-header .icon-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.study-header .icon-btn:hover {
+  background: #e5e7eb;
+}
+
+.study-header .icon {
+  font-size: 16px;
+}
+
+/* 学习内容区 */
+.study-content {
+  flex: 1;
+  display: flex;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+}
+
+/* 显示提问侧边栏时的布局 */
+.study-content.with-question-sidebar .reading-area {
+  flex: 1;
+}
+
+/* 提问侧边栏 */
+.question-sidebar {
+  width: 300px;
+  background: #f9fafb;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.question-sidebar-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+}
+
+.question-sidebar-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.question-sidebar-header .close-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: none;
+  font-size: 20px;
+  color: #6b7280;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.question-sidebar-header .close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.question-content {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.selected-text {
+  background: white;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.selected-text h4 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.selected-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.question-input {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.question-input h4 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.question-input textarea {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #374151;
+  resize: none;
+  min-height: 120px;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.question-input.small textarea {
+  min-height: 60px;
+  max-height: 80px;
+}
+
+.question-input textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.submit-question-btn {
+  padding: 12px 16px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.submit-question-btn:hover {
+  background: #2563eb;
+}
+
+.submit-question-btn:active {
+  transform: scale(0.98);
+}
+
+/* AI回答区域 */
+.ai-answer {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f0f9ff;
+  border: 1px solid #dbeafe;
+  border-radius: 8px;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+.ai-answer h4 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #1e40af;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ai-answer h4::before {
+  content: "🤖";
+  font-size: 16px;
+}
+
+.answer-content {
+  margin-bottom: 12px;
+}
+
+.answer-content p {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+  line-height: 1.5;
+}
+
+.detailed-question-btn {
+  padding: 8px 12px;
+  background: white;
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  align-self: flex-start;
+}
+
+.detailed-question-btn:hover {
+  background: #f0f9ff;
+}
+
+.detailed-question-btn:active {
+  transform: scale(0.98);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 侧边栏 */
+.study-content .sidebar {
+  width: 200px;
+  background: #f9fafb;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.study-content .sidebar-header {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+
+.study-content .sidebar-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.study-content .collapse-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+/* 目录树 */
+.toc-tree {
+  flex: 1;
+  padding: 12px 0;
+  overflow-y: auto;
+}
+
+.toc-item {
+  position: relative;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-radius: 4px;
+  margin: 0 8px;
+}
+
+.toc-item:hover {
+  background: #f3f4f6;
+}
+
+.toc-item.active {
+  background: #eff6ff;
+  color: #3b82f6;
+}
+
+.toc-title {
+  font-size: 13px;
+  display: block;
+  line-height: 1.5;
+}
+
+.toc-children {
+  margin-left: 12px;
+  margin-top: 2px;
+  border-left: 1px solid #e5e7eb;
+  padding-left: 8px;
+}
+
+/* 阅读区 */
+.reading-area {
+  flex: 1;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.reading-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.reading-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.expand-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.reading-content {
+  flex: 1;
+  line-height: 1.8;
+  color: #374151;
+  font-size: 15px;
+  overflow-y: auto;
+  margin-bottom: 24px;
+}
+
+.reading-content p {
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  margin: 24px 0 16px 0;
+}
+
+.checklist {
+  margin: 16px 0;
+}
+
+.check-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.check-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #3b82f6;
+}
+
+.create-btn {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin: 16px 0;
+}
+
+.create-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.pagination span {
+  font-size: 14px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.pagination span:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* 右侧辅助信息区 */
+.right-sidebar {
+  width: 280px;
+}
+
+.info-section {
+  padding: 20px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+
+.info-section:last-child {
+  border-bottom: none;
+}
+
+.info-section h4 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin: 0 0 16px 0;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.info-card {
+  padding: 16px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.info-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.info-card.primary {
+  background: linear-gradient(135deg, #dbeafe, #eff6ff);
+  border: 1px solid #bfdbfe;
+}
+
+.info-card.secondary {
+  background: linear-gradient(135deg, #d1fae5, #ecfdf5);
+  border: 1px solid #a7f3d0;
+}
+
+.card-icon {
+  font-size: 24px;
+  margin-bottom: 8px;
+}
+
+.card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 4px;
+}
+
+.card-subtitle {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.key-metrics {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.metric-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.metric-label {
+  font-size: 12px;
+  color: #6b7280;
+  margin-left: 8px;
+  flex: 1;
+}
+
+.metric-icon {
+  font-size: 16px;
+  color: #6b7280;
+}
+
+/* 学习模态框底部 */
+.study-footer {
+  background: white;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.08);
+  border-top: 1px solid #f3f4f6;
+}
+
+.study-footer .footer-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.study-footer .footer-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 8px;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.study-footer .footer-btn:hover {
+  background: #e5e7eb;
+}
+
+.study-footer .footer-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.study-footer .btn-icon {
+  font-size: 16px;
+}
+
+.study-footer .btn-arrow {
+  font-size: 12px;
+  margin-left: 4px;
+}
+
+.study-footer .ai-assistant {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #fef3c7, #fde68a);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.study-footer .ai-assistant:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+.study-footer .ai-avatar {
+  font-size: 20px;
+}
+
+.study-footer .ai-text {
+  font-size: 14px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+/* 文本选择弹出菜单 */
+.text-selection-menu {
+  position: absolute;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  z-index: 1000;
+  display: flex;
+  gap: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: #f3f4f6;
+  border: none;
+  border-radius: 6px;
+  color: #374151;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.menu-item:hover {
+  background: #e5e7eb;
+}
+
+.menu-icon {
+  font-size: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 1200px) {
+  .study-modal {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+  }
+  
+  .study-content {
+    flex-direction: column;
+  }
+  
+  .study-content .sidebar {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .reading-area {
+    order: -1;
+  }
 }
 </style>

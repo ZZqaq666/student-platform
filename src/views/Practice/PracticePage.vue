@@ -702,16 +702,19 @@ const exitPractice = () => {
 
 const confirmExit = () => {
   clearInterval(timer)
+  // 确保返回上一页，即关联习题的选择界面
   router.back()
 }
 
 const goBack = () => {
   clearInterval(timer)
+  // 确保返回上一页，即关联习题的选择界面
   router.back()
 }
 
 const finishPractice = () => {
   clearInterval(timer)
+  // 确保返回上一页，即关联习题的选择界面
   router.back()
 }
 
