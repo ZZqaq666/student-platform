@@ -22,3 +22,11 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+.claude
+openspec
+
+# Local agent / debug artifacts
+.codex/
+.codex-*.log
+.codex-*.pid

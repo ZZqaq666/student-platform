@@ -5,6 +5,7 @@ const Register = () => import('@/views/Auth/Register.vue')
 const Home = () => import('@/views/Home/Home.vue')
 const QA = () => import('@/views/QA/QA.vue')
 const KnowledgeGraph = () => import('@/views/KnowledgeGraph/KnowledgeGraph.vue')
+const SeniorQA = () => import('@/views/Senior/SeniorQA.vue')
 
 // 路由规则
 const routes = [
@@ -23,7 +24,8 @@ const routes = [
       },
       { path: 'bookshelf', name: 'Bookshelf', component: () => import('@/views/Bookshelf/Bookshelf.vue') },
       { path: 'graph', name: 'KnowledgeGraph', component: KnowledgeGraph },
-      { path: 'practice', name: 'Practice', component: () => import('@/views/Practice/PracticePage.vue') }
+      { path: 'practice', name: 'Practice', component: () => import('@/views/Practice/PracticePage.vue') },
+      { path: 'senior', name: 'SeniorQA', component: SeniorQA }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }
