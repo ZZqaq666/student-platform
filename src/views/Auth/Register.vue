@@ -96,17 +96,19 @@ const rules = {
 }
 
 // 注册逻辑
+import axios from 'axios'
+
 const handleRegister = async () => {
   await registerFormRef.value.validate()
-  // 存储用户信息到本地存储
-  localStorage.setItem('user', JSON.stringify({
-    username: registerForm.value.username,
-    password: registerForm.value.password
-  }))
-  // 存储用户名
-  localStorage.setItem('userName', registerForm.value.username)
-  ElMessage.success('注册成功')
-  setTimeout(() => router.push('/login'), 1000)
+  try {
+    const response = await axios.post('/api/register', registerForm.value)
+    if (response.data.code === 200) {
+      ElMessage.success('注册成功')
+      setTimeout(() => router.push('/login'), 1000)
+    }
+  } catch (error) {
+    ElMessage.error(error.response?.data?.message || '注册失败')
+  }
 }
 </script>
 
