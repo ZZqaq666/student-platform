@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.ExamKeyPointMapper">
+    
+    <select id="selectBySubjectId" resultType="com.student.platform.entity.ExamKeyPoint">
+        SELECT * FROM exam_key_point WHERE subject_id = #{subjectId} ORDER BY order_num ASC
+    </select>
+    
+</mapper>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.KnowledgeNodeMapper">
+    
+    <select id="findByBookId" resultType="com.student.platform.entity.KnowledgeNode">
+        SELECT * FROM knowledge_node WHERE book_id = #{bookId} AND status = 'ACTIVE' ORDER BY level, sort_order
+    </select>
+    
+    <select id="findByParentId" resultType="com.student.platform.entity.KnowledgeNode">
+        SELECT * FROM knowledge_node WHERE parent_id = #{parentId} AND status = 'ACTIVE' ORDER BY sort_order
+    </select>
+    
+    <select id="findByBookIdAndLevel" resultType="com.student.platform.entity.KnowledgeNode">
+        SELECT * FROM knowledge_node WHERE book_id = #{bookId} AND level = #{level} AND status = 'ACTIVE' ORDER BY sort_order
+    </select>
+    
+</mapper>

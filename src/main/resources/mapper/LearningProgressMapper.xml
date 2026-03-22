@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.LearningProgressMapper">
+    
+    <select id="findByUserIdAndBookId" resultType="com.student.platform.entity.LearningProgress">
+        SELECT * FROM learning_progress 
+        WHERE user_id = #{userId} AND book_id = #{bookId}
+        ORDER BY date ASC
+    </select>
+    
+    <select id="findByUserIdAndDateRange" resultType="com.student.platform.entity.LearningProgress">
+        SELECT * FROM learning_progress 
+        WHERE user_id = #{userId} 
+        AND date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY date ASC
+    </select>
+    
+    <select id="findByUserIdAndBookIdAndDateRange" resultType="com.student.platform.entity.LearningProgress">
+        SELECT * FROM learning_progress 
+        WHERE user_id = #{userId} 
+        AND book_id = #{bookId}
+        AND date BETWEEN #{startDate} AND #{endDate}
+        ORDER BY date ASC
+    </select>
+    
+    <select id="findByUserIdAndBookIdAndDate" resultType="com.student.platform.entity.LearningProgress">
+        SELECT * FROM learning_progress 
+        WHERE user_id = #{userId} 
+        AND book_id = #{bookId}
+        AND date = #{date}
+    </select>
+</mapper>

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.WrongBookMapper">
+    
+    <select id="findByUserId" resultType="com.student.platform.entity.WrongBook">
+        SELECT * FROM wrong_book WHERE user_id = #{userId} ORDER BY updated_at DESC
+    </select>
+    
+    <select id="findByUserIdAndExerciseId" resultType="com.student.platform.entity.WrongBook">
+        SELECT * FROM wrong_book WHERE user_id = #{userId} AND exercise_id = #{exerciseId}
+    </select>
+    
+    <select id="findByUserIdAndMasterStatus" resultType="com.student.platform.entity.WrongBook">
+        SELECT * FROM wrong_book WHERE user_id = #{userId} AND master_status = #{masterStatus} ORDER BY updated_at DESC
+    </select>
+    
+</mapper>

@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.AnswerRecordMapper">
+    
+    <select id="findByUserId" resultType="com.student.platform.entity.AnswerRecord">
+        SELECT * FROM answer_record WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+    
+    <select id="findByExerciseId" resultType="com.student.platform.entity.AnswerRecord">
+        SELECT * FROM answer_record WHERE exercise_id = #{exerciseId} ORDER BY created_at DESC
+    </select>
+    
+    <select id="findByUserIdAndIsCorrect" resultType="com.student.platform.entity.AnswerRecord">
+        SELECT * FROM answer_record WHERE user_id = #{userId} AND is_correct = #{isCorrect} ORDER BY created_at DESC
+    </select>
+    
+    <select id="findLatestByUserIdAndExerciseId" resultType="com.student.platform.entity.AnswerRecord">
+        SELECT * FROM answer_record 
+        WHERE user_id = #{userId} AND exercise_id = #{exerciseId} 
+        ORDER BY created_at DESC 
+        LIMIT 1
+    </select>
+    
+</mapper>

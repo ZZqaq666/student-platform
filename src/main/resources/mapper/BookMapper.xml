@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.BookMapper">
+    
+    <select id="findBySubject" resultType="com.student.platform.entity.Book">
+        SELECT * FROM book WHERE subject = #{subject} AND status = 'ACTIVE'
+    </select>
+    
+    <select id="findByGrade" resultType="com.student.platform.entity.Book">
+        SELECT * FROM book WHERE grade = #{grade} AND status = 'ACTIVE'
+    </select>
+    
+    <select id="searchByTitle" resultType="com.student.platform.entity.Book">
+        SELECT * FROM book WHERE title LIKE CONCAT('%', #{keyword}, '%') AND status = 'ACTIVE'
+    </select>
+    
+</mapper>

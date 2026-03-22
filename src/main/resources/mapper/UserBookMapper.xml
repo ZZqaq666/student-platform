@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.UserBookMapper">
+    
+    <select id="findByUserId" resultType="com.student.platform.entity.UserBook">
+        SELECT * FROM user_book WHERE user_id = #{userId}
+    </select>
+    
+    <select id="findByUserIdAndBookId" resultType="com.student.platform.entity.UserBook">
+        SELECT * FROM user_book WHERE user_id = #{userId} AND book_id = #{bookId}
+    </select>
+    
+    <select id="findByUserIdAndStatus" resultType="com.student.platform.entity.UserBook">
+        SELECT * FROM user_book WHERE user_id = #{userId} AND status = #{status}
+    </select>
+    
+</mapper>

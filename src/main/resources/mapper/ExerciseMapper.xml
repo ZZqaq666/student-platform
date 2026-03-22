@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.ExerciseMapper">
+    
+    <select id="findByBookId" resultType="com.student.platform.entity.Exercise">
+        SELECT * FROM exercise WHERE book_id = #{bookId} AND status = 'ACTIVE'
+    </select>
+    
+    <select id="findByKnowledgeNodeId" resultType="com.student.platform.entity.Exercise">
+        SELECT * FROM exercise WHERE knowledge_node_id = #{knowledgeNodeId} AND status = 'ACTIVE'
+    </select>
+    
+    <select id="findByDifficulty" resultType="com.student.platform.entity.Exercise">
+        SELECT * FROM exercise WHERE difficulty = #{difficulty} AND status = 'ACTIVE'
+    </select>
+    
+    <select id="findByQuestionType" resultType="com.student.platform.entity.Exercise">
+        SELECT * FROM exercise WHERE question_type = #{questionType} AND status = 'ACTIVE'
+    </select>
+    
+</mapper>

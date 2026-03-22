@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.mapper.KnowledgeRelationMapper">
+    
+    <select id="findBySourceNodeId" resultType="com.student.platform.entity.KnowledgeRelation">
+        SELECT * FROM knowledge_relation WHERE source_node_id = #{sourceNodeId}
+    </select>
+    
+    <select id="findByTargetNodeId" resultType="com.student.platform.entity.KnowledgeRelation">
+        SELECT * FROM knowledge_relation WHERE target_node_id = #{targetNodeId}
+    </select>
+    
+    <select id="findByRelationType" resultType="com.student.platform.entity.KnowledgeRelation">
+        SELECT * FROM knowledge_relation WHERE relation_type = #{relationType}
+    </select>
+    
+</mapper>
