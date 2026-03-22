@@ -70,11 +70,12 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 // 登录API调用
-import axios from 'axios'
+import { apiService } from '@/api/api.js'
+import { useAuthStore } from '@/store/auth.js'
 
 const loginApi = async (data) => {
-  const response = await axios.post('/api/login', data)
-  return response.data
+  const response = await apiService.auth.login(data)
+  return response
 }
 
 const router = useRouter()
@@ -122,7 +123,9 @@ const handleLogin = async () => {
   try {
     const res = await loginApi(loginForm.value)
     if (res.code === 200) {
-        localStorage.setItem('token', res.data.token)
+        const authStore = useAuthStore()
+        authStore.setToken(res.data.token, res.data.expiry)
+        authStore.setUser(res.data.user)
         // 存储用户名
         localStorage.setItem('userName', loginForm.value.username)
         // 处理记住用户名和密码功能
@@ -141,7 +144,7 @@ const handleLogin = async () => {
         ElMessage.success('登录成功')
     }
   } catch (error) {
-    ElMessage.error(error.message)
+    ElMessage.error(error.errorMessage || '登录失败')
   }
 }
 </script>

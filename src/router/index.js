@@ -38,9 +38,13 @@ const router = createRouter({
 })
 
 // 路由守卫：未登录跳登录页
+import { useAuthStore } from '@/store/auth.js'
+
 router.beforeEach((to, from, next) => {
-  const isLogin = localStorage.getItem('token') // 假设token存在localStorage
-  if (to.meta.requiresAuth && !isLogin) {
+  const authStore = useAuthStore()
+  const isAuthenticated = authStore.checkAuth()
+  
+  if (to.meta.requiresAuth && !isAuthenticated) {
     next('/login')
   } else {
     next()

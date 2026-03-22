@@ -16,7 +16,7 @@
 
        <!-- 用户操作区 --> 
        <div v-if="!isLogin" class="nav-right"> 
-         <router-link to="/auth/login"> 
+         <router-link to="/login"> 
            <button class="login-btn">登录/注册</button> 
          </router-link> 
        </div> 
@@ -34,6 +34,7 @@
            <div class="avatar-placeholder">{{ userName.charAt(0) }}</div>
          </div> 
          <span class="user-name">{{ userName }}</span> 
+         <button class="logout-btn" @click="handleLogout">退出登录</button>
        </div> 
      </nav> 
  
@@ -47,21 +48,23 @@
  </template>
  
  <script setup> 
-import { computed, ref } from 'vue' 
+import { computed, ref, watch } from 'vue' 
 import { useRouter, useRoute } from 'vue-router' 
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
- 
- // 检查用户是否登录（通过localStorage中的token判断）
- const isLogin = computed(() => {
-   return !!localStorage.getItem('token')
- }) 
- 
- // 获取用户名（从localStorage中获取）
- const userName = computed(() => {
-   return localStorage.getItem('userName') || '用户'
- }) 
+
+// 检查用户是否登录（通过localStorage中的token判断）
+const token = ref(localStorage.getItem('token'))
+const isLogin = computed(() => {
+  return !!token.value
+}) 
+
+// 获取用户名（从localStorage中获取）
+const userName = computed(() => {
+  return localStorage.getItem('userName') || '用户'
+})
  
  // 通知状态（模拟有新消息）
  const hasNotification = ref(true) 
@@ -81,6 +84,41 @@ const route = useRoute()
  // 判断导航链接是否激活
  const isActive = (path) => {
    return route.path === path
+ }
+ 
+ // 退出登录处理
+ const handleLogout = async () => {
+   try {
+     // 显示确认对话框
+     await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
+       confirmButtonText: '确定',
+       cancelButtonText: '取消',
+       type: 'warning'
+     })
+     
+     // 清除localStorage中的用户数据
+     localStorage.removeItem('token')
+     localStorage.removeItem('userName')
+     localStorage.removeItem('rememberedUser')
+     
+     // 更新token ref
+     token.value = null
+     
+     // 记录退出登录日志
+     console.log('用户退出登录:', new Date().toISOString())
+     
+     // 重定向到登录页面
+     router.replace('/login')
+     
+     // 显示退出成功消息
+     ElMessage.success('退出登录成功')
+   } catch (error) {
+     // 如果用户取消操作，不显示错误信息
+     if (error !== 'cancel') {
+       console.error('退出登录失败:', error)
+       ElMessage.error('退出登录失败，请重试')
+     }
+   }
  }
  </script> 
  
@@ -125,6 +163,18 @@ const route = useRoute()
     width: 100%;
     display: flex;
     justify-content: flex-end;
+  }
+  
+  .user-info {
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .logout-btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 12px;
   }
 } 
  
@@ -270,6 +320,23 @@ const route = useRoute()
   font-size: 14px;
   font-weight: 500;
   color: #374151;
+}
+
+.logout-btn {
+  padding: 0.375rem 0.75rem;
+  background-color: #f3f4f6;
+  color: #374151;
+  border: none;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.3s;
+}
+
+.logout-btn:hover {
+  background-color: #e5e7eb;
+  color: #111827;
 }
 
 /* 主体内容区 */

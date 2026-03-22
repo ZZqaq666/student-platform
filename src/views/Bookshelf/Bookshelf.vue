@@ -71,7 +71,7 @@
           ×
         </button>
         <div class="book-cover">
-          <img :src="book.cover" :alt="book.title">
+          <img :src="book.coverImage || getDefaultCover(book.subject)" :alt="book.title" @error="handleImageError">
         </div>
         <div class="book-info">
           <h3 class="book-title">{{ book.title }}</h3>
@@ -162,7 +162,7 @@
             :class="{ selected: selectedBooks.includes(index) }"
             @click="toggleSelect(index)"
           >
-            <img :src="book.cover" :alt="book.title" class="textbook-cover">
+            <img :src="book.coverImage || getDefaultCover(book.subject)" :alt="book.title" class="textbook-cover" @error="handleImageError">
             <div class="textbook-title">{{ book.title }}</div>
             <div class="select-checkbox" v-if="selectedBooks.includes(index)">
               ✓
@@ -219,7 +219,7 @@
           <!-- 书籍封面和基本信息 -->
           <div class="book-detail-header">
             <div class="book-detail-cover">
-              <img :src="selectedBook?.cover" :alt="selectedBook?.title">
+              <img :src="selectedBook?.coverImage || getDefaultCover(selectedBook?.subject)" :alt="selectedBook?.title" @error="handleImageError">
             </div>
             <div class="book-detail-info">
               <h3 class="book-detail-title">{{ selectedBook?.title }}</h3>
@@ -274,7 +274,7 @@
               <div class="recommended-books">
                 <div class="recommended-book" v-for="i in 3" :key="i">
                   <div class="recommended-book-cover">
-                    <img :src="selectedBook?.cover" :alt="selectedBook?.title">
+                    <img :src="selectedBook?.coverImage || getDefaultCover(selectedBook?.subject)" :alt="selectedBook?.title" @error="handleImageError">
                   </div>
                   <div class="recommended-book-info">
                     <h5 class="recommended-book-title">书籍标题</h5>
@@ -456,7 +456,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import axios from 'axios'
+import api from '@/api/api.js'
 
 const router = useRouter()
 
@@ -509,20 +509,9 @@ const statusOptions = ref([
   { value: 'completed', label: '已完成' }
 ])
 
-// 目录标题数据
-const chapterTitles = ref([
-  '基础知识',
-  '核心概念',
-  '进阶技巧',
-  '实战应用',
-  '总结与展望'
-])
-
-const sectionTitles = ref([
-  '基本定义',
-  '重要定理',
-  '典型例题'
-])
+// 目录标题数据 - 从API获取
+const chapterTitles = ref([])
+const sectionTitles = ref([])
 
 // 显示提示
 const showToast = (message, isSuccess = true) => {
@@ -534,11 +523,41 @@ const showToast = (message, isSuccess = true) => {
   }, 3000)
 }
 
+// 获取默认封面 - 使用本地 SVG 数据 URI
+const getDefaultCover = (subject) => {
+  const svgConfigs = {
+    'MATH': { bg: '#4A90D9', text: '数学' },
+    'PHYSICS': { bg: '#50C878', text: '物理' },
+    'CHEMISTRY': { bg: '#FF6B6B', text: '化学' },
+    'CHINESE': { bg: '#9B59B6', text: '语文' },
+    'ENGLISH': { bg: '#F39C12', text: '英语' },
+    'DEFAULT': { bg: '#6B7280', text: '书籍' }
+  }
+  const config = svgConfigs[subject] || svgConfigs['DEFAULT']
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="560" viewBox="0 0 400 560">
+    <rect width="400" height="560" fill="${config.bg}"/>
+    <text x="200" y="280" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" dominant-baseline="middle">${config.text}</text>
+  </svg>`
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`
+}
+
+// 图片加载错误处理
+const handleImageError = (event) => {
+  const img = event.target
+  const title = img.closest('.book-card')?.querySelector('.book-title')?.textContent || ''
+  const subject = title.includes('数学') ? 'MATH' :
+                  title.includes('物理') ? 'PHYSICS' :
+                  title.includes('化学') ? 'CHEMISTRY' :
+                  title.includes('语文') ? 'CHINESE' :
+                  title.includes('英语') ? 'ENGLISH' : 'DEFAULT'
+  img.src = getDefaultCover(subject)
+}
+
 // 获取书籍列表
 const fetchBooks = async () => {
   try {
-    const response = await axios.get('/api/books')
-    books.value = response.data.data
+    const response = await api.get('/books')
+    books.value = response.data
   } catch (error) {
     console.error('获取书籍失败:', error)
     showToast('获取书籍失败', false)
@@ -548,10 +567,10 @@ const fetchBooks = async () => {
 // 搜索书籍
 const searchBooks = async () => {
   try {
-    const response = await axios.get('/api/books/search', {
+    const response = await api.get('/books/search', {
       params: { keyword: searchQuery.value, status: statusFilter.value }
     })
-    books.value = response.data.data
+    books.value = response.data
   } catch (error) {
     console.error('搜索书籍失败:', error)
   }
@@ -690,7 +709,7 @@ const selectedText = ref('')
 const showQuestionSidebar = ref(false)
 const userQuestion = ref('')
 const showAIAnswer = ref(false)
-const aiAnswer = ref('根据您选中的内容，这是一个关于应用内容类结的问题。应用内容类结是指将不同的应用内容进行分类和总结，以便更好地理解和应用。苏扬性盘文化社可能是一个相关的组织或概念，具体含义需要结合上下文来理解。如果您需要更详细的解释，可以点击下方的按钮前往个人问答中心。')
+const aiAnswer = ref('')
 
 // 打开书籍详情
 const openBookDetail = (book) => {
@@ -742,10 +761,20 @@ const askQuestion = () => {
 }
 
 // 提交问题
-const submitQuestion = () => {
+const submitQuestion = async () => {
   if (userQuestion.value) {
-    // 显示AI回答
-    showAIAnswer.value = true
+    try {
+      const response = await api.post('/qa/ask', {
+        question: userQuestion.value,
+        selectedText: selectedText.value,
+        bookId: studyBook.value?.id
+      })
+      aiAnswer.value = response.data.answer
+      showAIAnswer.value = true
+    } catch (error) {
+      console.error('提交问题失败:', error)
+      showToast('提交问题失败', false)
+    }
   }
 }
 
@@ -782,9 +811,6 @@ const toggleFullCatalog = () => {
 }
 
 // 添加教材
-const addTextbook = () => {
-  showAddTextbookModal.value = true
-}
 
 // 更新最近点击时间
 const updateLastClicked = (book) => {
@@ -792,24 +818,39 @@ const updateLastClicked = (book) => {
 }
 
 // 分类
-const categories = ['计算机', '医学', '教育', '考研', '职业资格', '四六级']
-const selectedCategory = ref('计算机')
+const categories = ref([])
+const selectedCategory = ref('')
 
 // 选中的书籍
 const selectedBooks = ref([])
 
 // 教材数据
-const textbooks = ref([
-  { title: '计算机', cover: 'https://images.unsplash.com/photo-1544947950-fa07a98d237f?w=200&h=250&fit=crop' },
-  { title: '职业资格', cover: 'https://images.unsplash.com/photo-1541963463532-d68292c34b19?w=200&h=250&fit=crop' },
-  { title: '名校英语语法', cover: 'https://images.unsplash.com/photo-1532012197267-da84d127e765?w=200&h=250&fit=crop' },
-  { title: '教分里', cover: 'https://images.unsplash.com/photo-1589998059171-988d887df646?w=200&h=250&fit=crop' },
-  { title: '考研十年', cover: 'https://images.unsplash.com/photo-1543002588-bfa74002ed7e?w=200&h=250&fit=crop' },
-  { title: '扫码六级', cover: 'https://images.unsplash.com/photo-1531901599431-363981c7e049?w=200&h=250&fit=crop' },
-  { title: '计算机基础', cover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?w=200&h=250&fit=crop' },
-  { title: '职业资格', cover: 'https://images.unsplash.com/photo-1542903660-eed4a463d952?w=200&h=250&fit=crop' },
-  { title: '中考全面超越', cover: 'https://images.unsplash.com/photo-1587825140041-b41b2a7c600e?w=200&h=250&fit=crop' }
-])
+const textbooks = ref([])
+
+// 获取分类列表
+const fetchCategories = async () => {
+  try {
+    const response = await api.get('/books/categories')
+    categories.value = response.data
+    if (categories.value.length > 0) {
+      selectedCategory.value = categories.value[0]
+    }
+  } catch (error) {
+    console.error('获取分类失败:', error)
+  }
+}
+
+// 获取教材列表
+const fetchTextbooks = async () => {
+  try {
+    const response = await api.get('/books/textbooks', {
+      params: { category: selectedCategory.value, keyword: textbookSearchQuery.value }
+    })
+    textbooks.value = response.data
+  } catch (error) {
+    console.error('获取教材失败:', error)
+  }
+}
 
 // 过滤后的教材
 const filteredTextbooks = computed(() => {
@@ -839,8 +880,9 @@ const addButtonText = computed(() => {
 })
 
 // 选择分类
-const selectCategory = (category) => {
+const selectCategory = async (category) => {
   selectedCategory.value = category
+  await fetchTextbooks()
 }
 
 // 切换选中状态
@@ -862,16 +904,15 @@ const batchAdd = async () => {
   
   try {
     const booksToAdd = selectedBooks.value.map(index => textbooks.value[index])
-    const response = await axios.post('/api/books/add', { books: booksToAdd })
+    const response = await api.post('/books/add', { books: booksToAdd })
     
-    if (response.data.code === 200) {
+    if (response.code === 200) {
       showToast(`已成功添加 ${selectedBooks.value.length} 本教材到个人书架`)
-      await fetchBooks() // 重新获取书籍列表
+      await fetchBooks()
       
-      // 关闭模态框并清空选中列表
       showAddTextbookModal.value = false
       selectedBooks.value = []
-      textbookSearchQuery.value = '' // 清空搜索框
+      textbookSearchQuery.value = ''
     }
   } catch (error) {
     console.error('添加教材失败:', error)
@@ -889,10 +930,10 @@ const deleteBook = (bookId) => {
 const confirmDelete = async () => {
   if (bookToDelete) {
     try {
-      const response = await axios.delete(`/api/books/${bookToDelete}`)
-      if (response.data.code === 200) {
+      const response = await api.delete(`/books/${bookToDelete}`)
+      if (response.code === 200) {
         showToast('书籍删除成功')
-        await fetchBooks() // 重新获取书籍列表
+        await fetchBooks()
       }
     } catch (error) {
       console.error('删除书籍失败:', error)
@@ -907,6 +948,13 @@ const confirmDelete = async () => {
 // 返回首页
 const backToHome = () => {
   router.push('/')
+}
+
+// 添加教材
+const addTextbook = async () => {
+  showAddTextbookModal.value = true
+  await fetchCategories()
+  await fetchTextbooks()
 }
 </script>
 
@@ -2861,11 +2909,8 @@ const backToHome = () => {
 }
 
 .study-content .sidebar-header {
-<<<<<<< HEAD
   padding: 16px 20px;
-=======
   padding: 12px 16px;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -2874,11 +2919,8 @@ const backToHome = () => {
 }
 
 .study-content .sidebar-header h3 {
-<<<<<<< HEAD
   font-size: 16px;
-=======
   font-size: 14px;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   font-weight: 600;
   color: #111827;
   margin: 0;
@@ -2900,11 +2942,8 @@ const backToHome = () => {
 /* 目录树 */
 .toc-tree {
   flex: 1;
-<<<<<<< HEAD
   padding: 12px 0;
-=======
   padding: 8px 0;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
   overflow-y: auto;
 }
 
@@ -2913,13 +2952,10 @@ const backToHome = () => {
   padding: 6px 16px;
   cursor: pointer;
   transition: all 0.2s;
-<<<<<<< HEAD
   border-radius: 4px;
   margin: 0 8px;
-=======
   border-radius: 6px;
   margin: 2px 8px;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 .toc-item:hover {
@@ -2935,19 +2971,14 @@ const backToHome = () => {
   font-size: 13px;
   display: block;
   line-height: 1.5;
-<<<<<<< HEAD
-=======
   font-weight: 500;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 .toc-children {
   margin-left: 12px;
   margin-top: 2px;
-<<<<<<< HEAD
   border-left: 1px solid #e5e7eb;
   padding-left: 8px;
-=======
 }
 
 .toc-children .toc-item {
@@ -2958,7 +2989,6 @@ const backToHome = () => {
 .toc-children .toc-title {
   font-size: 12px;
   font-weight: 400;
->>>>>>> 67e6add ( 修改应用页面逻辑，准备对接后端API)
 }
 
 /* 阅读区 */

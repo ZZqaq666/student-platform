@@ -20,7 +20,7 @@ const props = defineProps({
     default: null
   },
   currentUserId: {
-    type: String,
+    type: [Number, String],
     default: ''
   }
 })
@@ -64,7 +64,7 @@ const canAccept = computed(() => {
     return false
   }
 
-  return props.question.authorId === props.currentUserId && !props.question.acceptedAnswerId
+  return String(props.question.authorId) === String(props.currentUserId) && !props.question.acceptedAnswerId
 })
 
 function retry() {

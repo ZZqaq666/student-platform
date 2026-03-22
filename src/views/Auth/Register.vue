@@ -96,18 +96,18 @@ const rules = {
 }
 
 // 注册逻辑
-import axios from 'axios'
+import { apiService } from '@/api/api.js'
 
 const handleRegister = async () => {
   await registerFormRef.value.validate()
   try {
-    const response = await axios.post('/api/register', registerForm.value)
-    if (response.data.code === 200) {
+    const response = await apiService.auth.register(registerForm.value)
+    if (response.code === 200) {
       ElMessage.success('注册成功')
       setTimeout(() => router.push('/login'), 1000)
     }
   } catch (error) {
-    ElMessage.error(error.response?.data?.message || '注册失败')
+    ElMessage.error(error.errorMessage || '注册失败')
   }
 }
 </script>

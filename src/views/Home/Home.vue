@@ -68,18 +68,19 @@
     <!-- 最近一本书的学习进度 -->
     <div class="book-progress-section">
       <div class="section-title">最近学习</div>
-      <div class="book-progress-card">
+      <div class="book-progress-card" v-if="recentBook">
         <div class="book-info">
-          <div class="book-image-placeholder">
+          <div class="book-image-placeholder" v-if="!recentBook.cover">
             <span class="placeholder-text">书籍封面</span>
           </div>
+          <img :src="recentBook.cover" :alt="recentBook.title" class="book-cover" v-else>
           <div class="book-details">
-            <h3 class="book-title">高等数学（上册）</h3>
-            <p class="book-author">同济大学数学系</p>
+            <h3 class="book-title">{{ recentBook.title }}</h3>
+            <p class="book-author">{{ recentBook.author }}</p>
             <div class="progress-info">
-              <span class="progress-text">已读 65%</span>
+              <span class="progress-text">已读 {{ recentBook.progress }}%</span>
               <div class="progress-bar">
-                <div class="progress-fill" style="width: 65%;"></div>
+                <div class="progress-fill" :style="{ width: recentBook.progress + '%' }"></div>
               </div>
             </div>
           </div>
@@ -114,42 +115,102 @@
               <text x="30" y="195" text-anchor="middle" fill="#9ca3af" font-size="12">25%</text>
               
               <!-- X轴日期标签 -->
-              <text x="100" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">02-20</text>
-              <text x="250" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">02-22</text>
-              <text x="400" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">02-24</text>
-              <text x="550" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">02-26</text>
-              <text x="700" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">02-28</text>
+              <text v-for="(point, index) in learningData" :key="index" 
+                    :x="100 + index * 150" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">
+                {{ point.date }}
+              </text>
               
               <!-- 学习曲线区域 -->
-              <path d="M 100,180 Q 175,160 250,140 T 400,100 T 550,80 T 700,50 L 700,200 L 100,200 Z" 
-                    fill="url(#areaGradient)"/>
+              <path :d="areaPath" fill="url(#areaGradient)"/>
               
               <!-- 学习曲线 -->
-              <path d="M 100,180 Q 175,160 250,140 T 400,100 T 550,80 T 700,50" 
-                    fill="none" 
-                    stroke="url(#lineGradient)" 
-                    stroke-width="3"/>
+              <path :d="linePath" fill="none" stroke="url(#lineGradient)" stroke-width="3"/>
               
               <!-- 数据点 -->
-              <circle cx="100" cy="180" r="5" fill="#3b82f6"/>
-              <circle cx="250" cy="140" r="5" fill="#3b82f6"/>
-              <circle cx="400" cy="100" r="5" fill="#3b82f6"/>
-              <circle cx="550" cy="80" r="5" fill="#3b82f6"/>
-              <circle cx="700" cy="50" r="6" fill="#3b82f6" stroke="white" stroke-width="2"/>
+              <circle v-for="(point, index) in learningData" :key="index" 
+                      :cx="100 + index * 150" 
+                      :cy="200 - (point.progress / 100) * 160" 
+                      r="5" fill="#3b82f6"/>
             </svg>
           </div>
         </div>
+      </div>
+      <div class="no-data" v-else>
+        <p>暂无学习数据</p>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import api from '@/api/api.js'
 
 const router = useRouter()
 // 跳转到对应页面
 const toPage = (path) => router.push(path)
+
+// 最近学习的书籍
+const recentBook = ref(null)
+// 学习数据
+const learningData = ref([])
+
+// 获取最近学习的书籍
+const fetchRecentBook = async () => {
+  try {
+    const response = await api.get('/books/recent')
+    if (response.code === 200) {
+      recentBook.value = response.data
+    }
+  } catch (error) {
+    console.error('获取最近学习书籍失败:', error)
+  }
+}
+
+// 获取学习数据
+const fetchLearningData = async () => {
+  try {
+    const response = await api.get('/learning/history')
+    if (response.code === 200) {
+      learningData.value = response.data
+    }
+  } catch (error) {
+    console.error('获取学习数据失败:', error)
+  }
+}
+
+// 计算区域路径
+const areaPath = computed(() => {
+  if (learningData.value.length === 0) {
+    return 'M 100,200 L 700,200 Z'
+  }
+  const points = learningData.value.map((point, index) => {
+    const x = 100 + index * 150
+    const y = 200 - (point.progress / 100) * 160
+    return `${x},${y}`
+  })
+  return `M ${points.join(' T ')} L 700,200 L 100,200 Z`
+})
+
+// 计算线路径
+const linePath = computed(() => {
+  if (learningData.value.length === 0) {
+    return 'M 100,200 L 700,200'
+  }
+  const points = learningData.value.map((point, index) => {
+    const x = 100 + index * 150
+    const y = 200 - (point.progress / 100) * 160
+    return `${x},${y}`
+  })
+  return `M ${points.join(' T ')}`
+})
+
+// 组件挂载时获取数据
+onMounted(async () => {
+  await fetchRecentBook()
+  await fetchLearningData()
+})
 </script>
 
 <style scoped>
@@ -278,6 +339,14 @@ const toPage = (path) => router.push(path)
   flex-shrink: 0;
 }
 
+.book-cover {
+  width: 120px;
+  height: 160px;
+  border-radius: 12px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .placeholder-text {
   color: #6366f1;
   font-size: 14px;
@@ -328,6 +397,17 @@ const toPage = (path) => router.push(path)
   background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
   border-radius: 5px;
   transition: width 0.3s ease;
+}
+
+/* 无数据状态 */
+.no-data {
+  background: white;
+  border-radius: 16px;
+  padding: 48px 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  color: #6b7280;
+  font-size: 16px;
 }
 
 /* 图表部分 */

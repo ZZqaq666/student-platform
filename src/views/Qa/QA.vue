@@ -43,12 +43,14 @@
             <span class="search-icon">🔍</span>
           </div>
           <div class="book-selector">
+            <div v-if="loading.books" class="loading-message">加载书籍中...</div>
+            <div v-else-if="error.books" class="error-message">{{ error.books }}</div>
             <div 
               v-for="(book, index) in books" 
-              :key="index"
+              :key="book.id || index"
               class="book-item"
-              :class="{ active: selectedBook === book.name }"
-              @click="selectBook(book.name)"
+              :class="{ active: selectedBook?.id === book.id }"
+              @click="selectBook(book)"
             >
               <div class="book-icon">
                 <div class="book-cover"></div>
@@ -65,28 +67,30 @@
         <div class="middle-panel">
           <div class="panel-title">章节导航</div>
           <div class="chapter-nav">
-            <div 
-              v-for="chapter in chapters" 
-              :key="chapter?.id || Math.random()"
-              v-if="chapter"
-              class="nav-item"
-              :class="{ active: chapter.id === 2, expanded: expandedChapters.includes(chapter.id) }"
-              @click="toggleChapter(chapter.id)"
-            >
-              <span class="nav-title">{{ chapter.title }}</span>
-              <span class="nav-arrow">{{ chapter.id && expandedChapters.includes(chapter.id) ? '▼' : (chapter.children && chapter.children.length > 0 ? '>>' : '>') }}</span>
-            </div>
-            <!-- 子章节 -->
-            <div v-for="chapter in chapters" :key="`sub-${chapter?.id || Math.random()}`" v-if="chapter && expandedChapters.includes(chapter.id) && chapter.children && chapter.children.length > 0">
+            <template v-for="chapter in chapters" :key="chapter?.id || Math.random()">
               <div 
-                v-for="subChapter in chapter.children" 
-                :key="subChapter.id"
-                class="sub-nav-item"
+                v-if="chapter"
+                class="nav-item"
+                :class="{ active: chapter.id === 2, expanded: expandedChapters.includes(chapter.id) }"
+                @click="toggleChapter(chapter.id)"
               >
-                <span class="sub-nav-title">{{ subChapter.title }}</span>
-                <span class="sub-nav-arrow">></span>
+                <span class="nav-title">{{ chapter.title }}</span>
+                <span class="nav-arrow">{{ chapter.id && expandedChapters.includes(chapter.id) ? '▼' : (chapter.children && chapter.children.length > 0 ? '>>' : '>') }}</span>
               </div>
-            </div>
+            </template>
+            <!-- 子章节 -->
+            <template v-for="chapter in chapters" :key="`sub-${chapter?.id || Math.random()}`">
+              <div v-if="chapter && expandedChapters.includes(chapter.id) && chapter.children && chapter.children.length > 0">
+                <div 
+                  v-for="subChapter in chapter.children" 
+                  :key="subChapter.id"
+                  class="sub-nav-item"
+                >
+                  <span class="sub-nav-title">{{ subChapter.title }}</span>
+                  <span class="sub-nav-arrow">></span>
+                </div>
+              </div>
+            </template>
           </div>
         </div>
 
@@ -163,9 +167,7 @@
 
           <!-- AI回答区域 -->
           <div v-if="showAnswer" class="answer-area">
-            <div class="answer-header">
-              <span class="answer-title">AI回答</span>
-            </div>
+
             <div class="answer-content">
               <div class="ai-avatar">
                 <div class="avatar-placeholder">
@@ -173,8 +175,30 @@
                 </div>
               </div>
               <div class="answer-text">
-                {{ aiAnswer }}
+                <div v-if="isLoading" class="loading-indicator">
+                  <div class="loading-spinner"></div>
+                  <span class="loading-text">AI正在思考</span>
+                </div>
+                <div v-else-if="errorMessage" class="error-message">
+                  {{ errorMessage }}
+                  <button class="retry-btn" @click="submitQuestion">重试</button>
+                </div>
+                <div v-else>
+                  <div v-if="isTyping" class="typing-content">
+                    <div v-html="processMathText(typedAnswer)" class="processed-content"></div>
+                    <span class="typing-cursor">|</span>
+                  </div>
+                  <div v-else v-html="processedAnswer" class="processed-content"></div>
+                </div>
               </div>
+            </div>
+            <div class="answer-controls" v-if="showAnswer">
+              <button class="control-btn" @click="cancelGeneration">
+                取消
+              </button>
+              <button class="control-btn" @click="submitQuestion">
+                重新生成
+              </button>
             </div>
           </div>
 
@@ -188,7 +212,7 @@
               @click="selectHistory(item)"
             >
               <div class="history-question">{{ item.question }}</div>
-              <div class="history-answer">{{ item.answer.replace(/\n/g, ' ').substring(0, 100) }}...</div>
+              <div class="history-answer">{{ item.answer ? item.answer.replace(/\n/g, ' ').substring(0, 100) : '' }}...</div>
             </div>
           </div>
         </div>
@@ -425,8 +449,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { useAuthStore } from '@/store/auth.js'
+import { streamingApiService } from '../../api/streaming.js'
+import { apiService } from '../../api/api.js'
+import { processAiResponse } from '../../utils/markdownUtils'
 
 const router = useRouter()
 const route = useRoute()
@@ -434,20 +462,35 @@ const route = useRoute()
 // 来源信息
 const from = ref('')
 
+// 加载状态
+const loading = ref({
+  books: false,
+  chapters: false,
+  courses: false,
+  history: false,
+  examSubjects: false,
+  keyPoints: false,
+  examPapers: false,
+  examCourses: false,
+  examHistory: false
+})
+
+// 错误信息
+const error = ref({
+  books: '',
+  chapters: '',
+  courses: '',
+  history: '',
+  examSubjects: '',
+  keyPoints: '',
+  examPapers: '',
+  examCourses: '',
+  examHistory: ''
+})
+
 // 从URL参数中获取来源信息
-onMounted(() => {
+onMounted(async () => {
   from.value = route.query.from || ''
-  
-  // 获取书籍列表
-  fetchBooks()
-  // 获取课程推荐
-  fetchCourses()
-  // 获取历史问题
-  fetchHistoryQuestions()
-  // 获取考试科目
-  fetchExamSubjects()
-  // 获取备考历史记录
-  fetchExamHistory()
   
   // 如果是从学习页面跳转过来的，自动填充问题和选中的文本
   if (route.query.question) {
@@ -456,6 +499,25 @@ onMounted(() => {
   if (route.query.bookId) {
     // 这里可以根据bookId设置选中的书籍
     // 示例：selectedBook.value = books.value.find(book => book.id === route.query.bookId)
+  }
+  
+  // 初始化数据
+  await fetchBooks()
+  await fetchCourses()
+  await fetchHistoryQuestions()
+  await fetchExamSubjects()
+  await fetchExamHistory()
+})
+
+// 页面卸载时清理资源
+onUnmounted(() => {
+  // 关闭SSE连接
+  if (sseConnection.value) {
+    sseConnection.value.close()
+  }
+  // 清除打字定时器
+  if (typingTimeout.value) {
+    clearTimeout(typingTimeout.value)
   }
 })
 
@@ -489,31 +551,59 @@ const chapters = ref([])
 // 展开的章节
 const expandedChapters = ref([])
 
-// 从后端API获取书籍列表
+// 获取书籍列表
 const fetchBooks = async () => {
+  loading.value.books = true
+  error.value.books = ''
   try {
-    const response = await axios.get('/api/books')
-    if (response.data.code === 200) {
-      books.value = response.data.data
+    console.log('开始获取书籍列表...')
+    // 获取认证token
+    const authStore = useAuthStore()
+    const token = authStore.token
+    console.log('Token:', token)
+    
+    // 使用相对路径发送请求
+    const response = await fetch('/api/qa/books', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      }
+    })
+    console.log('Response status:', response.status)
+    console.log('Response headers:', response.headers)
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Response error:', errorText)
+      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
     }
-  } catch (error) {
-    console.error('获取书籍列表失败:', error)
+    const data = await response.json()
+    console.log('获取书籍列表成功:', data)
+    if (data) {
+      books.value = data
+    }
+  } catch (err) {
+    console.error('获取书籍列表失败:', err)
+    error.value.books = err.errorMessage || '获取书籍列表失败'
+  } finally {
+    loading.value.books = false
   }
 }
 
-// 从后端API获取章节数据
-const fetchChapters = async (bookName) => {
+// 获取章节列表
+const fetchChapters = async (bookId) => {
+  loading.value.chapters = true
+  error.value.chapters = ''
   try {
-    const response = await axios.get('/api/books/chapters', {
-      params: { bookName }
-    })
-    if (response.data.code === 200) {
-      chapters.value = response.data.data
+    const response = await apiService.qa.getChapters(bookId)
+    if (response) {
+      chapters.value = response
     }
-  } catch (error) {
-    console.error('获取章节数据失败:', error)
-    // 清空章节数据
-    chapters.value = []
+  } catch (err) {
+    error.value.chapters = err.errorMessage || '获取章节列表失败'
+  } finally {
+    loading.value.chapters = false
   }
 }
 
@@ -523,12 +613,16 @@ const goHome = () => {
 }
 
 // 选择书籍
-const selectBook = (bookName) => {
-  selectedBook.value = bookName
+const selectBook = (book) => {
+  selectedBook.value = book
   // 重置展开状态
   expandedChapters.value = []
-  // 从后端API获取章节数据
-  fetchChapters(bookName)
+  // 根据选中的书籍更新章节数据
+  if (book.id) {
+    fetchChapters(book.id)
+  } else {
+    chapters.value = []
+  }
 }
 
 // 切换章节展开/折叠
@@ -549,34 +643,183 @@ const aiAnswer = ref('')
 const showAnswer = ref(false)
 const historyQuestions = ref([])
 
-// 从后端API获取历史问题
+// 获取历史问题
 const fetchHistoryQuestions = async () => {
+  loading.value.history = true
+  error.value.history = ''
   try {
-    const response = await axios.get('/api/questions/history')
-    if (response.data.code === 200) {
-      historyQuestions.value = response.data.data
+    const response = await apiService.qa.getHistory()
+    if (response) {
+      historyQuestions.value = response
     }
-  } catch (error) {
-    console.error('获取历史问题失败:', error)
+  } catch (err) {
+    error.value.history = err.errorMessage || '获取历史问题失败'
+  } finally {
+    loading.value.history = false
+  }
+}
+
+// SSE 连接管理
+const sseConnection = ref(null)
+const isLoading = ref(false)
+const errorMessage = ref('')
+const connectionStatus = ref('idle') // idle, connecting, connected, error
+const currentQuestion = ref('') // 保存当前问题，用于重新生成
+
+// 打字机效果
+const typedAnswer = ref('')
+const typingSpeed = ref(30) // 打字速度（毫秒/字符），30ms实现快速打字效果
+const typingTimeout = ref(null)
+const fullAnswer = ref('')
+const processedAnswer = ref('')
+const isTyping = ref(false)
+const isPaused = ref(false)
+
+// 打字机效果函数
+const startTyping = (text) => {
+  typedAnswer.value = ''
+  fullAnswer.value = text
+  isTyping.value = true
+  let index = 0
+  
+  const typeNext = () => {
+    if (index < fullAnswer.value.length) {
+      // 逐字添加文本
+      typedAnswer.value += fullAnswer.value.charAt(index)
+      index++
+      // 自动滚动到最新内容
+      scrollToBottom()
+      typingTimeout.value = setTimeout(typeNext, typingSpeed.value)
+    } else {
+      isTyping.value = false
+      // 处理完整回答，包括Markdown和数学公式，使用processMathText处理数学文本
+      processedAnswer.value = processMathText(fullAnswer.value)
+    }
+  }
+  
+  typeNext()
+}
+
+// 取消生成
+const cancelGeneration = () => {
+  // 停止打字机效果
+  if (typingTimeout.value) {
+    clearTimeout(typingTimeout.value)
+    typingTimeout.value = null
+  }
+  isTyping.value = false
+  
+  // 关闭SSE连接
+  if (sseConnection.value) {
+    try {
+      if (typeof sseConnection.value.close === 'function') {
+        sseConnection.value.close()
+      } else if (sseConnection.value.eventSource) {
+        sseConnection.value.eventSource.close()
+      }
+    } catch (error) {
+      console.error('Error closing SSE connection:', error)
+    }
+    sseConnection.value = null
+  }
+  
+  isLoading.value = false
+  connectionStatus.value = 'disconnected'
+  
+  // 如果有内容，处理已生成的部分
+  if (fullAnswer.value) {
+    processedAnswer.value = processMathText(fullAnswer.value)
+  }
+}
+
+// 自动滚动到最新内容
+const scrollToBottom = () => {
+  const answerElement = document.querySelector('.answer-text')
+  if (answerElement) {
+    answerElement.scrollTop = answerElement.scrollHeight
   }
 }
 
 // 提交问题
 const submitQuestion = () => {
-  if (!question.value.trim()) return
+  // 使用当前问题（如果有）或输入框中的问题
+  const questionText = currentQuestion.value || question.value.trim()
+  if (!questionText) return
   
-  // 模拟AI回答
-  const answer = `根据${selectedBook.value || '当前教材'}的内容，关于"${question.value}"的回答如下：\n\n这是一个基于AI的回答示例。在实际应用中，这里会结合教材内容和AI模型生成详细的回答。\n\n回答会包括：\n1. 问题的核心概念\n2. 相关的知识点\n3. 详细的解释和示例\n4. 可能的应用场景`
-  aiAnswer.value = answer
+  // 保存当前问题用于重新生成
+  currentQuestion.value = questionText
   
-  // 添加到历史记录（包含问题和答案）
-  historyQuestions.value.unshift({ question: question.value, answer: answer })
-  if (historyQuestions.value.length > 5) {
-    historyQuestions.value.pop()
+  // 重置状态
+  showAnswer.value = true
+  isLoading.value = true
+  errorMessage.value = ''
+  connectionStatus.value = 'connecting'
+  typedAnswer.value = ''
+  fullAnswer.value = ''
+  processedAnswer.value = ''
+  
+  // 取消之前的连接
+  if (sseConnection.value) {
+    try {
+      if (typeof sseConnection.value.close === 'function') {
+        sseConnection.value.close()
+      } else if (sseConnection.value.eventSource) {
+        sseConnection.value.eventSource.close()
+      }
+    } catch (error) {
+      console.error('Error closing SSE connection:', error)
+    }
   }
   
-  // 显示回答
-  showAnswer.value = true
+  // 构建请求数据
+  const requestData = {
+    question: questionText,
+    subject: selectedBook.value || ''
+  }
+  
+  // 使用流式POST请求
+  streamingApiService.stream.askQuestionStream(
+    requestData,
+    (message) => {
+      if (message.error) {
+        errorMessage.value = message.error
+        connectionStatus.value = 'error'
+        isLoading.value = false
+      } else {
+        // 先处理content，再处理completed
+        if (message.content) {
+          // 累积数据
+          fullAnswer.value += message.content
+          // 开始打字效果
+          if (!isTyping.value) {
+            isLoading.value = false
+            startTyping(fullAnswer.value)
+          }
+        }
+        if (message.completed) {
+          connectionStatus.value = 'connected'
+          isLoading.value = false
+        }
+      }
+    },
+    () => {
+      // 完成回调
+      console.log('Stream completed')
+      isLoading.value = false
+      connectionStatus.value = 'connected'
+      // 确保有内容时处理完整回答，使用processMathText处理数学文本
+      if (fullAnswer.value && !isTyping.value) {
+        processedAnswer.value = processMathText(fullAnswer.value)
+      }
+    },
+    (error) => {
+      // 错误回调
+      console.error('Stream error:', error)
+      errorMessage.value = error.message || '连接失败，请重试'
+      connectionStatus.value = 'error'
+      isLoading.value = false
+    }
+  )
   
   // 清空输入框
   question.value = ''
@@ -585,22 +828,28 @@ const submitQuestion = () => {
 // 选择历史问题
 const selectHistory = (item) => {
   question.value = item.question
-  aiAnswer.value = item.answer
+  fullAnswer.value = item.answer
   showAnswer.value = true
+  // 开始打字效果
+  startTyping(item.answer)
 }
 
 // 课程数据
 const courses = ref([])
 
-// 从后端API获取课程推荐
+// 获取课程列表
 const fetchCourses = async () => {
+  loading.value.courses = true
+  error.value.courses = ''
   try {
-    const response = await axios.get('/api/courses/recommend')
-    if (response.data.code === 200) {
-      courses.value = response.data.data
+    const response = await apiService.qa.getCourses()
+    if (response) {
+      courses.value = response
     }
-  } catch (error) {
-    console.error('获取课程推荐失败:', error)
+  } catch (err) {
+    error.value.courses = err.errorMessage || '获取课程列表失败'
+  } finally {
+    loading.value.courses = false
   }
 }
 
@@ -630,35 +879,50 @@ const handleFileChange = (event) => {
 }
 
 // 提交图片问题
-const submitImageQuestion = () => {
+const submitImageQuestion = async () => {
   if (!uploadedImage.value) return
   
-  // 模拟AI回答
-  const questionText = imageQuestion.value || '基于上传的图片'
-  const answer = `根据上传的图片内容和您的问题"${questionText}"，AI正在分析...
-
-这是一个基于图片和问题的AI回答示例。在实际应用中，这里会结合图片内容、用户问题和AI模型生成详细的回答。
-
-分析结果：
-1. 识别图片中的问题
-2. 理解用户的具体疑问
-3. 提取关键信息
-4. 生成详细的解答步骤
-5. 提供相关的知识点说明`
-  aiAnswer.value = answer
+  isLoading.value = true
+  errorMessage.value = ''
   
-  // 添加到历史记录
-  historyQuestions.value.unshift({ question: `[图片提问] ${questionText}`, answer: answer })
-  if (historyQuestions.value.length > 5) {
-    historyQuestions.value.pop()
+  try {
+    // 准备表单数据
+    const formData = new FormData()
+    // 注意：这里需要将 base64 图片转换为 Blob 对象
+    // 实际应用中，应该直接使用 file 对象
+    formData.append('question', imageQuestion.value || '基于上传的图片')
+    // 假设 uploadedImage 是 base64 格式，需要转换为 Blob
+    if (uploadedImage.value) {
+      const blob = await fetch(uploadedImage.value).then(r => r.blob())
+      formData.append('image', blob, 'question.jpg')
+    }
+    
+    // 调用API
+    const response = await apiService.qa.askImageQuestion(formData)
+    if (response.code === 200 && response.data) {
+      const answer = response.data.answer
+      aiAnswer.value = processMathText(answer)
+      
+      // 添加到历史记录
+      historyQuestions.value.unshift({ 
+        question: `[图片提问] ${imageQuestion.value || '基于上传的图片'}`, 
+        answer: answer 
+      })
+      if (historyQuestions.value.length > 5) {
+        historyQuestions.value.pop()
+      }
+      
+      // 显示回答
+      showAnswer.value = true
+    }
+  } catch (err) {
+    errorMessage.value = err.errorMessage || '提交图片问题失败'
+  } finally {
+    isLoading.value = false
+    // 清空上传的图片和问题
+    uploadedImage.value = null
+    imageQuestion.value = ''
   }
-  
-  // 显示回答
-  showAnswer.value = true
-  
-  // 清空上传的图片和问题
-  uploadedImage.value = null
-  imageQuestion.value = ''
 }
 
 // 删除上传的图片
@@ -672,7 +936,7 @@ const deleteImage = () => {
 const examSubjects = ref([])
 
 // 选中的考试科目
-const selectedExamSubject = ref('')
+const selectedExamSubject = ref('builder')
 
 // 科目搜索
 const subjectSearchQuery = ref('')
@@ -691,33 +955,40 @@ const filteredSubjects = computed(() => {
   )
 })
 
-// 从后端API获取考试科目
+// 获取考试科目
 const fetchExamSubjects = async () => {
+  loading.value.examSubjects = true
+  error.value.examSubjects = ''
   try {
-    const response = await axios.get('/api/exam/subjects')
-    if (response.data.code === 200) {
-      examSubjects.value = response.data.data
-      // 设置默认选中的科目
-      if (examSubjects.value.length > 0) {
-        selectedExamSubject.value = examSubjects.value[0].id
+    const response = await apiService.qa.getExamSubjects()
+    if (response) {
+      examSubjects.value = response
+      // 如果有数据，设置默认选中的科目
+      if (response.length > 0) {
+        selectedExamSubject.value = response[0].id
         // 获取默认科目的高频考点
-        fetchKeyPoints(examSubjects.value[0].id)
+        await fetchKeyPoints(response[0].id)
       }
     }
-  } catch (error) {
-    console.error('获取考试科目失败:', error)
+  } catch (err) {
+    error.value.examSubjects = err.errorMessage || '获取考试科目失败'
+  } finally {
+    loading.value.examSubjects = false
   }
 }
 
 // 选择科目
-const selectSubject = (subject) => {
+const selectSubject = async (subject) => {
   selectedExamSubject.value = subject.id
   subjectSearchQuery.value = ''
   showSubjectDropdown.value = false
   // 更新高频考点
-  fetchKeyPoints(subject.id)
+  await fetchKeyPoints(subject.id)
   // 重置选中的考点
   selectedKeyPoint.value = null
+  // 获取相关的真题和课程
+  await fetchExamPapers(subject.id)
+  await fetchExamCourses(subject.id)
 }
 
 // 切换科目下拉菜单
@@ -734,21 +1005,6 @@ const getSelectedSubjectName = () => {
 // 高频考点
 const keyPoints = ref([])
 
-// 从后端API获取高频考点
-const fetchKeyPoints = async (subjectId) => {
-  try {
-    const response = await axios.get('/api/exam/keypoints', {
-      params: { subjectId }
-    })
-    if (response.data.code === 200) {
-      keyPoints.value = response.data.data
-    }
-  } catch (error) {
-    console.error('获取高频考点失败:', error)
-    keyPoints.value = []
-  }
-}
-
 // 选中的考点
 const selectedKeyPoint = ref(null)
 
@@ -761,52 +1017,73 @@ const examAnswer = ref('')
 // 选中的真题
 const selectedPapers = ref([])
 
-// 从后端API获取真题
-const fetchExamPapers = async (subjectId) => {
-  try {
-    const response = await axios.get('/api/exam/papers', {
-      params: { subjectId }
-    })
-    if (response.data.code === 200) {
-      selectedPapers.value = response.data.data
-    }
-  } catch (error) {
-    console.error('获取真题失败:', error)
-    selectedPapers.value = []
-  }
-}
-
 // 网课推荐数据
 const examCourses = ref([])
-
-// 从后端API获取考试网课推荐
-const fetchExamCourses = async (subjectId) => {
-  try {
-    const response = await axios.get('/api/exam/courses', {
-      params: { subjectId }
-    })
-    if (response.data.code === 200) {
-      examCourses.value = response.data.data
-    }
-  } catch (error) {
-    console.error('获取考试网课推荐失败:', error)
-    examCourses.value = []
-  }
-}
 
 // 备考历史记录
 const examHistory = ref([])
 
-// 从后端API获取备考历史记录
-const fetchExamHistory = async () => {
+// 获取高频考点
+const fetchKeyPoints = async (subjectId) => {
+  loading.value.keyPoints = true
+  error.value.keyPoints = ''
   try {
-    const response = await axios.get('/api/exam/history')
-    if (response.data.code === 200) {
-      examHistory.value = response.data.data
+    const response = await apiService.qa.getKeyPoints(subjectId)
+    if (response) {
+      keyPoints.value = response
     }
-  } catch (error) {
-    console.error('获取备考历史记录失败:', error)
-    examHistory.value = []
+  } catch (err) {
+    error.value.keyPoints = err.errorMessage || '获取高频考点失败'
+  } finally {
+    loading.value.keyPoints = false
+  }
+}
+
+// 获取真题
+const fetchExamPapers = async (subjectId) => {
+  loading.value.examPapers = true
+  error.value.examPapers = ''
+  try {
+    const response = await apiService.qa.getExamPapers(subjectId)
+    if (response) {
+      selectedPapers.value = response
+    }
+  } catch (err) {
+    error.value.examPapers = err.errorMessage || '获取真题失败'
+  } finally {
+    loading.value.examPapers = false
+  }
+}
+
+// 获取考试课程
+const fetchExamCourses = async (subjectId) => {
+  loading.value.examCourses = true
+  error.value.examCourses = ''
+  try {
+    const response = await apiService.qa.getExamCourses(subjectId)
+    if (response) {
+      examCourses.value = response
+    }
+  } catch (err) {
+    error.value.examCourses = err.errorMessage || '获取考试课程失败'
+  } finally {
+    loading.value.examCourses = false
+  }
+}
+
+// 获取考试历史记录
+const fetchExamHistory = async () => {
+  loading.value.examHistory = true
+  error.value.examHistory = ''
+  try {
+    const response = await apiService.qa.getExamHistory()
+    if (response) {
+      examHistory.value = response
+    }
+  } catch (err) {
+    error.value.examHistory = err.errorMessage || '获取考试历史记录失败'
+  } finally {
+    loading.value.examHistory = false
   }
 }
 
@@ -836,32 +1113,46 @@ const handleExamFileChange = (event) => {
 }
 
 // 提交考试图片问题
-const submitExamImageQuestion = () => {
+const submitExamImageQuestion = async () => {
   if (!examUploadedImage.value) return
   
-  // 模拟AI回答
-  const questionText = examImageQuestion.value || '基于上传的图片'
-  const answer = `根据上传的图片内容和您的问题"${questionText}"，AI正在分析...
-
-这是一个基于图片和问题的AI回答示例。在实际应用中，这里会结合图片内容、用户问题和AI模型生成详细的回答。
-
-分析结果：
-1. 识别图片中的考点
-2. 理解用户的具体疑问
-3. 提取关键信息
-4. 生成详细的解答步骤
-5. 提供相关的知识点说明`
-  examAnswer.value = answer
+  isLoading.value = true
+  errorMessage.value = ''
   
-  // 添加到历史记录
-  examHistory.value.unshift({ question: `[图片提问] ${questionText}`, answer: answer })
-  if (examHistory.value.length > 5) {
-    examHistory.value.pop()
+  try {
+    // 准备表单数据
+    const formData = new FormData()
+    formData.append('question', examImageQuestion.value || '基于上传的图片')
+    formData.append('subjectId', selectedExamSubject.value)
+    // 假设 examUploadedImage 是 base64 格式，需要转换为 Blob
+    if (examUploadedImage.value) {
+      const blob = await fetch(examUploadedImage.value).then(r => r.blob())
+      formData.append('image', blob, 'exam-question.jpg')
+    }
+    
+    // 调用API
+    const response = await apiService.qa.askImageQuestion(formData)
+    if (response.code === 200 && response.data) {
+      const answer = response.data.answer
+      examAnswer.value = processMathText(answer)
+      
+      // 添加到历史记录
+      examHistory.value.unshift({ 
+        question: `[图片提问] ${examImageQuestion.value || '基于上传的图片'}`, 
+        answer: answer 
+      })
+      if (examHistory.value.length > 5) {
+        examHistory.value.pop()
+      }
+    }
+  } catch (err) {
+    errorMessage.value = err.errorMessage || '提交图片问题失败'
+  } finally {
+    isLoading.value = false
+    // 清空上传的图片和问题
+    examUploadedImage.value = null
+    examImageQuestion.value = ''
   }
-  
-  // 清空上传的图片和问题
-  examUploadedImage.value = null
-  examImageQuestion.value = ''
 }
 
 // 删除考试上传的图片
@@ -871,22 +1162,23 @@ const deleteExamImage = () => {
 }
 
 // 提交考点问题
-import axios from 'axios'
-
 const submitExamQuestion = async () => {
   if (!examQuestion.value.trim()) return
   
+  isLoading.value = true
+  errorMessage.value = ''
+  
   try {
-    const response = await axios.post('/api/ai-answer', {
+    // 调用API
+    const response = await apiService.qa.askQuestion({
       question: examQuestion.value,
       subject: selectedExamSubject.value
     })
     
-    if (response.data.code === 200) {
-      const answer = response.data.data.answer
-      
-      // 显示AI回答
-      examAnswer.value = answer
+    if (response.code === 200 && response.data) {
+      const answer = response.data.answer
+      // 显示AI回答，使用processMathText处理数学文本
+      examAnswer.value = processMathText(answer)
       
       // 添加到历史记录
       examHistory.value.unshift({ 
@@ -896,15 +1188,15 @@ const submitExamQuestion = async () => {
       if (examHistory.value.length > 10) {
         examHistory.value.pop()
       }
-      
-      // 清空输入
-      examQuestion.value = ''
     }
-  } catch (error) {
-    console.error('获取AI回答失败:', error)
+  } catch (err) {
+    errorMessage.value = err.errorMessage || '提交问题失败'
+  } finally {
+    isLoading.value = false
+    // 清空输入
+    examQuestion.value = ''
   }
 }
-
 
 // 选择考点
 const selectKeyPoint = (point) => {
@@ -917,17 +1209,21 @@ const selectExamHistory = (record) => {
   examQuestion.value = record.question
 }
 
+// 处理数学文本的函数
+const processMathText = (text) => {
+  // 去除所有空行，只保留单个换行
+  let processedText = text.replace(/\n{2,}/g, '\n')
+  
+  // 使用processAiResponse处理Markdown和数学公式
+  return processAiResponse(processedText)
+}
+
 // 格式化回答内容
 const formatAnswer = (answer) => {
   if (!answer) return ''
   
-  // 简单的Markdown转HTML
-  return answer
-    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\n- (.*?)(?=\n|$)/g, '<li>$1</li>')
-    .replace(/\n(\d+\. )(.*?)(?=\n|$)/g, '<li>$1$2</li>')
-    .replace(/(<li>.*?<\/li>)/gs, '<ul>$1</ul>')
-    .replace(/\n/g, '<br>')
+  // 使用processMathText处理数学文本
+  return processMathText(answer)
 }
 </script>
 
@@ -1415,9 +1711,111 @@ const formatAnswer = (answer) => {
   overflow-y: auto;
 }
 
+/* Markdown渲染样式 */
+.processed-content {
+  line-height: 1.15;
+}
+
+.processed-content h1,
+.processed-content h2,
+.processed-content h3,
+.processed-content h4,
+.processed-content h5,
+.processed-content h6 {
+  margin: 0.3em 0 0.1em 0;
+  font-weight: 600;
+  line-height: 1.1;
+}
+
+.processed-content h1 {
+  font-size: 1.6em;
+  border-bottom: 2px solid #e5e7eb;
+  padding-bottom: 0.2em;
+}
+
+.processed-content h2 {
+  font-size: 1.4em;
+  border-bottom: 1px solid #e5e7eb;
+  padding-bottom: 0.1em;
+}
+
+.processed-content h3 {
+  font-size: 1.2em;
+}
+
+.processed-content h4 {
+  font-size: 1.1em;
+}
+
+.processed-content h5,
+.processed-content h6 {
+  font-size: 1em;
+}
+
+.processed-content p {
+  margin: 0.1em 0;
+}
+
+.processed-content ul,
+.processed-content ol {
+  margin: 0.1em 0;
+  padding-left: 2em;
+}
+
+.processed-content li {
+  margin: 0.05em 0;
+}
+
+.processed-content a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.processed-content a:hover {
+  text-decoration: underline;
+}
+
+.processed-content blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 1em;
+  margin: 0.1em 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+/* 代码块样式 */
+.processed-content pre {
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 1em;
+  overflow-x: auto;
+  margin: 0.1em 0;
+}
+
+.processed-content code {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.9em;
+}
+
+.processed-content pre code {
+  background: none;
+  padding: 0;
+}
+
+/* 数学公式样式 */
+.processed-content .katex {
+  font-size: 1.1em;
+}
+
+.processed-content .katex-display {
+  margin: 0.3em 0;
+  text-align: center;
+}
+
 .answer-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   margin-bottom: 16px;
   padding-bottom: 12px;
   border-bottom: 1px solid #e5e7eb;
@@ -1431,6 +1829,33 @@ const formatAnswer = (answer) => {
   font-size: 14px;
   font-weight: 600;
   color: #374151;
+}
+
+.connection-status {
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+
+.connection-status.connecting {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.connection-status.connected {
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.connection-status.error {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.connection-status.idle {
+  background: #e5e7eb;
+  color: #6b7280;
 }
 
 .knowledge-graph {
@@ -1466,8 +1891,186 @@ const formatAnswer = (answer) => {
   flex: 1;
   font-size: 14px;
   color: #374151;
-  line-height: 1.5;
+  line-height: 1.15;
   white-space: pre-wrap;
+}
+
+.loading-indicator {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 40px;
+  color: #6b7280;
+  font-size: 16px;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(59, 130, 246, 0.2);
+  border-radius: 50%;
+  border-top-color: #3b82f6;
+  animation: spin 1.5s linear infinite;
+}
+
+.loading-text {
+  font-weight: 500;
+  color: #4b5563;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 增强视觉设计 */
+.answer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.answer-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.answer-content {
+  display: flex;
+  gap: 16px;
+  padding: 24px;
+  background-color: #f9fafb;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.answer-content:hover {
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.ai-avatar {
+  flex-shrink: 0;
+}
+
+.avatar-placeholder {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: bold;
+  font-size: 18px;
+  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+}
+
+.answer-text {
+  flex: 1;
+  min-height: 120px;
+  font-size: 16px;
+  line-height: 1.15;
+  color: #374151;
+}
+
+.error-message {
+  color: #b91c1c;
+  background: #fee2e2;
+  padding: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 4px solid #ef4444;
+}
+
+.retry-btn {
+  padding: 8px 16px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.3s ease;
+}
+
+.retry-btn:hover {
+  background-color: #dc2626;
+}
+
+.typing-content {
+  position: relative;
+  min-height: 80px;
+}
+
+.typing-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 1.2em;
+  background-color: #374151;
+  animation: blink 1s infinite;
+  margin-left: 2px;
+  vertical-align: text-bottom;
+}
+
+@keyframes blink {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+
+.answer-controls {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid #e5e7eb;
+}
+
+.control-btn {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  background: white;
+  color: #374151;
+}
+
+.control-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.control-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.control-btn:nth-child(2) {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.control-btn:nth-child(2):hover:not(:disabled) {
+  background: #2563eb;
+  transform: translateY(-1px);
 }
 
 /* 历史问题 */
@@ -1518,7 +2121,7 @@ const formatAnswer = (answer) => {
 .history-answer {
   font-size: 12px;
   color: #6b7280;
-  line-height: 1.4;
+  line-height: 1.2;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
@@ -2008,11 +2611,11 @@ const formatAnswer = (answer) => {
 .ai-answer-text {
   font-size: 14px;
   color: #374151;
-  line-height: 1.5;
+  line-height: 1.15;
 }
 
 .ai-answer-text p {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
 }
 
 .ai-answer-text ul {
@@ -2021,7 +2624,7 @@ const formatAnswer = (answer) => {
 }
 
 .ai-answer-text li {
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
 
 .ai-answer-text li:last-child {
@@ -2278,7 +2881,7 @@ const formatAnswer = (answer) => {
 .exam-history-answer {
   font-size: 13px;
   color: #6b7280;
-  line-height: 1.4;
+  line-height: 1.2;
 }
 
 /* 响应式设计 - 考研考证页面 */

@@ -6,24 +6,33 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "axios": "^1.13.4",
+    "dompurify": "^3.3.3",
     "echarts": "^6.0.0",
     "element-plus": "^2.13.2",
+    "highlight.js": "^11.11.1",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.0",
     "jspdf-autotable": "^5.0.7",
+    "katex": "^0.16.40",
+    "markdown-it": "^14.1.1",
     "pinia": "^3.0.4",
     "vue": "^3.5.24",
     "vue-router": "^4.6.4"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/test-utils": "^2.4.6",
+    "jsdom": "^24.1.0",
     "sass": "^1.97.3",
     "sass-loader": "^16.0.6",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^1.6.0"
   }
 }

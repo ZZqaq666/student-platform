@@ -261,27 +261,27 @@
           <button 
             class="tab-btn" 
             :class="{ active: exerciseFilter === 'all' }"
-            @click="exerciseFilter = 'all'"
+            @click="changeExerciseFilter('all')"
           >全部</button>
           <button 
             class="tab-btn" 
             :class="{ active: exerciseFilter === 'basic' }"
-            @click="exerciseFilter = 'basic'"
+            @click="changeExerciseFilter('basic')"
           >基础巩固</button>
           <button 
             class="tab-btn" 
             :class="{ active: exerciseFilter === 'advanced' }"
-            @click="exerciseFilter = 'advanced'"
+            @click="changeExerciseFilter('advanced')"
           >进阶提升</button>
           <button 
             class="tab-btn" 
             :class="{ active: exerciseFilter === 'exam' }"
-            @click="exerciseFilter = 'exam'"
+            @click="changeExerciseFilter('exam')"
           >真题冲刺</button>
           <button 
             class="tab-btn" 
             :class="{ active: exerciseFilter === 'competition' }"
-            @click="exerciseFilter = 'competition'"
+            @click="changeExerciseFilter('competition')"
           >竞赛拓展</button>
         </div>
 
@@ -345,6 +345,7 @@ import { useRouter, useRoute } from 'vue-router'
 import * as echarts from 'echarts'
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
+import api from '@/api/api.js'
 
 // 添加中文字体支持
 import 'jspdf/dist/jspdf.umd.min.js'
@@ -388,29 +389,35 @@ const showExerciseModal = ref(false)
 const exerciseFilter = ref('all')
 const exerciseTypeFilter = ref('all')
 const selectedExercises = ref([])
-const exercises = ref([
-  { id: 1, title: '线性代数', description: '矩阵的特征值与特征向量计算', difficulty: '基础巩固', selected: false },
-  { id: 2, title: '概率论', description: '条件概率与贝叶斯公式应用', difficulty: '基础巩固', selected: false },
-  { id: 3, title: '微积分', description: '定积分的换元法与分部积分', difficulty: '进阶提升', selected: false },
-  { id: 4, title: '矩阵运算', description: '矩阵乘法与逆矩阵求解', difficulty: '基础巩固', selected: false },
-  { id: 5, title: '随机变量', description: '离散型随机变量的分布列', difficulty: '进阶提升', selected: false },
-  { id: 6, title: '极限计算', description: '各种未定式的极限求解方法', difficulty: '真题冲刺', selected: false },
-  { id: 7, title: '行列式', description: '行列式的性质与计算方法', difficulty: '基础巩固', selected: false },
-  { id: 8, title: '期望方差', description: '随机变量的数字特征计算', difficulty: '进阶提升', selected: false },
-  { id: 9, title: '导数应用', description: '函数的单调性与极值问题', difficulty: '真题冲刺', selected: false },
-  { id: 10, title: '向量空间', description: '线性相关性与基的概念', difficulty: '竞赛拓展', selected: false },
-  { id: 11, title: '假设检验', description: '正态总体参数的假设检验', difficulty: '竞赛拓展', selected: false },
-  { id: 12, title: '微分方程', description: '一阶线性微分方程求解', difficulty: '进阶提升', selected: false }
-])
+const exercises = ref([])
 
-// 模拟书架数据
-const bookshelfBooks = ref([
-  { id: 1, title: '高等数学', author: '同济大学数学系' },
-  { id: 2, title: '线性代数', author: '同济大学数学系' },
-  { id: 3, title: '概率论与数理统计', author: '浙江大学' },
-  { id: 4, title: '大学物理', author: '张三' },
-  { id: 5, title: '计算机基础', author: '李四' }
-])
+// 获取习题列表
+const fetchExercises = async (nodeName) => {
+  try {
+    const response = await api.get('/exercises', {
+      params: { knowledgePoint: nodeName, difficulty: exerciseFilter.value }
+    })
+    exercises.value = response.data.map(exercise => ({
+      ...exercise,
+      selected: false
+    }))
+  } catch (error) {
+    console.error('获取习题失败:', error)
+  }
+}
+
+// 书架数据
+const bookshelfBooks = ref([])
+
+// 获取书架书籍
+const fetchBookshelfBooks = async () => {
+  try {
+    const response = await api.get('/books')
+    bookshelfBooks.value = response.data
+  } catch (error) {
+    console.error('获取书架书籍失败:', error)
+  }
+}
 
 // 视图模式文本
 const viewModeText = computed(() => {
@@ -477,12 +484,13 @@ const nodeHighFrequencyKnowledge = {
 const initChart = () => {
   if (!chartContainer.value) return
   
-  // 确保容器有正确的大小
+  if (chart) {
+    chart.dispose()
+    chart = null
+  }
+  
   chartContainer.value.style.width = '100%'
   chartContainer.value.style.height = '100%'
-  
-  // 初始化节点位置
-  initNodePositions()
   
   chart = echarts.init(chartContainer.value)
   
@@ -571,6 +579,12 @@ const initChart = () => {
   // 窗口大小变化时重新调整
   window.addEventListener('resize', handleResize)
 }
+
+// 组件挂载
+onMounted(async () => {
+  await fetchBookshelfBooks()
+  initChart()
+})
 
 // 获取节点颜色
 const getNodeColor = (category) => {
@@ -784,267 +798,60 @@ const toggleBookSelector = () => {
 }
 
 // 处理书籍搜索
-const handleBookSearch = () => {
+const handleBookSearch = async () => {
   if (!bookSearchQuery.value.trim()) {
     bookSearchResults.value = []
     return
   }
   
-  // 模拟搜索结果
-  bookSearchResults.value = [
-    { id: 6, title: '高等数学（上册）', author: '同济大学数学系' },
-    { id: 7, title: '高等数学（下册）', author: '同济大学数学系' },
-    { id: 8, title: '线性代数辅导', author: '张三' },
-    { id: 9, title: '概率论与数理统计辅导', author: '李四' }
-  ].filter(book => 
-    book.title.includes(bookSearchQuery.value) || 
-    book.author.includes(bookSearchQuery.value)
-  )
+  try {
+    const response = await api.get('/books/search', {
+      params: { keyword: bookSearchQuery.value }
+    })
+    bookSearchResults.value = response.data
+  } catch (error) {
+    console.error('搜索书籍失败:', error)
+  }
 }
 
 // 选择书籍
-import axios from 'axios'
-
 const selectBook = async (book) => {
   currentBook.value = book
   selectedNode.value = book.title
   showBookSelector.value = false
   
   try {
-    // 调用后端API获取书籍章节数据
-    const response = await axios.get(`/api/books/${book.id}/chapters`)
-    if (response.data.code === 200) {
-      const graphData = response.data.data
-      updateGraph(graphData)
+    const response = await api.get(`/books/${book.id}/chapters`)
+    if (response.code === 200) {
+      currentGraphData = response.data
+      updateGraphForBook(book)
     }
   } catch (error) {
     console.error('获取书籍章节数据失败:', error)
   }
 }
 
-// 不同书籍的图谱数据
-const bookGraphData = {
-  '高等数学': {
-    nodes: [
-      { id: '0', name: '高等数学', category: 0, symbolSize: 80, value: 100 },
-      { id: '1', name: '微积分', category: 1, symbolSize: 60, value: 80 },
-      { id: '2', name: '线性代数', category: 1, symbolSize: 60, value: 80 },
-      { id: '3', name: '概率论', category: 1, symbolSize: 60, value: 80 },
-      { id: '4', name: '常微分方程', category: 1, symbolSize: 60, value: 80 },
-      { id: '5', name: '导数', category: 2, symbolSize: 45, value: 60 },
-      { id: '6', name: '积分', category: 2, symbolSize: 45, value: 60 },
-      { id: '7', name: '矩阵', category: 2, symbolSize: 45, value: 60 },
-      { id: '8', name: '行列式', category: 2, symbolSize: 45, value: 60 },
-      { id: '9', name: '随机变量', category: 2, symbolSize: 45, value: 60 },
-      { id: '10', name: '概率分布', category: 2, symbolSize: 45, value: 60 },
-      { id: '11', name: '一阶微分方程', category: 2, symbolSize: 45, value: 60 },
-      { id: '12', name: '二阶微分方程', category: 2, symbolSize: 45, value: 60 },
-      { id: '13', name: '极限', category: 3, symbolSize: 35, value: 40 },
-      { id: '14', name: '定积分', category: 3, symbolSize: 35, value: 40 },
-      { id: '15', name: '特征值', category: 3, symbolSize: 35, value: 40 },
-      { id: '16', name: '特征向量', category: 3, symbolSize: 35, value: 40 },
-      { id: '17', name: '期望', category: 3, symbolSize: 35, value: 40 },
-      { id: '18', name: '方差', category: 3, symbolSize: 35, value: 40 },
-      { id: '19', name: '齐次方程', category: 3, symbolSize: 35, value: 40 },
-      { id: '20', name: '非齐次方程', category: 3, symbolSize: 35, value: 40 }
-    ],
-    links: [
-      { source: '0', target: '1' },
-      { source: '0', target: '2' },
-      { source: '0', target: '3' },
-      { source: '0', target: '4' },
-      { source: '1', target: '5' },
-      { source: '1', target: '6' },
-      { source: '2', target: '7' },
-      { source: '2', target: '8' },
-      { source: '3', target: '9' },
-      { source: '3', target: '10' },
-      { source: '4', target: '11' },
-      { source: '4', target: '12' },
-      { source: '5', target: '13' },
-      { source: '6', target: '14' },
-      { source: '7', target: '15' },
-      { source: '7', target: '16' },
-      { source: '9', target: '17' },
-      { source: '9', target: '18' },
-      { source: '11', target: '19' },
-      { source: '12', target: '20' }
-    ]
-  },
-  '线性代数': {
-    nodes: [
-      { id: '0', name: '线性代数', category: 0, symbolSize: 80, value: 100 },
-      { id: '1', name: '矩阵运算', category: 1, symbolSize: 60, value: 80 },
-      { id: '2', name: '向量空间', category: 1, symbolSize: 60, value: 80 },
-      { id: '3', name: '线性变换', category: 1, symbolSize: 60, value: 80 },
-      { id: '4', name: '特征系统', category: 1, symbolSize: 60, value: 80 },
-      { id: '5', name: '矩阵加法', category: 2, symbolSize: 45, value: 60 },
-      { id: '6', name: '矩阵乘法', category: 2, symbolSize: 45, value: 60 },
-      { id: '7', name: '逆矩阵', category: 2, symbolSize: 45, value: 60 },
-      { id: '8', name: '行列式', category: 2, symbolSize: 45, value: 60 },
-      { id: '9', name: '基与维数', category: 2, symbolSize: 45, value: 60 },
-      { id: '10', name: '子空间', category: 2, symbolSize: 45, value: 60 },
-      { id: '11', name: '特征值', category: 2, symbolSize: 45, value: 60 },
-      { id: '12', name: '特征向量', category: 2, symbolSize: 45, value: 60 },
-      { id: '13', name: '对角化', category: 3, symbolSize: 35, value: 40 },
-      { id: '14', name: '正交化', category: 3, symbolSize: 35, value: 40 },
-      { id: '15', name: '秩', category: 3, symbolSize: 35, value: 40 },
-      { id: '16', name: '零空间', category: 3, symbolSize: 35, value: 40 }
-    ],
-    links: [
-      { source: '0', target: '1' },
-      { source: '0', target: '2' },
-      { source: '0', target: '3' },
-      { source: '0', target: '4' },
-      { source: '1', target: '5' },
-      { source: '1', target: '6' },
-      { source: '1', target: '7' },
-      { source: '1', target: '8' },
-      { source: '2', target: '9' },
-      { source: '2', target: '10' },
-      { source: '4', target: '11' },
-      { source: '4', target: '12' },
-      { source: '4', target: '13' },
-      { source: '2', target: '14' },
-      { source: '1', target: '15' },
-      { source: '2', target: '16' }
-    ]
-  },
-  '概率论与数理统计': {
-    nodes: [
-      { id: '0', name: '概率论与数理统计', category: 0, symbolSize: 80, value: 100 },
-      { id: '1', name: '概率基础', category: 1, symbolSize: 60, value: 80 },
-      { id: '2', name: '随机变量', category: 1, symbolSize: 60, value: 80 },
-      { id: '3', name: '分布理论', category: 1, symbolSize: 60, value: 80 },
-      { id: '4', name: '统计推断', category: 1, symbolSize: 60, value: 80 },
-      { id: '5', name: '条件概率', category: 2, symbolSize: 45, value: 60 },
-      { id: '6', name: '贝叶斯定理', category: 2, symbolSize: 45, value: 60 },
-      { id: '7', name: '离散变量', category: 2, symbolSize: 45, value: 60 },
-      { id: '8', name: '连续变量', category: 2, symbolSize: 45, value: 60 },
-      { id: '9', name: '正态分布', category: 2, symbolSize: 45, value: 60 },
-      { id: '10', name: '泊松分布', category: 2, symbolSize: 45, value: 60 },
-      { id: '11', name: '参数估计', category: 2, symbolSize: 45, value: 60 },
-      { id: '12', name: '假设检验', category: 2, symbolSize: 45, value: 60 },
-      { id: '13', name: '期望', category: 3, symbolSize: 35, value: 40 },
-      { id: '14', name: '方差', category: 3, symbolSize: 35, value: 40 },
-      { id: '15', name: '协方差', category: 3, symbolSize: 35, value: 40 },
-      { id: '16', name: '相关系数', category: 3, symbolSize: 35, value: 40 }
-    ],
-    links: [
-      { source: '0', target: '1' },
-      { source: '0', target: '2' },
-      { source: '0', target: '3' },
-      { source: '0', target: '4' },
-      { source: '1', target: '5' },
-      { source: '1', target: '6' },
-      { source: '2', target: '7' },
-      { source: '2', target: '8' },
-      { source: '3', target: '9' },
-      { source: '3', target: '10' },
-      { source: '4', target: '11' },
-      { source: '4', target: '12' },
-      { source: '2', target: '13' },
-      { source: '2', target: '14' },
-      { source: '2', target: '15' },
-      { source: '2', target: '16' }
-    ]
-  },
-  '大学物理': {
-    nodes: [
-      { id: '0', name: '大学物理', category: 0, symbolSize: 80, value: 100 },
-      { id: '1', name: '力学', category: 1, symbolSize: 60, value: 80 },
-      { id: '2', name: '电磁学', category: 1, symbolSize: 60, value: 80 },
-      { id: '3', name: '热学', category: 1, symbolSize: 60, value: 80 },
-      { id: '4', name: '光学', category: 1, symbolSize: 60, value: 80 },
-      { id: '5', name: '牛顿定律', category: 2, symbolSize: 45, value: 60 },
-      { id: '6', name: '动量守恒', category: 2, symbolSize: 45, value: 60 },
-      { id: '7', name: '库仑定律', category: 2, symbolSize: 45, value: 60 },
-      { id: '8', name: '电磁感应', category: 2, symbolSize: 45, value: 60 },
-      { id: '9', name: '热力学定律', category: 2, symbolSize: 45, value: 60 },
-      { id: '10', name: '分子运动', category: 2, symbolSize: 45, value: 60 },
-      { id: '11', name: '光的干涉', category: 2, symbolSize: 45, value: 60 },
-      { id: '12', name: '光的衍射', category: 2, symbolSize: 45, value: 60 },
-      { id: '13', name: '功和能', category: 3, symbolSize: 35, value: 40 },
-      { id: '14', name: '圆周运动', category: 3, symbolSize: 35, value: 40 },
-      { id: '15', name: '电场', category: 3, symbolSize: 35, value: 40 },
-      { id: '16', name: '磁场', category: 3, symbolSize: 35, value: 40 }
-    ],
-    links: [
-      { source: '0', target: '1' },
-      { source: '0', target: '2' },
-      { source: '0', target: '3' },
-      { source: '0', target: '4' },
-      { source: '1', target: '5' },
-      { source: '1', target: '6' },
-      { source: '2', target: '7' },
-      { source: '2', target: '8' },
-      { source: '3', target: '9' },
-      { source: '3', target: '10' },
-      { source: '4', target: '11' },
-      { source: '4', target: '12' },
-      { source: '1', target: '13' },
-      { source: '1', target: '14' },
-      { source: '2', target: '15' },
-      { source: '2', target: '16' }
-    ]
-  },
-  '计算机基础': {
-    nodes: [
-      { id: '0', name: '计算机基础', category: 0, symbolSize: 80, value: 100 },
-      { id: '1', name: '计算机组成', category: 1, symbolSize: 60, value: 80 },
-      { id: '2', name: '操作系统', category: 1, symbolSize: 60, value: 80 },
-      { id: '3', name: '数据结构', category: 1, symbolSize: 60, value: 80 },
-      { id: '4', name: '计算机网络', category: 1, symbolSize: 60, value: 80 },
-      { id: '5', name: 'CPU', category: 2, symbolSize: 45, value: 60 },
-      { id: '6', name: '内存', category: 2, symbolSize: 45, value: 60 },
-      { id: '7', name: '进程管理', category: 2, symbolSize: 45, value: 60 },
-      { id: '8', name: '文件系统', category: 2, symbolSize: 45, value: 60 },
-      { id: '9', name: '数组', category: 2, symbolSize: 45, value: 60 },
-      { id: '10', name: '链表', category: 2, symbolSize: 45, value: 60 },
-      { id: '11', name: 'TCP/IP', category: 2, symbolSize: 45, value: 60 },
-      { id: '12', name: 'HTTP', category: 2, symbolSize: 45, value: 60 },
-      { id: '13', name: '算法', category: 3, symbolSize: 35, value: 40 },
-      { id: '14', name: '排序', category: 3, symbolSize: 35, value: 40 },
-      { id: '15', name: '数据库', category: 3, symbolSize: 35, value: 40 },
-      { id: '16', name: '编程语言', category: 3, symbolSize: 35, value: 40 }
-    ],
-    links: [
-      { source: '0', target: '1' },
-      { source: '0', target: '2' },
-      { source: '0', target: '3' },
-      { source: '0', target: '4' },
-      { source: '1', target: '5' },
-      { source: '1', target: '6' },
-      { source: '2', target: '7' },
-      { source: '2', target: '8' },
-      { source: '3', target: '9' },
-      { source: '3', target: '10' },
-      { source: '4', target: '11' },
-      { source: '4', target: '12' },
-      { source: '3', target: '13' },
-      { source: '3', target: '14' },
-      { source: '4', target: '15' },
-      { source: '3', target: '16' }
-    ]
-  }
+// 打开习题弹窗
+const openExerciseModal = async () => {
+  showExerciseModal.value = true
+  await fetchExercises(selectedNode.value)
+}
+
+// 切换习题难度筛选
+const changeExerciseFilter = async (filter) => {
+  exerciseFilter.value = filter
+  await fetchExercises(selectedNode.value)
 }
 
 // 当前图谱数据
-let currentGraphData = JSON.parse(JSON.stringify(bookGraphData['高等数学']))
+let currentGraphData = {
+  nodes: [],
+  links: []
+}
 
 // 根据书籍更新图谱
 const updateGraphForBook = (book) => {
   if (!chart) return
-  
-  // 获取对应书籍的图谱数据
-  const bookData = bookGraphData[book.title]
-  if (!bookData) {
-    console.warn('未找到书籍的图谱数据:', book.title)
-    return
-  }
-  
-  // 更新当前图谱数据
-  currentGraphData = JSON.parse(JSON.stringify(bookData))
   
   // 初始化节点位置
   initNodePositionsForBook(currentGraphData)
@@ -1160,31 +967,23 @@ const initNodePositionsForBook = (data) => {
 }
 
 // 根据书籍更新侧边栏信息
-const updateSidebarForBook = (book) => {
+const updateSidebarForBook = async (book) => {
   // 更新节点标题
   selectedNode.value = book.title
   
-  // 根据书籍更新高频知识点
-  const knowledgeMap = {
-    '高等数学': ['微积分基本定理', '牛顿-莱布尼茨公式', '定积分的几何意义', '换元积分法', '分部积分法'],
-    '线性代数': ['矩阵运算规则', '行列式计算', '特征值求解', '向量空间', '线性变换'],
-    '概率论与数理统计': ['全概率公式', '贝叶斯公式', '正态分布', '中心极限定理', '假设检验'],
-    '大学物理': ['牛顿运动定律', '能量守恒', '电磁感应定律', '热力学定律', '光的波动性'],
-    '计算机基础': ['冯诺依曼结构', '进程与线程', '时间复杂度', '网络协议', '数据存储']
+  try {
+    const knowledgeResponse = await api.get(`/books/${book.id}/high-frequency`)
+    if (knowledgeResponse.code === 200) {
+      highFrequencyKnowledge.value = knowledgeResponse.data
+    }
+    
+    const relatedResponse = await api.get(`/books/${book.id}/related-nodes`)
+    if (relatedResponse.code === 200) {
+      relatedNodes.value = relatedResponse.data
+    }
+  } catch (error) {
+    console.error('获取书籍侧边栏信息失败:', error)
   }
-  
-  highFrequencyKnowledge.value = knowledgeMap[book.title] || knowledgeMap['高等数学']
-  
-  // 更新关联节点
-  const relatedMap = {
-    '高等数学': ['微积分', '线性代数', '概率论', '常微分方程'],
-    '线性代数': ['矩阵', '向量', '行列式', '特征值'],
-    '概率论与数理统计': ['随机变量', '概率分布', '统计推断', '回归分析'],
-    '大学物理': ['力学', '电磁学', '热学', '光学'],
-    '计算机基础': ['算法', '数据结构', '操作系统', '网络']
-  }
-  
-  relatedNodes.value = relatedMap[book.title] || relatedMap['高等数学']
 }
 
 // 返回首页
@@ -1495,9 +1294,6 @@ onUnmounted(() => {
 })
 
 // 习题弹窗相关方法
-const openExerciseModal = () => {
-  showExerciseModal.value = true
-}
 
 const closeExerciseModal = () => {
   showExerciseModal.value = false

@@ -275,54 +275,13 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import axios from 'axios'
 
 const router = useRouter()
 const route = useRoute()
 
 // 练习数据
-const exercises = ref([
-  {
-    id: 1,
-    title: '矩阵的特征值计算',
-    type: '选择题',
-    difficulty: 'basic',
-    difficultyText: '基础巩固',
-    score: 10,
-    question: '设A为3阶矩阵，已知A的特征值为1, 2, 3，则|A|的值为（  ）',
-    options: ['6', '5', '4', '3'],
-    correctAnswer: 0,
-    correctAnswerText: 'A. 6',
-    analysis: '矩阵的行列式等于其所有特征值的乘积，所以|A| = 1 × 2 × 3 = 6。',
-    knowledgePoint: '特征值与行列式'
-  },
-  {
-    id: 2,
-    title: '概率分布计算',
-    type: '选择题',
-    difficulty: 'advanced',
-    difficultyText: '进阶提升',
-    score: 15,
-    question: '设随机变量X服从参数为λ的泊松分布，已知P(X=1) = P(X=2)，则λ =（  ）',
-    options: ['1', '2', '3', '4'],
-    correctAnswer: 1,
-    correctAnswerText: 'B. 2',
-    analysis: '泊松分布的概率质量函数为P(X=k) = (λ^k/k!)e^(-λ)。由P(X=1)=P(X=2)可得λe^(-λ) = (λ^2/2)e^(-λ)，解得λ=2。',
-    knowledgePoint: '泊松分布'
-  },
-  {
-    id: 3,
-    title: '定积分计算',
-    type: '填空题',
-    difficulty: 'basic',
-    difficultyText: '基础巩固',
-    score: 10,
-    question: '计算定积分 ∫₀¹ x² dx = ______',
-    correctAnswer: '1/3',
-    correctAnswerText: '1/3',
-    analysis: '∫₀¹ x² dx = [x³/3]₀¹ = 1/3 - 0 = 1/3',
-    knowledgePoint: '定积分计算'
-  }
-])
+const exercises = ref([])
 
 // 确保数据在组件加载时就有值
 console.log('Exercises initialized:', exercises.value)
@@ -791,8 +750,49 @@ const getUserAnswerText = () => {
   return userAnswer
 }
 
+// 从API获取习题数据
+const fetchExercises = async () => {
+  try {
+    // 根据路由参数决定获取哪种类型的习题
+    if (route.query.single === 'true' && route.query.exerciseId) {
+      // 单个习题模式
+      const exerciseId = route.query.exerciseId
+      const response = await axios.get(`/api/exercises/${exerciseId}`)
+      if (response.data.code === 200) {
+        exercises.value = [response.data.data]
+      }
+    } else if (route.query.multiple === 'true' && route.query.exerciseIds) {
+      // 多个习题模式
+      const exerciseIds = route.query.exerciseIds
+      const response = await axios.get(`/api/exercises/batch`, {
+        params: { ids: exerciseIds }
+      })
+      if (response.data.code === 200) {
+        exercises.value = response.data.data
+      }
+    } else if (route.query.knowledgePoint) {
+      // 根据知识点获取习题
+      const knowledgePoint = route.query.knowledgePoint
+      const response = await axios.get('/api/exercises', {
+        params: { knowledgePoint: knowledgePoint }
+      })
+      if (response.data.code === 200) {
+        exercises.value = response.data.data
+      }
+    } else {
+      // 获取默认习题
+      const response = await axios.get('/api/exercises')
+      if (response.data.code === 200) {
+        exercises.value = response.data.data
+      }
+    }
+  } catch (error) {
+    console.error('获取习题数据失败:', error)
+  }
+}
+
 // 生命周期
-onMounted(() => {
+onMounted(async () => {
   // 从路由参数获取题目数据
   if (route.query.exercises) {
     try {
@@ -801,27 +801,16 @@ onMounted(() => {
       if (parsedExercises.length > 0 && parsedExercises[0].question) {
         exercises.value = parsedExercises
       } else {
-        console.log('使用默认练习数据')
+        console.log('使用API获取练习数据')
+        await fetchExercises()
       }
     } catch (e) {
       console.error('解析题目数据失败', e)
+      await fetchExercises()
     }
-  } else if (route.query.single === 'true' && route.query.exerciseId) {
-    // 单个习题模式
-    const exerciseId = parseInt(route.query.exerciseId)
-    // 模拟从习题列表中查找对应习题
-    const exercise = exercises.value.find(e => e.id === exerciseId)
-    if (exercise) {
-      exercises.value = [exercise]
-    }
-  } else if (route.query.multiple === 'true' && route.query.exerciseIds) {
-    // 多个习题模式
-    const exerciseIds = route.query.exerciseIds.split(',').map(id => parseInt(id))
-    // 模拟从习题列表中查找对应习题
-    const selectedExercises = exercises.value.filter(e => exerciseIds.includes(e.id))
-    if (selectedExercises.length > 0) {
-      exercises.value = selectedExercises
-    }
+  } else {
+    // 从API获取练习数据
+    await fetchExercises()
   }
 
   // 开始计时
