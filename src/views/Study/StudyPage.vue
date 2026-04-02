@@ -26,39 +26,19 @@
           <button class="collapse-btn">▼</button>
         </div>
         <div class="toc-tree">
-          <div class="toc-item">
-            <span class="toc-title">第一章</span>
-            <div class="toc-children">
-              <div class="toc-item active">
-                <span class="toc-title">1.1 知识卡片</span>
-                <div class="toc-children">
-                  <div class="toc-item">
-                    <span class="toc-title">1.1.1 高亮章节</span>
-                  </div>
-                  <div class="toc-item">
-                    <span class="toc-title">1.1.2 笔记</span>
-                  </div>
-                </div>
-              </div>
-              <div class="toc-item">
-                <span class="toc-title">1.2 树形分析</span>
-                <div class="toc-children">
-                  <div class="toc-item">
-                    <span class="toc-title">1.2.1 高亮章节</span>
-                  </div>
-                </div>
-              </div>
-            </div>
+          <el-skeleton v-if="loading" :rows="5" animated />
+          <div v-else-if="chapters.length === 0" class="empty-chapters">
+            <el-empty description="暂无章节" />
           </div>
-          <div class="toc-item">
-            <span class="toc-title">第二章</span>
-            <div class="toc-children">
-              <div class="toc-item">
-                <span class="toc-title">2.1 高亮</span>
-              </div>
-              <div class="toc-item">
-                <span class="toc-title">2.2 专业管理</span>
-              </div>
+          <div v-else>
+            <div 
+              v-for="(chapter, index) in chapters" 
+              :key="chapter.id"
+              class="toc-item"
+              :class="{ 'active': currentChapter?.id === chapter.id }"
+              @click="selectChapter(chapter)"
+            >
+              <span class="toc-title">第 {{ index + 1 }} 章 {{ chapter.title }}</span>
             </div>
           </div>
         </div>
@@ -70,30 +50,28 @@
           <h2>沉浸式</h2>
           <button class="expand-btn">▼</button>
         </div>
+        <!-- 学习进度提示 -->
+        <div class="progress-info" v-if="bookInfo">
+          <div class="progress-bar">
+            <div class="progress-fill" :style="{ width: bookInfo.progress + '%' }"></div>
+          </div>
+          <div class="progress-text">
+            当前进度: {{ bookInfo.progress }}% | 
+            章节: {{ currentChapter?.title || '未选择' }}
+          </div>
+        </div>
+        
         <div class="reading-content">
-          <p>知识卡片卡词语的造语句理词中，可以重型正文阅读申述中公务场景。可以将构成正式话的情景正式项，似以方相可使分连句文更传确表达。</p>
-          <p>通俗周易行后是，实场中的文字啊确结，可正实文字对比应写入自己在边的工具应用的内容的类结。苏扬性盘文化社中，备通文</p>
-          
-          <div class="section-title">分清单</div>
-          <div class="checklist">
-            <div class="check-item">
-              <input type="checkbox" checked>
-              <span>选择文中在文中处词语理理理服务</span>
-            </div>
-            <div class="check-item">
-              <input type="checkbox">
-              <span>准备需要位位置标标标注词文</span>
-            </div>
+          <!-- 加载状态 -->
+          <div v-if="contentLoading" class="loading-state">
+            <div class="loading-spinner"></div>
+            <span class="loading-text">加载章节内容中...</span>
           </div>
           
-          <p>一拉训，文选组中的在文字在文的边的理服务，卡片，正文信信正在二分法实用啊应用的可进定义。取后技巧</p>
-          <p>人了似切割，复动的实理可，可始解啊</p>
-          
-          <button class="create-btn">建立新工具</button>
-          
-          <p>需哈，试选择一种检验工具，可检验确，预学中等内容</p>
-          <p>过可还可通过分重组集可应用于中级内容和复习项，流法，</p>
-          <p>能在中公务易场景的可性选择场世界，智与智能服人员交交的最在至理为学习的词，可对照实物过一遍后对复人员的实写的进正正文信写后</p>
+          <!-- 章节内容 -->
+          <transition name="fade" mode="out-in">
+            <div v-else key="currentChapter?.id" v-html="chapterContent"></div>
+          </transition>
         </div>
         <div class="pagination">
           <span>1</span>
@@ -201,16 +179,143 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { apiService } from '@/api/api.js'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
+
+const chapters = ref([])
+const loading = ref(false)
+const currentChapter = ref(null)
+const bookInfo = ref(null)
+const chapterContent = ref('')
+const contentLoading = ref(false)
+const syncTimer = ref(null)
+const chapterContentCache = ref({})
+
+const bookId = computed(() => route.params.id || 1) // 默认书籍ID为1
 
 const goBack = () => {
   router.back()
 }
 
+const loadChapters = async () => {
+  loading.value = true
+  try {
+    // 加载书籍信息，获取学习进度
+    const bookInfoRes = await apiService.bookshelf.getUserBook(bookId.value)
+    if (bookInfoRes.code === 200) {
+      bookInfo.value = bookInfoRes.data
+    }
+    
+    // 加载章节数据
+    const res = await apiService.bookshelf.getBookChapters(bookId.value)
+    if (res.code === 200) {
+      chapters.value = res.data || []
+      if (chapters.value.length > 0) {
+        // 如果有上次学习的章节，跳转到该章节
+        if (bookInfo.value?.lastReadChapterId) {
+          const lastChapter = findChapterById(bookInfo.value.lastReadChapterId, chapters.value)
+          currentChapter.value = lastChapter || chapters.value[0]
+        } else {
+          // 否则显示第一章
+          currentChapter.value = chapters.value[0]
+        }
+        // 加载当前章节内容
+        await loadChapterContent(currentChapter.value.id)
+      }
+    }
+  } catch (error) {
+    ElMessage.error('加载章节失败')
+    console.error('Error loading chapters:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 递归查找章节
+const findChapterById = (id, chapters) => {
+  for (const chapter of chapters) {
+    if (chapter.id === id) {
+      return chapter
+    }
+    if (chapter.children && chapter.children.length > 0) {
+      const found = findChapterById(id, chapter.children)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
+
+// 加载章节内容
+const loadChapterContent = async (chapterId) => {
+  // 检查缓存中是否已有内容
+  if (chapterContentCache.value[chapterId]) {
+    chapterContent.value = chapterContentCache.value[chapterId]
+    // 记录学习进度
+    saveStudyProgress()
+    return
+  }
+  
+  contentLoading.value = true
+  try {
+    // 这里应该调用API获取章节内容
+    // 暂时模拟加载
+    await new Promise(resolve => setTimeout(resolve, 500))
+    const content = `这是章节 ${chapterId} 的内容...`
+    chapterContent.value = content
+    
+    // 缓存章节内容
+    chapterContentCache.value[chapterId] = content
+    
+    // 记录学习进度
+    saveStudyProgress()
+  } catch (error) {
+    ElMessage.error('加载章节内容失败')
+    console.error('Error loading chapter content:', error)
+  } finally {
+    contentLoading.value = false
+  }
+}
+
+// 保存学习进度
+const saveStudyProgress = () => {
+  if (!currentChapter.value || !bookId.value) return
+  
+  const progressData = {
+    progress: bookInfo.value?.progress || 0,
+    lastReadPage: 1, // 暂时硬编码，实际应该根据阅读位置计算
+    lastReadChapterId: currentChapter.value.id
+  }
+  
+  // 保存到本地存储
+  localStorage.setItem(`study_progress_${bookId.value}`, JSON.stringify({
+    chapterId: currentChapter.value.id,
+    timestamp: new Date().toISOString()
+  }))
+  
+  // 定期同步到服务器
+  if (syncTimer.value) clearTimeout(syncTimer.value)
+  syncTimer.value = setTimeout(async () => {
+    try {
+      await apiService.bookshelf.updateProgress(bookId.value, progressData)
+      console.log('学习进度同步成功')
+    } catch (error) {
+      console.error('同步学习进度失败:', error)
+    }
+  }, 30000) // 30秒后同步
+}
+
+const selectChapter = async (chapter) => {
+  currentChapter.value = chapter
+  await loadChapterContent(chapter.id)
+}
+
 onMounted(() => {
-  // 可以在这里加载书籍内容
+  loadChapters()
   console.log('Study page mounted')
 })
 </script>
@@ -408,11 +513,77 @@ onMounted(() => {
   font-size: 12px;
 }
 
+.progress-info {
+  margin-bottom: 20px;
+}
+
+.progress-bar {
+  width: 100%;
+  height: 6px;
+  background: #f3f4f6;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  font-size: 14px;
+  color: #6b7280;
+  text-align: right;
+}
+
 .reading-content {
   flex: 1;
   line-height: 1.8;
   color: #374151;
   font-size: 15px;
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.reading-content.fade-enter-active,
+.reading-content.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.reading-content.fade-enter-from,
+.reading-content.fade-leave-to {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #f3f4f6;
+  border-top: 3px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 16px;
+}
+
+.loading-text {
+  color: #6b7280;
+  font-size: 14px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .reading-content p {

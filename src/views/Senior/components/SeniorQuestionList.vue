@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 const props = defineProps({
   selectedSenior: {
     type: Object,
@@ -124,7 +124,7 @@ function getDisplayImages(images) {
         <h3 class="title">{{ question.title }}</h3>
         <p class="preview">{{ question.preview }}</p>
 
-        <div v-if="question.images.length" class="question-image-list">
+        <div v-if="question.images && question.images.length" class="question-image-list">
           <img
             v-for="image in getDisplayImages(question.images)"
             :key="`${question.id}-${image.id}`"
@@ -135,7 +135,7 @@ function getDisplayImages(images) {
           >
         </div>
 
-        <div class="tag-list" v-if="question.tags.length">
+        <div class="tag-list" v-if="question.tags && question.tags.length">
           <span v-for="tag in question.tags" :key="`${question.id}-${tag}`" class="tag-chip"># {{ tag }}</span>
         </div>
 

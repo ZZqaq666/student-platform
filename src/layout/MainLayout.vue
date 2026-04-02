@@ -3,7 +3,7 @@
      <!-- 全局顶部导航栏 --> 
      <nav class="navbar"> 
        <div class="nav-left"> 
-         <span class="logo">📖 学科智问</span> 
+         <span class="logo">🎓学科智学</span> 
        </div> 
 
        <!-- 中间导航链接 -->
@@ -40,9 +40,11 @@
  
      <!-- 页面主体内容区 - 路由页面将在这里渲染 --> 
      <main class="layout-main"> 
-       <keep-alive include="KnowledgeGraph">
-         <router-view /> 
-       </keep-alive>
+       <router-view v-slot="{ Component }">
+         <keep-alive include="KnowledgeGraph">
+           <component :is="Component" />
+         </keep-alive>
+       </router-view>
      </main> 
    </div> 
  </template>

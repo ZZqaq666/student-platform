@@ -47,8 +47,51 @@ md.renderer.rules.code_block = function(tokens, idx, options, env, self) {
     }
 };
 
+// 处理HTML实体
+function decodeHtmlEntities(text) {
+    const entityMap = {
+        '&amp;': '&',
+        '&lt;': '<',
+        '&gt;': '>',
+        '&quot;': '"',
+        '&#039;': "'",
+        '&#39;': "'"
+    };
+    return text.replace(/&[#\w]+;/g, (entity) => {
+        return entityMap[entity] || entity;
+    });
+}
+
+// 清理SVG路径数据和其他无效内容
+function cleanFormulaContent(formula) {
+    // 移除SVG路径数据和相关内容
+    formula = formula.replace(/c[-\d,.\s]+z\s*\/>/g, '');
+    formula = formula.replace(/<\/svg>.*$/g, '');
+    formula = formula.replace(/^.*<svg/g, '');
+    // 移除HTML标签
+    formula = formula.replace(/<[^>]+>/g, '');
+    // 移除多余的空白字符
+    formula = formula.replace(/\s+/g, ' ');
+    // 确保基本的LaTeX语法正确
+    formula = formula.replace(/\s*([+\-*/=()\[\]{}])\s*/g, '$1');
+    // 修复分数格式
+    formula = formula.replace(/(\d+)\s*\/\s*(\d+)/g, '$1/$2');
+    // 修复指数格式
+    formula = formula.replace(/(x|e|a)\s*(\d+)/g, '$1^{$2}');
+    // 修复导数符号
+    formula = formula.replace(/f\s*′/g, "f'");
+    // 修复根号格式
+    formula = formula.replace(/√(\d+)/g, '\\sqrt{$1}');
+    // 移除无效字符
+    formula = formula.replace(/[^\w\s+\-*/=()\[\]{}.'"\\]/g, '');
+    return formula;
+}
+
 // 处理KaTeX公式的函数
 function processKaTeXFormulas(text) {
+    // 先解码HTML实体
+    text = decodeHtmlEntities(text);
+    
     let result = '';
     let i = 0;
     const length = text.length;
@@ -74,7 +117,17 @@ function processKaTeXFormulas(text) {
                 // 检测行内公式  ...
                 const endIndex = findMatchingDelimiter(text, backslashIndex + 2, '\\)');
                 if (endIndex !== -1) {
-                    const formula = text.substring(backslashIndex + 2, endIndex);
+                    let formula = text.substring(backslashIndex + 2, endIndex);
+                    // 清理公式内容
+                    formula = cleanFormulaContent(formula);
+                    // 处理LaTeX兼容的字符替换
+                    formula = formula
+                        .replace(/’/g, "'")
+                        .replace(/“/g, '"')
+                        .replace(/”/g, '"')
+                        .replace(/–/g, "-")
+                        .replace(/—/g, "-")
+                        .replace(/…/g, "...")
                     try {
                         const rendered = katex.renderToString(formula, {
                             displayMode: false,
@@ -94,7 +147,17 @@ function processKaTeXFormulas(text) {
                 // 检测块级公式 \[ ... \]
                 const endIndex = findMatchingDelimiter(text, backslashIndex + 2, '\\]');
                 if (endIndex !== -1) {
-                    const formula = text.substring(backslashIndex + 2, endIndex);
+                    let formula = text.substring(backslashIndex + 2, endIndex);
+                    // 清理公式内容
+                    formula = cleanFormulaContent(formula);
+                    // 处理LaTeX兼容的字符替换
+                    formula = formula
+                        .replace(/’/g, "'")
+                        .replace(/“/g, '"')
+                        .replace(/”/g, '"')
+                        .replace(/–/g, "-")
+                        .replace(/—/g, "-")
+                        .replace(/…/g, "...")
                     try {
                         const rendered = katex.renderToString(formula, {
                             displayMode: true,
@@ -141,25 +204,54 @@ function findMatchingDelimiter(text, startIndex, delimiter) {
 
 // 主函数：处理AI返回的文本
 export function processAiResponse(text) {
-    // 1. 安全清理
-    const cleanText = DOMPurify.sanitize(text);
+    try {
+        if (!text) return '';
+        
+        // 1. 安全清理
+        const cleanText = DOMPurify.sanitize(text);
 
-    // 2. 清理多余的空行，只保留单个换行
-    const textWithCleanLines = cleanText.replace(/\n{2,}/g, '\n');
+        // 2. 处理KaTeX公式（在Markdown解析之前）
+        const textWithMath = processKaTeXFormulas(cleanText);
 
-    // 3. 处理KaTeX公式（在Markdown解析之前）
-    const textWithMath = processKaTeXFormulas(textWithCleanLines);
+        // 3. Markdown解析
+        const html = md.render(textWithMath);
 
-    // 4. Markdown解析
-    const html = md.render(textWithMath);
+        // 4. 完全保留代码块和数学公式的格式，只清理非代码块和非公式内的多余空白
+        let finalHtml = html;
+        
+        // 提取所有代码块和数学公式内容
+        const preservedBlocks = [];
+        
+        // 提取代码块
+        finalHtml = finalHtml.replace(/(<pre[^>]*>)[\s\S]*?(<\/pre>)/g, (match) => {
+            const placeholder = `__PRESERVED_BLOCK_${preservedBlocks.length}__`;
+            preservedBlocks.push(match);
+            return placeholder;
+        });
+        
+        // 提取数学公式（KaTeX生成的span标签）
+        finalHtml = finalHtml.replace(/(<span class="katex">[\s\S]*?<\/span>)/g, (match) => {
+            const placeholder = `__PRESERVED_BLOCK_${preservedBlocks.length}__`;
+            preservedBlocks.push(match);
+            return placeholder;
+        });
+        
+        // 清理非保留块内的多余空白
+        finalHtml = finalHtml
+            .replace(/>\s+</g, '><')
+            .replace(/\s+/g, ' ');
+        
+        // 恢复保留块
+        preservedBlocks.forEach((block, index) => {
+            finalHtml = finalHtml.replace(new RegExp(`__PRESERVED_BLOCK_${index}__`, 'g'), block);
+        });
 
-    // 5. 清理HTML中多余的空白和空行
-    const finalHtml = html
-        .replace(/\n{2,}/g, '\n')
-        .replace(/>\s+</g, '><')
-        .replace(/\s+/g, ' ');
-
-    return finalHtml;
+        return finalHtml;
+    } catch (error) {
+        console.error('处理AI响应失败:', error);
+        // 如果处理失败，返回原始文本
+        return text || '';
+    }
 }
 
 // 智能内容解析器

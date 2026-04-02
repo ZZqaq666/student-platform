@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
 
@@ -43,7 +43,7 @@ const visible = computed({
 })
 
 const orderedAnswers = computed(() => {
-  if (!props.question) {
+  if (!props.question || !props.question.answers) {
     return []
   }
 
@@ -57,6 +57,14 @@ const orderedAnswers = computed(() => {
     }
     return right.likes - left.likes
   })
+})
+
+const answerCount = computed(() => {
+  if (!props.question) {
+    return 0
+  }
+  // 优先使用 answerCount 字段，如果没有则使用 answers 数组长度
+  return props.question.answerCount ?? props.question.answers?.length ?? 0
 })
 
 const canAccept = computed(() => {
@@ -122,7 +130,7 @@ function onClose() {
         </header>
         <h3 class="overview-title">{{ question.title }}</h3>
         <p class="overview-text">{{ question.content }}</p>
-        <div v-if="question.images.length" class="overview-image-list">
+        <div v-if="question.images && question.images.length" class="overview-image-list">
           <img
             v-for="image in question.images"
             :key="`${question.id}-${image.id}`"
@@ -139,7 +147,7 @@ function onClose() {
       </section>
 
       <section class="answer-section">
-        <h4 class="section-title">回答（{{ question.answerCount }}）</h4>
+        <h4 class="section-title">回答（{{ answerCount }}）</h4>
         <article v-for="answer in orderedAnswers" :key="answer.id" class="answer-card">
           <div class="answer-head">
             <div class="head-left">
@@ -192,7 +200,7 @@ function onClose() {
           <el-button type="primary" @click="submitFollowUp">提交追问</el-button>
         </div>
 
-        <div v-if="question.followUps.length" class="follow-up-list">
+        <div v-if="question.followUps && question.followUps.length" class="follow-up-list">
           <article v-for="item in question.followUps" :key="item.id" class="follow-item">
             <header class="follow-head">
               <span>{{ item.author }}</span>

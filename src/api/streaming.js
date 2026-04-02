@@ -5,7 +5,7 @@ class StreamingService {
   constructor() {
     this.wsConnections = new Map();
     this.sseConnections = new Map();
-    this.baseUrl = window.location.origin;
+    this.baseUrl = '';
   }
 
   // WebSocket连接管理
@@ -183,7 +183,7 @@ class StreamingService {
     }
     
     // 对于 /qa/ask/stream 端点，使用 POST 方法
-    if (endpoint === '/qa/ask/stream' || endpoint === '/qa/ask/stream/test') {
+    if (endpoint === '/qa/ask/stream') {
       // 直接传递params作为data，确保格式正确
       return this.streamPost(endpoint, params, onData, onComplete, onError);
     }
@@ -295,19 +295,26 @@ class StreamingService {
       return Promise.reject(new Error('Not logged in'));
     }
     
-    const url = `${this.baseUrl}/api${endpoint}`;
+    const url = `/api${endpoint}`;
     
     return fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'text/event-stream'
       },
       body: JSON.stringify(data)
     })
     .then(response => {
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        // 尝试获取错误详情
+        return response.text().then(errorText => {
+          const errorMessage = errorText || `HTTP error! status: ${response.status}`;
+          throw new Error(errorMessage);
+        }).catch(() => {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        });
       }
       
       const reader = response.body.getReader();
@@ -353,26 +360,24 @@ class StreamingService {
     });
   }
   
-  // 基于fetch的流式POST请求（测试端点）
-  streamPostTest(endpoint, data, onData, onComplete, onError) {
+  // 流式FormData POST请求（用于文件上传等）
+  streamFormData(endpoint, formData, onData, onComplete, onError) {
     // 检查登录状态
     const token = localStorage.getItem('token');
     if (!token) {
-      // 未登录，跳转到登录页面
       window.location.href = '/login';
       return Promise.reject(new Error('Not logged in'));
     }
     
-    // 直接调用后端测试端点，携带认证token
-    const testUrl = `http://localhost:8080${endpoint}`;
+    const url = `/api${endpoint}`;
     
-    return fetch(testUrl, {
+    return fetch(url, {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`
+        // 注意：不要设置 Content-Type，让浏览器自动设置 multipart/form-data
       },
-      body: JSON.stringify(data)
+      body: formData
     })
     .then(response => {
       if (!response.ok) {
@@ -417,7 +422,7 @@ class StreamingService {
       return reader.read().then(processChunk);
     })
     .catch(error => {
-      console.error('POST stream error:', error);
+      console.error('FormData stream error:', error);
       if (onError) onError(error);
     });
   }
@@ -481,9 +486,9 @@ export const streamingApiService = {
       return streamingService.streamPost('/qa/ask/stream', data, onData, onComplete, onError);
     },
     
-    // AI问答流式输出（测试端点）
-    askQuestionStreamTest: (data, onData, onComplete, onError) => {
-      return streamingService.streamPostTest('/qa/ask/stream/test', data, onData, onComplete, onError);
+    // 图片问答流式输出
+    askImageQuestionStream: (formData, onData, onComplete, onError) => {
+      return streamingService.streamFormData('/qa/ask/image/stream', formData, onData, onComplete, onError);
     },
     
     // 大文件下载
@@ -510,15 +515,6 @@ export const streamingApiService = {
       return streamingService.streamSSE('/qa/ask/stream', params, onData, onComplete, onError, options);
     },
     
-    // AI问答SSE流式输出（测试端点）
-    askQuestionSSETest: (data, onData, onComplete, onError, options) => {
-      // 构建查询参数
-      const params = {
-        question: data.question,
-        context: data.context || '',
-        subject: data.subject || ''
-      };
-      return streamingService.streamSSE('/qa/ask/stream/test', params, onData, onComplete, onError, options);
-    }
+
   }
 };

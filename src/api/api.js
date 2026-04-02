@@ -35,29 +35,63 @@ const cache = {
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api', // 基础URL，根据实际情况修改
-  timeout: 60000, // 请求超时时间，增加到60秒以适应AI响应
-  headers: {
-    'Content-Type': 'application/json'
-  }
+  timeout: 180000, // 请求超时时间，增加到180秒（3分钟）以适应AI响应，比后端120秒更长
+  // 处理大数字ID，避免精度丢失
+  transformResponse: [function (data) {
+    // 尝试解析JSON
+    try {
+      // 自定义JSON解析，将大数字转换为字符串
+      return JSON.parse(data, (key, value) => {
+        // 检查是否是可能的大数字ID
+        if (typeof value === 'number' && (key === 'id' || key === 'userId' || key === 'bookId' || key === 'knowledgeNodeId' || key === 'exerciseId' || key === 'wrongBookId' || key === 'questionId' || key === 'answerId' || key === 'seniorId')) {
+          // 检查是否超过JavaScript安全整数范围
+          if (Math.abs(value) > Number.MAX_SAFE_INTEGER) {
+            return String(value);
+          }
+        }
+        return value;
+      });
+    } catch (e) {
+      // 如果解析失败，返回原始数据
+      return data;
+    }
+  }]
 });
 
 // 请求拦截器
 api.interceptors.request.use(
   config => {
     // 可以在这里添加token等认证信息
-    const token = localStorage.getItem('token');
+    const authStore = useAuthStore();
+    const token = authStore.token;
+    
+    // 对于FormData请求，不设置Content-Type
+    if (config.data instanceof FormData) {
+      // 让浏览器自动设置Content-Type，包含正确的boundary
+      delete config.headers['Content-Type'];
+    } else {
+      // 对于普通请求，设置Content-Type为application/json
+      config.headers['Content-Type'] = 'application/json';
+    }
+    
     // 对于认证相关的路径，不添加token
     if (token && !config.url.includes('/auth/')) {
       // 检查token是否过期
-      const tokenExpiry = localStorage.getItem('tokenExpiry');
-      if (tokenExpiry && Date.now() > Number(tokenExpiry)) {
+      if (!authStore.checkAuth()) {
         // token过期，清除token并跳转到登录页
-        const authStore = useAuthStore();
-        authStore.logout();
         router.push('/login');
         return Promise.reject(new Error('Token已过期'));
       }
       config.headers.Authorization = `Bearer ${token}`;
+      
+      // 添加userId到查询参数
+      const userId = authStore.userId;
+      if (userId) {
+        if (!config.params) {
+          config.params = {};
+        }
+        config.params.userId = userId;
+      }
     } else {
       // 对于认证相关的路径，确保不添加Authorization头
       delete config.headers.Authorization;
@@ -72,15 +106,11 @@ api.interceptors.request.use(
 // 响应拦截器
 api.interceptors.response.use(
   response => {
-    console.log('Response config:', response.config);
-    console.log('Response config responseType:', response.config.responseType);
     // For stream responses, return the entire response object
     if (response.config.responseType === 'stream') {
-      console.log('Returning entire response object for stream');
       return response;
     }
     // For regular responses, return just the data
-    console.log('Returning response.data for regular response');
     return response.data;
   },
   error => {
@@ -143,10 +173,70 @@ const generateCacheKey = (url, params) => {
   return `${url}_${JSON.stringify(params || {})}`;
 };
 
+// 参数验证函数
+const validateParams = (params, rules) => {
+  if (!params) return { valid: true };
+  
+  for (const [key, rule] of Object.entries(rules)) {
+    const value = params[key];
+    
+    // 检查必填字段
+    if (rule.required && (value === undefined || value === null || value === '')) {
+      return { valid: false, message: `参数 ${key} 是必填项` };
+    }
+    
+    // 检查数据类型
+    if (value !== undefined && value !== null && rule.type) {
+      const isValidType = typeof value === rule.type;
+      if (!isValidType) {
+        return { valid: false, message: `参数 ${key} 类型错误，期望 ${rule.type} 类型` };
+      }
+    }
+    
+    // 检查长度
+    if (value !== undefined && value !== null && rule.minLength) {
+      if (value.length < rule.minLength) {
+        return { valid: false, message: `参数 ${key} 长度不能小于 ${rule.minLength}` };
+      }
+    }
+    
+    if (value !== undefined && value !== null && rule.maxLength) {
+      if (value.length > rule.maxLength) {
+        return { valid: false, message: `参数 ${key} 长度不能大于 ${rule.maxLength}` };
+      }
+    }
+    
+    // 检查范围
+    if (value !== undefined && value !== null && rule.min) {
+      if (value < rule.min) {
+        return { valid: false, message: `参数 ${key} 不能小于 ${rule.min}` };
+      }
+    }
+    
+    if (value !== undefined && value !== null && rule.max) {
+      if (value > rule.max) {
+        return { valid: false, message: `参数 ${key} 不能大于 ${rule.max}` };
+      }
+    }
+  }
+  
+  return { valid: true };
+};
+
 // 封装常用的请求方法
 const request = {
-  get: async (url, params, useCache = false, expire) => {
+  get: async (url, params, options = {}) => {
     try {
+      const { useCache = false, expire, headers, rules, signal } = options;
+      
+      // 验证参数
+      if (rules) {
+        const validation = validateParams(params, rules);
+        if (!validation.valid) {
+          throw new Error(validation.message);
+        }
+      }
+      
       if (useCache) {
         const cacheKey = generateCacheKey(url, params);
         const cachedData = cache.get(cacheKey);
@@ -155,7 +245,18 @@ const request = {
         }
       }
       
-      const data = await api.get(url, { params });
+      const config = {};
+      if (params) {
+        config.params = params;
+      }
+      if (headers) {
+        config.headers = headers;
+      }
+      if (signal) {
+        config.signal = signal;
+      }
+      
+      const data = await api.get(url, config);
       if (useCache) {
         const cacheKey = generateCacheKey(url, params);
         cache.set(cacheKey, data, expire);
@@ -166,25 +267,70 @@ const request = {
       throw error;
     }
   },
-  post: async (url, data) => {
+  post: async (url, data, options = {}) => {
     try {
-      return await api.post(url, data);
+      const { headers, rules } = options;
+      
+      // 验证参数
+      if (rules) {
+        const validation = validateParams(data, rules);
+        if (!validation.valid) {
+          throw new Error(validation.message);
+        }
+      }
+      
+      const config = {};
+      if (headers) {
+        config.headers = headers;
+      }
+      
+      return await api.post(url, data, config);
     } catch (error) {
       console.error(`POST ${url} error:`, error);
       throw error;
     }
   },
-  put: async (url, data) => {
+  put: async (url, data, options = {}) => {
     try {
-      return await api.put(url, data);
+      const { headers, rules } = options;
+      
+      // 验证参数
+      if (rules) {
+        const validation = validateParams(data, rules);
+        if (!validation.valid) {
+          throw new Error(validation.message);
+        }
+      }
+      
+      const config = {};
+      if (headers) {
+        config.headers = headers;
+      }
+      
+      return await api.put(url, data, config);
     } catch (error) {
       console.error(`PUT ${url} error:`, error);
       throw error;
     }
   },
-  delete: async (url, params) => {
+  delete: async (url, params, options = {}) => {
     try {
-      return await api.delete(url, { params });
+      const { headers, rules } = options;
+      
+      // 验证参数
+      if (rules) {
+        const validation = validateParams(params, rules);
+        if (!validation.valid) {
+          throw new Error(validation.message);
+        }
+      }
+      
+      const config = { params };
+      if (headers) {
+        config.headers = headers;
+      }
+      
+      return await api.delete(url, config);
     } catch (error) {
       console.error(`DELETE ${url} error:`, error);
       throw error;
@@ -206,15 +352,22 @@ export const apiService = {
   
   // 个人书架相关
   bookshelf: {
-    getAllBooks: () => request.get('/bookshelf/books', null, true), // 启用缓存
+    getAllBooks: (signal) => request.get('/bookshelf/books', null, { useCache: true, signal }), // 启用缓存
     getBookById: (id) => request.get(`/bookshelf/books/${id}`, null, true), // 启用缓存
-    searchBooks: (keyword) => request.get('/bookshelf/books/search', { keyword }), // 不缓存搜索结果
+    searchBooks: (keyword, major, semester, courseType, signal) => request.get('/bookshelf/books/search', { keyword, major, semester, courseType }, { signal }), // 不缓存搜索结果
     getBooksBySubject: (subject) => request.get(`/bookshelf/books/subject/${subject}`, null, true), // 启用缓存
     getUserBooks: () => request.get('/bookshelf/my'), // 不缓存用户数据
     getUserBook: (bookId) => request.get(`/bookshelf/my/${bookId}`), // 不缓存用户数据
     addBookToShelf: (bookId) => request.post(`/bookshelf/my/${bookId}`),
     removeBookFromShelf: (bookId) => request.delete(`/bookshelf/my/${bookId}`),
-    updateProgress: (bookId, data) => request.put(`/bookshelf/my/${bookId}/progress`, data)
+    updateProgress: (bookId, data) => request.put(`/bookshelf/my/${bookId}/progress`, data),
+    getBookChapters: (bookId) => request.get(`/books/${bookId}/chapters`, null, true), // 启用缓存
+    getBookChapterTree: (bookId) => request.get(`/books/${bookId}/chapters/tree`, null, true), // 启用缓存
+    searchChapters: (bookId, keyword) => request.get(`/books/${bookId}/chapters/search`, { keyword }), // 不缓存搜索结果
+    getBookRecommendations: (bookId) => request.get(`/books/${bookId}/recommendations`, null, true), // 启用缓存
+    getTextbooks: (params) => request.get('/bookshelf/books/search', params), // 获取教材列表
+    addBooks: (userId, data) => request.post(`/books/add?userId=${userId}`, data), // 批量添加教材
+    deleteBook: (bookId) => request.delete(`/books/${bookId}`) // 删除书籍
   },
   
   // 练习系统相关
@@ -241,32 +394,187 @@ export const apiService = {
   
   // AI问答相关
   qa: {
-    askQuestion: (data) => request.post('/qa/ask', data),
+    /**
+     * 向AI提问
+     * @param {Object} data - 请求数据
+     * @param {string} data.question - 问题文本
+     * @param {string} [data.subject] - 学科信息
+     * @param {string} [data.context] - 上下文信息
+     * @returns {Promise} AI回答
+     * @description 向AI发送问题并获取回答
+     */
+    askQuestion: (data, options = {}) => {
+      // 参数验证规则
+      const rules = {
+        question: {
+          required: true,
+          type: 'string',
+          minLength: 1,
+          maxLength: 5000
+        },
+        subject: {
+          type: 'string',
+          maxLength: 100
+        },
+        context: {
+          type: 'string',
+          maxLength: 10000
+        }
+      };
+      
+      return request.post('/qa/ask', data, {
+        ...options,
+        rules
+      });
+    },
     askQuestionStream: (data) => {
       // 流式输出不需要设置超时，因为它是持续的流
       return api.post('/qa/ask/stream', data, {
         responseType: 'stream'
       });
     },
-    getHistory: () => request.get('/qa/history'),
+    /**
+     * 获取历史问答记录
+     * @returns {Promise} 历史问答记录列表
+     * @description 从后端获取用户的历史问答记录
+     * @param {Object} options - 可选参数
+     * @param {Object} options.headers - 请求头
+     */
+    getHistory: (options = {}) => {
+      const authStore = useAuthStore();
+      const params = options.params || {};
+      return request.get('/qa/history', params, options);
+    },
     deleteHistory: (id) => request.delete(`/qa/history/${id}`),
     // 书籍相关
     getBooks: () => request.get('/qa/books'),
     getChapters: (bookId) => request.get(`/qa/books/${bookId}/chapters`),
     // 课程相关
     getCourses: () => request.get('/qa/courses'),
+    getRecommendedCourses: (limit = 5) => request.get('/qa/courses/recommend', { limit }),
     // 考试相关
     getExamSubjects: () => request.get('/qa/exam/subjects'),
     getKeyPoints: (subjectId) => request.get(`/qa/exam/subjects/${subjectId}/key-points`),
     getExamPapers: (subjectId) => request.get(`/qa/exam/subjects/${subjectId}/papers`),
     getExamCourses: (subjectId) => request.get(`/qa/exam/subjects/${subjectId}/courses`),
     getExamHistory: () => request.get('/qa/exam/history'),
-    // 图片问答
-    askImageQuestion: (formData) => request.post('/qa/ask/image', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
+    // AI生成真题推荐
+    generateExamPapersByAI: (subjectId) => request.get(`/qa/exam/subjects/${subjectId}/papers/ai-generate`),
+    // 获取试卷题目
+    getExamPaperQuestions: (paperId) => request.get(`/qa/exam/papers/${paperId}/questions`),
+    // 考试准备Q&A历史记录
+    getExamQaHistory: (options = {}) => {
+      const authStore = useAuthStore();
+      const params = options.params || {};
+      return request.get('/qa/exam/qa/history', params, options);
+    },
+    deleteExamQaHistory: (id) => request.delete(`/qa/exam/qa/history/${id}`),
+    /**
+     * 保存考试准备Q&A历史记录
+     * @param {Object} data - 请求数据
+     * @param {string} data.question - 问题文本
+     * @param {string} data.answer - 回答文本
+     * @param {string} [data.subject] - 学科信息
+     * @param {number} [data.userId] - 用户ID
+     * @returns {Promise} 保存结果
+     * @description 将考试准备Q&A历史记录保存到后端数据库
+     */
+    saveExamQaHistory: (data, options = {}) => {
+      const authStore = useAuthStore();
+      const userId = authStore.user?.id;
+      
+      // 确保userId是数字类型
+      let finalUserId = data.userId || userId;
+      if (finalUserId) {
+        finalUserId = typeof finalUserId === 'string' ? parseInt(finalUserId, 10) : finalUserId;
+        if (isNaN(finalUserId)) {
+          throw new Error('userId必须是有效的数字');
+        }
       }
-    })
+      
+      const requestData = {
+        ...data,
+        userId: finalUserId
+      };
+      
+      const rules = {
+        question: {
+          required: true,
+          type: 'string',
+          minLength: 1,
+          maxLength: 5000
+        },
+        answer: {
+          required: true,
+          type: 'string',
+          minLength: 1,
+          maxLength: 50000
+        },
+        subject: {
+          type: 'string',
+          maxLength: 100
+        },
+        userId: {
+          required: false,
+          type: 'number'
+        }
+      };
+      
+      return request.post('/qa/exam/qa/save', requestData, {
+        ...options,
+        rules
+      });
+    },
+    // 考试准备课程推荐
+    getExamRecommendedCourses: (limit = 5) => request.get('/qa/courses/recommend/exam', { limit }),
+    // 图片问答
+    askImageQuestion: (formData) => request.post('/qa/ask/image', formData),
+    /**
+     * 保存处理后的文本
+     * @param {Object} data - 请求数据
+     * @param {string} data.question - 问题文本
+     * @param {string} data.processedText - 处理后的文本
+     * @param {string} [data.subject] - 学科信息
+     * @returns {Promise} 保存结果
+     * @description 将处理后的文本保存到后端数据库
+     */
+    saveProcessedText: (data, options = {}) => {
+      const authStore = useAuthStore();
+      const userId = authStore.user?.id;
+      
+      const requestData = {
+        ...data,
+        userId: userId
+      };
+      
+      const rules = {
+        question: {
+          required: true,
+          type: 'string',
+          minLength: 1,
+          maxLength: 5000
+        },
+        processedText: {
+          required: true,
+          type: 'string',
+          minLength: 1,
+          maxLength: 50000
+        },
+        subject: {
+          type: 'string',
+          maxLength: 100
+        },
+        userId: {
+          required: false,
+          type: 'number'
+        }
+      };
+      
+      return request.post('/qa/save-processed-text', requestData, {
+        ...options,
+        rules
+      });
+    }
   },
   
   // 缓存管理
@@ -289,8 +597,46 @@ export const apiService = {
     // 点赞回答
     likeAnswer: (answerId) => request.post(`/senior/answers/${answerId}/like`),
     // 采纳回答
-    acceptAnswer: (questionId, answerId) => request.put(`/senior/questions/${questionId}/accept`, { answerId }),
+    acceptAnswer: (questionId, answerId) => {
+      if (!questionId || questionId === 'undefined') {
+        return Promise.reject(new Error('问题ID不能为空'));
+      }
+      return request.put(`/senior/questions/${questionId}/accept`, { answerId });
+    },
     // 提交追问
-    submitFollowUp: (questionId, content) => request.post(`/senior/questions/${questionId}/follow-up`, { content })
+    submitFollowUp: (questionId, content) => {
+      if (!questionId || questionId === 'undefined') {
+        return Promise.reject(new Error('问题ID不能为空'));
+      }
+      return request.post(`/senior/questions/${questionId}/follow-up`, { content });
+    }
+  },
+  
+  // 笔记相关
+  note: {
+    // 获取用户的所有笔记
+    getAllNotes: () => request.get('/notes'),
+    // 获取指定书籍的笔记
+    getNotesByBook: (bookId) => request.get(`/notes/book/${bookId}`),
+    // 获取指定章节的笔记
+    getNotesByChapter: (chapterId) => request.get(`/notes/chapter/${chapterId}`),
+    // 创建笔记
+    createNote: (data) => request.post('/notes', data),
+    // 更新笔记
+    updateNote: (noteId, data) => request.put(`/notes/${noteId}`, data),
+    // 删除笔记
+    deleteNote: (noteId) => request.delete(`/notes/${noteId}`),
+    // 获取笔记详情
+    getNoteById: (noteId) => request.get(`/notes/${noteId}`)
+  },
+  
+  // 学习相关
+  learning: {
+    // 保存学习进度
+    saveProgress: (data) => request.post('/learning/progress', data),
+    // 获取学习历史
+    getHistory: (params) => request.get('/learning/history', params),
+    // 获取学习曲线
+    getCurve: (bookId, params) => request.get(`/learning/curve?bookId=${bookId}`, params)
   }
 };

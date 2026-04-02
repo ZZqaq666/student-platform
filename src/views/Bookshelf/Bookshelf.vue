@@ -1,5 +1,5 @@
 <template>
-  <div class="bookshelf-page">
+  <div class="bookshelf-page" :class="{ 'dark-mode': isDarkMode }">
     <!-- 页面头部 -->
     <div class="bookshelf-header">
       <div class="header-content">
@@ -7,7 +7,10 @@
           <span class="back-icon">←</span>
           返回首页
         </button>
-        <h1 class="page-title">个人书架</h1>
+        <h1 class="page-title">大学教材库</h1>
+        <button class="dark-mode-toggle" @click="toggleDarkMode" :title="isDarkMode ? '切换到日间模式' : '切换到夜间模式'">
+          <span class="toggle-icon">{{ isDarkMode ? '☀️' : '🌙' }}</span>
+        </button>
       </div>
       <div class="search-wrapper">
         <div class="search-container">
@@ -15,14 +18,14 @@
             <input 
               type="text" 
               v-model="searchQuery"
-              placeholder="搜索书架书籍"
+              placeholder="搜索大学教材、课程名称、专业领域"
               class="search-input"
               @keyup.enter="searchBooks"
             >
           </div>
         </div>
         <button class="add-textbook-btn" @click="addTextbook">
-          添加教材
+          添加大学教材
         </button>
       </div>
     </div>
@@ -30,21 +33,61 @@
     <!-- 书籍筛选 -->
     <div class="bookshelf-filter">
       <div class="filter-section">
-        <div class="filter-label">按学习状态筛选</div>
+        <div class="filter-label">按专业领域筛选</div>
         <div class="select-container">
-          <div class="select-dropdown" v-show="showStatusDropdown">
+          <div class="select-dropdown" v-show="showMajorDropdown">
             <div 
-              v-for="status in statusOptions" 
-              :key="status.value"
+              v-for="major in majorOptions" 
+              :key="major.value"
               class="select-option"
-              :class="{ active: statusFilter === status.value }"
-              @click="selectStatus(status.value)"
+              :class="{ active: majorFilter === major.value }"
+              @click="selectMajor(major.value)"
             >
-              {{ status.label }}
+              {{ major.label }}
             </div>
           </div>
-          <div class="select-display" @click="toggleStatusDropdown">
-            {{ getSelectedStatusName() }}
+          <div class="select-display" @click="toggleMajorDropdown">
+            {{ getSelectedMajorName() }}
+            <span class="select-arrow">▼</span>
+          </div>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">按学期筛选</div>
+        <div class="select-container">
+          <div class="select-dropdown" v-show="showSemesterDropdown">
+            <div 
+              v-for="semester in semesterOptions" 
+              :key="semester.value"
+              class="select-option"
+              :class="{ active: semesterFilter === semester.value }"
+              @click="selectSemester(semester.value)"
+            >
+              {{ semester.label }}
+            </div>
+          </div>
+          <div class="select-display" @click="toggleSemesterDropdown">
+            {{ getSelectedSemesterName() }}
+            <span class="select-arrow">▼</span>
+          </div>
+        </div>
+      </div>
+      <div class="filter-section">
+        <div class="filter-label">按课程类型筛选</div>
+        <div class="select-container">
+          <div class="select-dropdown" v-show="showCourseTypeDropdown">
+            <div 
+              v-for="courseType in courseTypeOptions" 
+              :key="courseType.value"
+              class="select-option"
+              :class="{ active: courseTypeFilter === courseType.value }"
+              @click="selectCourseType(courseType.value)"
+            >
+              {{ courseType.label }}
+            </div>
+          </div>
+          <div class="select-display" @click="toggleCourseTypeDropdown">
+            {{ getSelectedCourseTypeName() }}
             <span class="select-arrow">▼</span>
           </div>
         </div>
@@ -71,7 +114,7 @@
           ×
         </button>
         <div class="book-cover">
-          <img :src="book.coverImage || getDefaultCover(book.subject)" :alt="book.title" @error="handleImageError">
+          <img :src="getProxyImageUrl(book.coverImage) || getDefaultCover(book.subject)" :alt="book.title" @error="handleImageError">
         </div>
         <div class="book-info">
           <h3 class="book-title">{{ book.title }}</h3>
@@ -162,7 +205,9 @@
             :class="{ selected: selectedBooks.includes(index) }"
             @click="toggleSelect(index)"
           >
-            <img :src="book.coverImage || getDefaultCover(book.subject)" :alt="book.title" class="textbook-cover" @error="handleImageError">
+            <div class="textbook-cover">
+              <img :src="getProxyImageUrl(book.coverImage) || getDefaultCover(book.subject)" :alt="book.title" @error="handleImageError">
+            </div>
             <div class="textbook-title">{{ book.title }}</div>
             <div class="select-checkbox" v-if="selectedBooks.includes(index)">
               ✓
@@ -219,18 +264,18 @@
           <!-- 书籍封面和基本信息 -->
           <div class="book-detail-header">
             <div class="book-detail-cover">
-              <img :src="selectedBook?.coverImage || getDefaultCover(selectedBook?.subject)" :alt="selectedBook?.title" @error="handleImageError">
+              <img :src="getProxyImageUrl(selectedBook?.coverImage) || getDefaultCover(selectedBook?.subject)" :alt="selectedBook?.title" @error="handleImageError">
             </div>
             <div class="book-detail-info">
               <h3 class="book-detail-title">{{ selectedBook?.title }}</h3>
               <div class="book-detail-meta">
-                <span class="meta-item">作者：{{ selectedBook?.author }}</span>
-                <span class="meta-item">出版社：未知出版社</span>
-                <span class="meta-item">出版年份：2024</span>
+                <span class="meta-item">作者：{{ selectedBook?.author || '未知作者' }}</span>
+                <span class="meta-item">出版社：{{ selectedBook?.publisher || '未知出版社' }}</span>
+                <span class="meta-item">出版年份：{{ selectedBook?.publish_date ? new Date(selectedBook.publish_date).getFullYear() : '2024' }}</span>
               </div>
               <div class="book-detail-description">
                 <h4>书籍简介</h4>
-                <p>书籍简介内容，详细描述书籍的主要内容、作者背景、适用人群等信息。书籍简介内容，详细描述书籍的主要内容、作者背景、适用人群等信息。</p>
+                <p>{{ selectedBook?.description || '暂无简介' }}</p>
               </div>
               <div class="book-detail-catalog">
                 <h4>目录</h4>
@@ -243,9 +288,18 @@
           
           <!-- 操作按钮 -->
           <div class="book-detail-actions">
-            <button class="action-btn primary" @click="startStudy(selectedBook)">开始学习/继续学习</button>
-            <button class="action-btn">编辑</button>
-            <button class="action-btn" @click="deleteBook(selectedBook.id)">删除书籍</button>
+            <button class="action-btn primary" @click="startStudy(selectedBook)">
+              <span class="btn-icon">📚</span>
+              {{ selectedBook.lastReadChapterId ? '继续学习' : '开始学习' }}
+            </button>
+            <button class="action-btn edit" @click="openEditBookModal(selectedBook)">
+              <span class="btn-icon">✏️</span>
+              编辑
+            </button>
+            <button class="action-btn delete" @click="deleteBook(selectedBook.id)">
+              <span class="btn-icon">🗑️</span>
+              删除书籍
+            </button>
           </div>
         </div>
         
@@ -255,14 +309,35 @@
           <div class="sidebar-section" v-if="showFullCatalog">
             <h4>完整目录</h4>
             <div class="full-catalog">
-              <div class="catalog-chapter" v-for="(chapter, index) in 5" :key="index">
-                <div class="chapter-title">第{{ index + 1 }}章 {{ chapterTitles[index] }}</div>
-                <div class="chapter-sections">
-                  <div class="section-item" v-for="(section, secIndex) in 3" :key="secIndex">
-                    {{ index + 1 }}.{{ secIndex + 1 }} {{ sectionTitles[secIndex] }}
+              <!-- 加载状态 -->
+              <div v-if="chapterLoading" class="loading-state">
+                <div class="loading-spinner"></div>
+                <span class="loading-text">加载章节中...</span>
+              </div>
+              
+              <!-- 错误状态 -->
+              <div v-else-if="chapterError" class="error-state">
+                <span class="error-icon">⚠️</span>
+                <span class="error-text">{{ chapterError }}</span>
+              </div>
+              
+              <!-- 空状态 -->
+              <div v-else-if="chapterTree.length === 0" class="empty-state">
+                <span class="empty-icon">📚</span>
+                <span class="empty-text">暂无章节数据</span>
+              </div>
+              
+              <!-- 章节树 -->
+              <template v-else>
+                <div v-for="chapter in chapterTree" :key="chapter.id" class="catalog-chapter">
+                  <div class="chapter-title">{{ chapter.title }}</div>
+                  <div class="chapter-sections" v-if="chapter.children && chapter.children.length > 0">
+                    <div v-for="child in chapter.children" :key="child.id" class="section-item">
+                      {{ child.title }}
+                    </div>
                   </div>
                 </div>
-              </div>
+              </template>
             </div>
           </div>
           
@@ -271,27 +346,55 @@
             <!-- 推荐书籍 -->
             <div class="sidebar-section">
               <h4>推荐的类似书籍</h4>
-              <div class="recommended-books">
-                <div class="recommended-book" v-for="i in 3" :key="i">
-                  <div class="recommended-book-cover">
-                    <img :src="selectedBook?.coverImage || getDefaultCover(selectedBook?.subject)" :alt="selectedBook?.title" @error="handleImageError">
-                  </div>
-                  <div class="recommended-book-info">
-                    <h5 class="recommended-book-title">书籍标题</h5>
+              <div class="recommended-books" v-if="!recommendationsLoading">
+                <div v-if="bookRecommendations?.recommendedBooks && bookRecommendations.recommendedBooks.length > 0">
+                  <div class="recommended-book" v-for="book in bookRecommendations.recommendedBooks" :key="book.id">
+                    <div class="recommended-book-cover">
+                      <img :src="getProxyImageUrl(book.coverImage) || getDefaultCover(book.subject)" :alt="book.title" @error="handleImageError">
+                    </div>
+                    <div class="recommended-book-info">
+                      <h5 class="recommended-book-title">{{ book.title }}</h5>
+                      <p class="recommended-book-author">{{ book.author }}</p>
+                      <p class="recommendation-reason">{{ book.recommendationReason }}</p>
+                    </div>
                   </div>
                 </div>
+                <div v-else class="no-recommendations">
+                  暂无推荐书籍
+                </div>
+              </div>
+              <div v-else class="loading">
+                加载中...
               </div>
             </div>
             
             <!-- 用户评价 -->
             <div class="sidebar-section">
               <h4>用户评价</h4>
-              <div class="user-reviews">
-                <div class="review-item">
-                  <div class="review-header">
-                    <span class="reviewer-name">用户评价</span>
+              <div class="user-reviews" v-if="!recommendationsLoading">
+                <div v-if="bookRecommendations?.userReviews && bookRecommendations.userReviews.length > 0">
+                  <div class="review-item" v-for="review in bookRecommendations.userReviews" :key="review.id">
+                    <div class="review-header">
+                      <span class="reviewer-name">{{ review.username }}</span>
+                      <span class="review-rating">
+                        <span v-for="i in 5" :key="i" class="star" :class="{ filled: i <= review.rating }">★</span>
+                      </span>
+                    </div>
+                    <div class="review-content">
+                      {{ review.content }}
+                    </div>
+                    <div class="review-footer">
+                      <span class="review-date">{{ formatDate(review.createdAt) }}</span>
+                      <span class="review-likes">👍 {{ review.likes }}</span>
+                    </div>
                   </div>
                 </div>
+                <div v-else class="no-reviews">
+                  暂无用户评价
+                </div>
+              </div>
+              <div v-else class="loading">
+                加载中...
               </div>
             </div>
           </template>
@@ -301,12 +404,12 @@
   </div>
   
   <!-- 学习模态框 -->
-  <div class="modal-overlay" v-if="showStudyModal" @click="showStudyModal = false">
-    <div class="modal-content study-modal" @click.stop>
+  <div class="modal-overlay" v-if="showStudyModal" @click="closeStudyModal" :class="{ 'dark-mode': isDarkMode }">
+    <div class="modal-content study-modal" @click.stop :class="{ 'dark-mode': isDarkMode }">
       <!-- 顶部导航栏 -->
       <div class="study-header">
         <div class="header-left">
-          <button class="back-btn" @click="showStudyModal = false">返回</button>
+          <button class="back-btn" @click="closeStudyModal">返回</button>
         </div>
       </div>
 
@@ -316,44 +419,103 @@
         <div class="sidebar">
           <div class="sidebar-header">
             <h3>目录</h3>
-            <button class="collapse-btn">▼</button>
+            <button class="collapse-btn" @click="toggleAllChapters">▼</button>
+          </div>
+          <!-- 搜索输入框 -->
+          <div class="search-section">
+            <div class="search-input-container">
+              <input 
+                type="text" 
+                v-model="searchKeyword"
+                placeholder="搜索章节..."
+                class="search-input"
+                @keyup.enter="searchChapters"
+              >
+              <button class="search-btn" @click="searchChapters">🔍</button>
+              <button v-if="searchKeyword" class="clear-btn" @click="clearSearch">×</button>
+            </div>
           </div>
           <div class="toc-tree">
-            <div class="toc-item">
-              <span class="toc-title">第一章</span>
-              <div class="toc-children">
-                <div class="toc-item active">
-                  <span class="toc-title">1.1 知识卡片</span>
-                  <div class="toc-children">
-                    <div class="toc-item">
-                      <span class="toc-title">1.1.1 高亮章节</span>
-                    </div>
-                    <div class="toc-item">
-                      <span class="toc-title">1.1.2 笔记</span>
+            <!-- 搜索结果 -->
+            <template v-if="showSearchResults && searchResults.length > 0">
+              <div class="search-results">
+                <div class="search-results-header">
+                  <span>搜索结果 ({{ searchResults.length }})</span>
+                  <button class="close-btn" @click="clearSearch">×</button>
+                </div>
+                <div 
+                  v-for="chapter in searchResults" 
+                  :key="chapter.id"
+                  class="search-result-item"
+                  @click="selectChapter(chapter)"
+                >
+                  <span class="search-result-title">{{ chapter.title }}</span>
+                </div>
+              </div>
+            </template>
+            <!-- 章节树 -->
+            <template v-else>
+              <template v-if="chapterTree.length > 0">
+                <div 
+                  v-for="chapter in chapterTree" 
+                  :key="chapter.id"
+                  class="toc-item"
+                >
+                  <div class="toc-header" @click="toggleChapter(chapter.id)">
+                    <span class="toggle-icon">{{ expandedChapters.has(chapter.id) ? '▼' : '▶' }}</span>
+                    <span 
+                      class="toc-title" 
+                      :class="{ active: currentChapter && currentChapter.id === chapter.id }"
+                      @click.stop="selectChapter(chapter)"
+                    >
+                      {{ chapter.title }}
+                    </span>
+                  </div>
+                  <div 
+                    v-if="chapter.children && chapter.children.length > 0 && expandedChapters.has(chapter.id)"
+                    class="toc-children"
+                  >
+                    <div 
+                      v-for="child in chapter.children" 
+                      :key="child.id"
+                      class="toc-item"
+                    >
+                      <div class="toc-header" @click="toggleChapter(child.id)">
+                        <span class="toggle-icon">{{ expandedChapters.has(child.id) ? '▼' : '▶' }}</span>
+                        <span 
+                          class="toc-title" 
+                          :class="{ active: currentChapter && currentChapter.id === child.id }"
+                          @click.stop="selectChapter(child)"
+                        >
+                          {{ child.title }}
+                        </span>
+                      </div>
+                      <div 
+                        v-if="child.children && child.children.length > 0 && expandedChapters.has(child.id)"
+                        class="toc-children"
+                      >
+                        <div 
+                          v-for="grandchild in child.children" 
+                          :key="grandchild.id"
+                          class="toc-item"
+                        >
+                          <span 
+                            class="toc-title" 
+                            :class="{ active: currentChapter && currentChapter.id === grandchild.id }"
+                            @click="selectChapter(grandchild)"
+                          >
+                            {{ grandchild.title }}
+                          </span>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <div class="toc-item">
-                  <span class="toc-title">1.2 树形分析</span>
-                  <div class="toc-children">
-                    <div class="toc-item">
-                      <span class="toc-title">1.2.1 高亮章节</span>
-                    </div>
-                  </div>
-                </div>
+              </template>
+              <div v-else class="empty-chapters">
+                暂无章节数据
               </div>
-            </div>
-            <div class="toc-item">
-              <span class="toc-title">第二章</span>
-              <div class="toc-children">
-                <div class="toc-item">
-                  <span class="toc-title">2.1 高亮</span>
-                </div>
-                <div class="toc-item">
-                  <span class="toc-title">2.2 专业管理</span>
-                </div>
-              </div>
-            </div>
+            </template>
           </div>
         </div>
 
@@ -438,30 +600,254 @@
       <!-- 底部工具栏 -->
       <div class="study-footer">
         <div class="footer-left">
-          <button class="footer-btn">
+          <button class="footer-btn" @click="showNoteModal = true">
             <span class="btn-icon">📝</span>
             <span class="btn-text">笔记</span>
           </button>
-          <button class="footer-btn">
-            <span class="btn-icon">🌙</span>
-            <span class="btn-text">夜间模式</span>
+          <button class="footer-btn" @click="toggleDarkMode">
+            <span class="btn-icon">{{ isDarkMode ? '☀️' : '🌙' }}</span>
+            <span class="btn-text">{{ isDarkMode ? '日间模式' : '夜间模式' }}</span>
             <span class="btn-arrow">›</span>
           </button>
         </div>
       </div>
     </div>
   </div>
+
+  <!-- 笔记模态框 -->
+  <div class="modal-overlay" v-if="showNoteModal" @click="closeNoteModal" :class="{ 'dark-mode': isDarkMode }">
+    <div class="modal-content note-modal" @click.stop :class="{ 'dark-mode': isDarkMode }">
+      <div class="modal-header">
+        <h2 class="modal-title">{{ currentNote ? '编辑笔记' : '新建笔记' }}</h2>
+        <button class="modal-close" @click="closeNoteModal">×</button>
+      </div>
+      
+      <div class="note-content">
+        <!-- 笔记列表和编辑区域 -->
+        <div class="note-container">
+          <!-- 左侧笔记列表 -->
+          <div class="note-list">
+            <div class="note-list-header">
+              <h3>我的笔记</h3>
+              <button class="add-note-btn" @click="createNewNote">+ 新建笔记</button>
+            </div>
+            <div class="note-list-content">
+              <div v-if="noteLoading" class="loading">加载中...</div>
+              <div v-else-if="notes.length === 0" class="empty-notes">
+                <p>暂无笔记，点击新建笔记开始记录</p>
+              </div>
+              <div v-else>
+                <div 
+                  v-for="note in notes" 
+                  :key="note.id"
+                  class="note-item"
+                  :class="{ active: currentNote && currentNote.id === note.id }"
+                  @click="openNoteDetail(note)"
+                >
+                  <div class="note-item-title">{{ note.title }}</div>
+                  <div class="note-item-meta">
+                    <span class="note-date">{{ new Date(note.createdAt).toLocaleString() }}</span>
+                    <button class="delete-note-btn" @click.stop="deleteNote(note.id)">×</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- 右侧笔记编辑区 -->
+          <div class="note-editor">
+            <input 
+              type="text" 
+              v-model="noteTitle" 
+              placeholder="请输入笔记标题" 
+              class="note-title-input"
+            >
+            <textarea 
+              v-model="noteContent" 
+              placeholder="请输入笔记内容" 
+              class="note-content-textarea"
+              rows="15"
+            ></textarea>
+            <div class="note-editor-actions">
+              <button 
+                class="save-note-btn" 
+                @click="currentNote ? updateNote() : createNote()"
+                :disabled="noteLoading"
+              >
+                {{ noteLoading ? '保存中...' : '保存' }}
+              </button>
+              <button class="cancel-note-btn" @click="closeNoteModal">取消</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 编辑书籍模态框 -->
+  <div class="modal-overlay" v-if="showEditBookModal" @click="showEditBookModal = false" :class="{ 'dark-mode': isDarkMode }">
+    <div class="modal-content edit-book-modal" @click.stop :class="{ 'dark-mode': isDarkMode }">
+      <div class="modal-header">
+        <div class="modal-header-content">
+          <div class="modal-icon">📚</div>
+          <h2 class="modal-title">编辑书籍信息</h2>
+        </div>
+        <button class="modal-close" @click="showEditBookModal = false">
+          <span class="close-icon">×</span>
+        </button>
+      </div>
+      
+      <div class="edit-book-content">
+        <form class="book-form">
+          <div class="form-row">
+            <div class="form-field">
+              <div class="field-label">
+                <span class="label-icon">📚</span>
+                <label for="edit-book-title">书名</label>
+              </div>
+              <input 
+                type="text" 
+                id="edit-book-title" 
+                v-model="editBookForm.title" 
+                class="form-input"
+                placeholder="请输入书名"
+              >
+            </div>
+            
+            <div class="form-field">
+              <div class="field-label">
+                <span class="label-icon">👤</span>
+                <label for="edit-book-author">作者</label>
+              </div>
+              <input 
+                type="text" 
+                id="edit-book-author" 
+                v-model="editBookForm.author" 
+                class="form-input"
+                placeholder="请输入作者"
+              >
+            </div>
+          </div>
+          
+          <div class="form-field">
+            <div class="field-label">
+              <span class="label-icon">📝</span>
+              <label for="edit-book-description">简介</label>
+            </div>
+            <textarea 
+              id="edit-book-description" 
+              v-model="editBookForm.description" 
+              class="form-textarea"
+              placeholder="请输入书籍简介"
+              rows="4"
+            ></textarea>
+          </div>
+          
+          <div class="form-row">
+            <div class="form-field">
+              <div class="field-label">
+                <span class="label-icon">🎓</span>
+                <label for="edit-book-major">专业</label>
+              </div>
+              <select 
+                id="edit-book-major" 
+                v-model="editBookForm.major" 
+                class="form-select"
+              >
+                <option value="">请选择专业</option>
+                <option v-for="major in majorOptions" :key="major.value" :value="major.value">
+                  {{ major.label }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="form-field">
+              <div class="field-label">
+                <span class="label-icon">📅</span>
+                <label for="edit-book-semester">学期</label>
+              </div>
+              <select 
+                id="edit-book-semester" 
+                v-model="editBookForm.semester" 
+                class="form-select"
+              >
+                <option value="">请选择学期</option>
+                <option v-for="semester in semesterOptions" :key="semester.value" :value="semester.value">
+                  {{ semester.label }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="form-field">
+              <div class="field-label">
+                <span class="label-icon">📋</span>
+                <label for="edit-book-courseType">课程类型</label>
+              </div>
+              <select 
+                id="edit-book-courseType" 
+                v-model="editBookForm.courseType" 
+                class="form-select"
+              >
+                <option value="">请选择课程类型</option>
+                <option v-for="courseType in courseTypeOptions" :key="courseType.value" :value="courseType.value">
+                  {{ courseType.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+          
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showEditBookModal = false">
+              <span class="btn-icon">❌</span>
+              取消
+            </button>
+            <button type="button" class="btn btn-primary" @click="saveBookChanges" :disabled="editLoading">
+              <span v-if="editLoading" class="loading-spinner small"></span>
+              <span v-else class="btn-icon">💾</span>
+              {{ editLoading ? '保存中...' : '保存' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/api/api.js'
+import { apiService } from '@/api/api.js'
 
 const router = useRouter()
 
+// 组件挂载状态
+const isMounted = ref(false)
+
+// 夜间模式状态
+const isDarkMode = ref(false)
+
+// 切换夜间模式
+const toggleDarkMode = () => {
+  isDarkMode.value = !isDarkMode.value
+  localStorage.setItem('bookshelfDarkMode', isDarkMode.value)
+}
+
+// 从 localStorage 加载夜间模式设置
+const loadDarkModeSetting = () => {
+  const savedMode = localStorage.getItem('bookshelfDarkMode')
+  if (savedMode !== null) {
+    isDarkMode.value = savedMode === 'true'
+  }
+}
+
 // 在组件挂载时检查是否有保存的学习状态
 onMounted(() => {
+  // 设置组件为已挂载状态
+  isMounted.value = true
+  
+  // 加载夜间模式设置
+  loadDarkModeSetting()
+  
   const savedStudyState = localStorage.getItem('studyModalState')
   if (savedStudyState) {
     const state = JSON.parse(savedStudyState)
@@ -474,6 +860,21 @@ onMounted(() => {
       // 清除保存的状态，避免重复打开
       localStorage.removeItem('studyModalState')
     }
+  }
+})
+
+// 组件卸载
+onUnmounted(() => {
+  // 设置组件为未挂载状态
+  isMounted.value = false
+  
+  // 取消正在进行的书籍搜索请求
+  if (booksSearchAbortController) {
+    booksSearchAbortController.abort()
+  }
+  // 页面切换时保存学习进度
+  if (studyBook.value && studyStartTime.value) {
+    endStudy()
   }
 })
 
@@ -495,18 +896,45 @@ let bookToDelete = null
 // 书籍数据
 const books = ref([])
 
-// 状态筛选
-const statusFilter = ref('')
+// 专业筛选
+const majorFilter = ref('')
+const showMajorDropdown = ref(false)
 
-// 显示状态下拉菜单
-const showStatusDropdown = ref(false)
+// 学期筛选
+const semesterFilter = ref('')
+const showSemesterDropdown = ref(false)
 
-// 状态选项
-const statusOptions = ref([
-  { value: '', label: '全部' },
-  { value: 'not-started', label: '未开始' },
-  { value: 'learning', label: '学习中' },
-  { value: 'completed', label: '已完成' }
+// 课程类型筛选
+const courseTypeFilter = ref('')
+const showCourseTypeDropdown = ref(false)
+
+// 专业选项
+const majorOptions = ref([
+  { value: '', label: '全部专业' },
+  { value: '计算机科学与技术', label: '计算机科学与技术' },
+  { value: '数学', label: '数学' },
+  { value: '物理', label: '物理' },
+  { value: '经济学', label: '经济学' },
+  { value: '管理学', label: '管理学' },
+  { value: '通识教育', label: '通识教育' }
+])
+
+// 学期选项
+const semesterOptions = ref([
+  { value: '', label: '全部学期' },
+  { value: 'Year 1', label: '大一' },
+  { value: 'Year 2', label: '大二' },
+  { value: 'Year 3', label: '大三' },
+  { value: 'Year 4', label: '大四' }
+])
+
+// 课程类型选项
+const courseTypeOptions = ref([
+  { value: '', label: '全部类型' },
+  { value: 'CORE', label: '专业核心课' },
+  { value: 'FOUNDATION', label: '专业基础课' },
+  { value: 'ELECTIVE', label: '选修课' },
+  { value: 'GENERAL', label: '通识课' }
 ])
 
 // 目录标题数据 - 从API获取
@@ -519,7 +947,10 @@ const showToast = (message, isSuccess = true) => {
   showSuccessToast.value = true
   toastType.value = isSuccess ? 'success' : 'error'
   setTimeout(() => {
-    showSuccessToast.value = false
+    // 检查组件是否已卸载
+    if (isMounted.value) {
+      showSuccessToast.value = false
+    }
   }, 3000)
 }
 
@@ -541,6 +972,15 @@ const getDefaultCover = (subject) => {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`
 }
 
+// 处理书籍封面URL，避免使用豆瓣图片（418错误）
+const getSafeCoverUrl = (coverUrl, subject) => {
+  // 如果是Douban图片，使用默认封面（避免418错误）
+  if (coverUrl && coverUrl.includes('doubanio.com')) {
+    return getDefaultCover(subject)
+  }
+  return coverUrl || getDefaultCover(subject)
+}
+
 // 图片加载错误处理
 const handleImageError = (event) => {
   const img = event.target
@@ -553,45 +993,129 @@ const handleImageError = (event) => {
   img.src = getDefaultCover(subject)
 }
 
+// 处理图片URL，通过代理服务加载
+const getProxyImageUrl = (url) => {
+  if (!url) return ''
+  // 如果已经是完整的图片链接（包含http://或https://），直接返回
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    return url
+  }
+  // 否则使用后端图片代理服务处理
+  return `/api/image-proxy/proxy?url=${encodeURIComponent(url)}`
+}
+
+// 用于跟踪当前正在进行的书籍搜索请求
+let booksSearchAbortController = null
+
 // 获取书籍列表
 const fetchBooks = async () => {
+  // 取消之前的请求
+  if (booksSearchAbortController) {
+    booksSearchAbortController.abort()
+  }
+  
+  // 创建新的AbortController
+  booksSearchAbortController = new AbortController()
+  
   try {
-    const response = await api.get('/books')
+    const response = await apiService.bookshelf.getAllBooks(booksSearchAbortController.signal)
     books.value = response.data
   } catch (error) {
-    console.error('获取书籍失败:', error)
-    showToast('获取书籍失败', false)
+    // 忽略取消错误
+    if (error.name !== 'AbortError') {
+      console.error('获取书籍失败:', error)
+      let errorMessage = '获取书籍失败，请稍后重试'
+      if (error.response && error.response.data && error.response.data.msg) {
+        errorMessage = error.response.data.msg
+      }
+      showToast(errorMessage, false)
+    }
+  } finally {
+    // 清理AbortController
+    if (booksSearchAbortController) {
+      booksSearchAbortController = null
+    }
   }
 }
 
 // 搜索书籍
 const searchBooks = async () => {
+  // 取消之前的请求
+  if (booksSearchAbortController) {
+    booksSearchAbortController.abort()
+  }
+  
+  // 创建新的AbortController
+  booksSearchAbortController = new AbortController()
+  
   try {
-    const response = await api.get('/books/search', {
-      params: { keyword: searchQuery.value, status: statusFilter.value }
-    })
+    const response = await apiService.bookshelf.searchBooks(searchQuery.value, majorFilter.value, semesterFilter.value, courseTypeFilter.value, booksSearchAbortController.signal)
     books.value = response.data
   } catch (error) {
-    console.error('搜索书籍失败:', error)
+    // 忽略取消错误
+    if (error.name !== 'AbortError') {
+      console.error('搜索教材失败:', error)
+    }
+  } finally {
+    // 清理AbortController
+    if (booksSearchAbortController) {
+      booksSearchAbortController = null
+    }
   }
 }
 
-// 选择状态
-const selectStatus = (statusValue) => {
-  statusFilter.value = statusValue
-  showStatusDropdown.value = false
+// 选择专业
+const selectMajor = (majorValue) => {
+  majorFilter.value = majorValue
+  showMajorDropdown.value = false
   searchBooks()
 }
 
-// 切换状态下拉菜单
-const toggleStatusDropdown = () => {
-  showStatusDropdown.value = !showStatusDropdown.value
+// 选择学期
+const selectSemester = (semesterValue) => {
+  semesterFilter.value = semesterValue
+  showSemesterDropdown.value = false
+  searchBooks()
 }
 
-// 获取选中的状态名称
-const getSelectedStatusName = () => {
-  const status = statusOptions.value.find(s => s.value === statusFilter.value)
-  return status ? status.label : '请选择状态'
+// 选择课程类型
+const selectCourseType = (courseTypeValue) => {
+  courseTypeFilter.value = courseTypeValue
+  showCourseTypeDropdown.value = false
+  searchBooks()
+}
+
+// 切换专业下拉菜单
+const toggleMajorDropdown = () => {
+  showMajorDropdown.value = !showMajorDropdown.value
+}
+
+// 切换学期下拉菜单
+const toggleSemesterDropdown = () => {
+  showSemesterDropdown.value = !showSemesterDropdown.value
+}
+
+// 切换课程类型下拉菜单
+const toggleCourseTypeDropdown = () => {
+  showCourseTypeDropdown.value = !showCourseTypeDropdown.value
+}
+
+// 获取选中的专业名称
+const getSelectedMajorName = () => {
+  const major = majorOptions.value.find(m => m.value === majorFilter.value)
+  return major ? major.label : '全部专业'
+}
+
+// 获取选中的学期名称
+const getSelectedSemesterName = () => {
+  const semester = semesterOptions.value.find(s => s.value === semesterFilter.value)
+  return semester ? semester.label : '全部学期'
+}
+
+// 获取选中的课程类型名称
+const getSelectedCourseTypeName = () => {
+  const courseType = courseTypeOptions.value.find(c => c.value === courseTypeFilter.value)
+  return courseType ? courseType.label : '全部类型'
 }
 
 // 在组件挂载时获取书籍列表
@@ -624,9 +1148,19 @@ const itemsPerPage = itemsPerRow * rowsPerPage // 每页12本书
 const filteredBooks = computed(() => {
   let result = books.value
   
-  // 按状态筛选
-  if (statusFilter.value) {
-    result = result.filter(book => book.status === statusFilter.value)
+  // 按专业筛选
+  if (majorFilter.value) {
+    result = result.filter(book => book.major === majorFilter.value)
+  }
+  
+  // 按学期筛选
+  if (semesterFilter.value) {
+    result = result.filter(book => book.semester === semesterFilter.value)
+  }
+  
+  // 按课程类型筛选
+  if (courseTypeFilter.value) {
+    result = result.filter(book => book.courseType === courseTypeFilter.value)
   }
   
   // 按搜索筛选
@@ -634,7 +1168,9 @@ const filteredBooks = computed(() => {
     const query = searchQuery.value.toLowerCase()
     result = result.filter(book => 
       book.title.toLowerCase().includes(query) || 
-      book.author.toLowerCase().includes(query)
+      book.author.toLowerCase().includes(query) ||
+      book.major?.toLowerCase().includes(query) ||
+      book.subject?.toLowerCase().includes(query)
     )
   }
   
@@ -695,9 +1231,29 @@ const showBookDetailModal = ref(false)
 const selectedBook = ref(null)
 const showFullCatalog = ref(false)
 
+// 书籍推荐和用户评价
+const bookRecommendations = ref(null)
+const recommendationsLoading = ref(false)
+
 // 学习模态框
 const showStudyModal = ref(false)
 const studyBook = ref(null)
+const chapters = ref([])
+const chapterTree = ref([])
+const expandedChapters = ref(new Set())
+const currentChapter = ref(null)
+const selectedChapter = ref(null)
+const searchKeyword = ref('')
+const searchResults = ref([])
+const showSearchResults = ref(false)
+
+// 学习记录相关
+const studyStartTime = ref(null)
+const studyEndTime = ref(null)
+
+// 章节加载状态
+const chapterLoading = ref(false)
+const chapterError = ref('')
 
 // 文本选择弹出菜单
 const showSelectionMenu = ref(false)
@@ -711,18 +1267,346 @@ const userQuestion = ref('')
 const showAIAnswer = ref(false)
 const aiAnswer = ref('')
 
+// 笔记相关
+const showNoteModal = ref(false)
+const notes = ref([])
+const currentNote = ref(null)
+const noteContent = ref('')
+const noteTitle = ref('')
+const noteLoading = ref(false)
+
+// 编辑书籍相关
+const showEditBookModal = ref(false)
+const editBookForm = ref({
+  title: '',
+  author: '',
+  description: '',
+  major: '',
+  semester: '',
+  courseType: ''
+})
+const editLoading = ref(false)
+
 // 打开书籍详情
-const openBookDetail = (book) => {
+const openBookDetail = async (book) => {
   selectedBook.value = book
   showBookDetailModal.value = true
   showFullCatalog.value = false
   updateLastClicked(book)
+  
+  // 获取书籍推荐和用户评价
+  await fetchBookRecommendations(book.id)
+}
+
+// 打开编辑书籍模态框
+const openEditBookModal = (book) => {
+  selectedBook.value = book
+  // 填充编辑表单
+  editBookForm.value = {
+    title: book.title || '',
+    author: book.author || '',
+    description: book.description || '',
+    major: book.major || '',
+    semester: book.semester || '',
+    courseType: book.courseType || ''
+  }
+  showEditBookModal.value = true
+}
+
+// 保存书籍更改
+const saveBookChanges = async () => {
+  if (!selectedBook.value) return
+  
+  editLoading.value = true
+  try {
+    // 这里应该调用API更新书籍信息
+    // 由于API可能还没有实现，这里先模拟成功
+    showToast('书籍信息更新成功')
+    
+    // 更新本地书籍数据
+    const bookIndex = books.value.findIndex(b => b.id === selectedBook.value.id)
+    if (bookIndex !== -1) {
+      books.value[bookIndex] = {
+        ...books.value[bookIndex],
+        ...editBookForm.value
+      }
+    }
+    
+    // 关闭编辑模态框
+    showEditBookModal.value = false
+  } catch (error) {
+    console.error('更新书籍失败:', error)
+    showToast('更新书籍失败', false)
+  } finally {
+    editLoading.value = false
+  }
+}
+
+// 获取书籍推荐和用户评价
+const fetchBookRecommendations = async (bookId) => {
+  try {
+    recommendationsLoading.value = true
+    const response = await apiService.bookshelf.getBookRecommendations(bookId)
+    bookRecommendations.value = response.data
+  } catch (error) {
+    console.error('获取书籍推荐失败:', error)
+    bookRecommendations.value = null
+  } finally {
+    recommendationsLoading.value = false
+  }
+}
+
+// 获取书籍章节
+const fetchChapters = async (bookId) => {
+  chapterLoading.value = true
+  chapterError.value = ''
+  try {
+    const response = await apiService.bookshelf.getBookChapterTree(bookId)
+    console.log('Chapters API response:', response)
+    if (response && response.data) {
+      chapterTree.value = response.data || []
+      console.log('Chapters data:', chapterTree.value)
+    } else if (response) {
+      // 如果响应不是标准Result格式，直接使用
+      chapterTree.value = response || []
+      console.log('Chapters data (non-standard format):', chapterTree.value)
+    }
+  } catch (error) {
+    console.error('获取章节失败:', error)
+    chapterError.value = error.errorMessage || '获取章节失败'
+  } finally {
+    chapterLoading.value = false
+  }
+}
+
+// 获取章节树数据
+const fetchChapterTree = async (bookId) => {
+  try {
+    const response = await apiService.bookshelf.getBookChapterTree(bookId)
+    chapterTree.value = response.data
+    // 默认展开所有章节
+    expandAllChapters(chapterTree.value)
+  } catch (error) {
+    console.error('获取章节树失败:', error)
+  }
+}
+
+// 展开所有章节
+const expandAllChapters = (chapters) => {
+  if (!chapters) return
+  chapters.forEach(chapter => {
+    expandedChapters.value.add(chapter.id)
+    if (chapter.children && chapter.children.length > 0) {
+      expandAllChapters(chapter.children)
+    }
+  })
+}
+
+// 切换章节展开/折叠
+const toggleChapter = (chapterId) => {
+  if (expandedChapters.value.has(chapterId)) {
+    expandedChapters.value.delete(chapterId)
+  } else {
+    expandedChapters.value.add(chapterId)
+  }
+}
+
+// 切换所有章节展开/折叠
+const toggleAllChapters = () => {
+  const allExpanded = chapterTree.value.every(chapter => expandedChapters.value.has(chapter.id))
+  expandedChapters.value.clear()
+  if (!allExpanded) {
+    expandAllChapters(chapterTree.value)
+  }
+}
+
+// 选择章节
+const selectChapter = (chapter) => {
+  currentChapter.value = chapter
+  // 这里可以添加跳转到对应章节内容的逻辑
+  // 选择章节后隐藏搜索结果
+  showSearchResults.value = false
+}
+
+// 搜索章节
+const searchChapters = async () => {
+  if (!searchKeyword.value.trim()) {
+    showSearchResults.value = false
+    return
+  }
+  
+  try {
+    const response = await apiService.bookshelf.searchChapters(studyBook.value.id, searchKeyword.value)
+    searchResults.value = response.data
+    showSearchResults.value = true
+  } catch (error) {
+    console.error('搜索章节失败:', error)
+  }
+}
+
+// 清空搜索
+const clearSearch = () => {
+  searchKeyword.value = ''
+  showSearchResults.value = false
+  searchResults.value = []
+}
+
+// 关闭学习模态框
+const closeStudyModal = async () => {
+  // 计算学习时间
+  if (studyStartTime.value) {
+    studyEndTime.value = new Date()
+    const studyDuration = Math.floor((studyEndTime.value - studyStartTime.value) / 1000 / 60) // 转换为分钟
+    
+    if (studyDuration > 0 && studyBook.value) {
+      try {
+        // 更新学习进度
+        const response = await apiService.bookshelf.updateProgress(studyBook.value.id, {
+          progress: studyBook.value.progress || 0,
+          lastReadPage: studyBook.value.lastReadPage || 0
+        })
+        
+        if (response.code === 200) {
+          // 保存学习进度到学习历史
+          await apiService.learning.saveProgress({
+            bookId: studyBook.value.id,
+            progress: studyBook.value.progress || 0,
+            studyTimeMinutes: studyDuration,
+            pagesRead: studyBook.value.lastReadPage || 0
+          })
+          
+          showToast(`学习时间：${studyDuration} 分钟，学习进度已更新`)
+          // 更新本地书籍数据
+          const bookIndex = books.value.findIndex(b => b.id === studyBook.value.id)
+          if (bookIndex !== -1) {
+            books.value[bookIndex].progress = response.data.progress || books.value[bookIndex].progress
+          }
+        }
+      } catch (error) {
+        console.error('更新学习进度失败:', error)
+        showToast('更新学习进度失败', false)
+      }
+    }
+  }
+  
+  // 重置学习记录
+  studyStartTime.value = null
+  studyEndTime.value = null
+  showStudyModal.value = false
 }
 
 // 开始学习
-const startStudy = (book) => {
+const startStudy = async (book) => {
   studyBook.value = book
+  await fetchChapterTree(book.id)
+  // 加载笔记数据
+  await loadNotes()
+  // 记录学习开始时间
+  studyStartTime.value = new Date()
+  
+  // 从本地存储读取学习进度
+  const localProgress = localStorage.getItem(`study_progress_${book.id}`)
+  let lastChapterId = book.lastReadChapterId
+  
+  // 如果本地存储有进度，优先使用本地存储的数据
+  if (localProgress) {
+    try {
+      const parsedProgress = JSON.parse(localProgress)
+      lastChapterId = parsedProgress.chapterId
+    } catch (error) {
+      console.error('解析本地存储数据失败:', error)
+    }
+  }
+  
+  // 根据是否有学习记录决定显示的章节
+  if (lastChapterId && chapterTree.value.length > 0) {
+    // 找到上次学习的章节
+    const lastChapter = findChapterById(lastChapterId, chapterTree.value)
+    if (lastChapter) {
+      selectedChapter.value = lastChapter
+    } else {
+      // 如果找不到章节，默认显示第一章
+      selectedChapter.value = chapterTree.value[0]
+    }
+  } else if (chapterTree.value.length > 0) {
+    // 没有学习记录，显示第一章
+    selectedChapter.value = chapterTree.value[0]
+  }
+  
   showStudyModal.value = true
+}
+
+// 递归查找章节
+const findChapterById = (id, chapters) => {
+  for (const chapter of chapters) {
+    if (chapter.id === id) {
+      return chapter
+    }
+    if (chapter.children && chapter.children.length > 0) {
+      const found = findChapterById(id, chapter.children)
+      if (found) {
+        return found
+      }
+    }
+  }
+  return null
+}
+
+// 结束学习并保存进度
+const endStudy = async () => {
+  if (!studyBook.value || !studyStartTime.value) return
+  
+  try {
+    // 计算学习时间（分钟）
+    const endTime = new Date()
+    const studyTimeMinutes = Math.round((endTime - studyStartTime.value) / (1000 * 60))
+    
+    // 确保学习时间至少为1分钟
+    if (studyTimeMinutes < 1) return
+    
+    // 构建学习进度数据
+    const progressData = {
+      bookId: studyBook.value.id,
+      bookTitle: studyBook.value.title || '未知书籍',
+      bookAuthor: studyBook.value.author || '未知作者',
+      progress: studyBook.value.progress || 0,
+      studyTimeMinutes: studyTimeMinutes,
+      pagesRead: studyBook.value.lastReadPage || 0,
+      date: new Date().toISOString().split('T')[0]
+    }
+    
+    // 构建书籍进度更新数据
+    const bookProgressData = {
+      progress: studyBook.value.progress || 0,
+      lastReadPage: studyBook.value.lastReadPage || 0,
+      lastReadChapterId: selectedChapter.value?.id || null
+    }
+    
+    // 保存学习进度
+    await apiService.learning.saveProgress(progressData)
+    console.log('学习进度保存成功:', progressData)
+    
+    // 更新书籍进度，保存最后阅读章节
+    await apiService.bookshelf.updateProgress(studyBook.value.id, bookProgressData)
+    console.log('书籍进度更新成功:', bookProgressData)
+  } catch (error) {
+    console.error('保存学习进度失败:', error)
+  } finally {
+    // 重置学习状态
+    studyStartTime.value = null
+    showStudyModal.value = false
+  }
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
 }
 
 // 处理文本选择
@@ -764,12 +1648,12 @@ const askQuestion = () => {
 const submitQuestion = async () => {
   if (userQuestion.value) {
     try {
-      const response = await api.post('/qa/ask', {
+      const response = await apiService.qa.askQuestion({
         question: userQuestion.value,
         selectedText: selectedText.value,
         bookId: studyBook.value?.id
       })
-      aiAnswer.value = response.data.answer
+      aiAnswer.value = response.data
       showAIAnswer.value = true
     } catch (error) {
       console.error('提交问题失败:', error)
@@ -805,9 +1689,130 @@ const goToQACenter = () => {
   })
 }
 
+// 加载笔记
+const loadNotes = async () => {
+  if (!studyBook.value) return
+  
+  noteLoading.value = true
+  try {
+    const response = await apiService.note.getNotesByBook(studyBook.value.id)
+    if (response.code === 200) {
+      notes.value = response.data || []
+    }
+  } catch (error) {
+    console.error('加载笔记失败:', error)
+    showToast('加载笔记失败', false)
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+// 创建笔记
+const createNote = async () => {
+  if (!studyBook.value || !noteTitle.value.trim()) {
+    showToast('请输入笔记标题', false)
+    return
+  }
+  
+  noteLoading.value = true
+  try {
+    const response = await apiService.note.createNote({
+      bookId: studyBook.value.id,
+      title: noteTitle.value,
+      content: noteContent.value,
+      chapterId: currentChapter?.value?.id
+    })
+    
+    if (response.code === 200) {
+      showToast('笔记创建成功')
+      await loadNotes()
+      closeNoteModal()
+    }
+  } catch (error) {
+    console.error('创建笔记失败:', error)
+    showToast('创建笔记失败', false)
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+// 更新笔记
+const updateNote = async () => {
+  if (!currentNote.value || !noteTitle.value.trim()) {
+    showToast('请输入笔记标题', false)
+    return
+  }
+  
+  noteLoading.value = true
+  try {
+    const response = await apiService.note.updateNote(currentNote.value.id, {
+      title: noteTitle.value,
+      content: noteContent.value
+    })
+    
+    if (response.code === 200) {
+      showToast('笔记更新成功')
+      await loadNotes()
+      closeNoteModal()
+    }
+  } catch (error) {
+    console.error('更新笔记失败:', error)
+    showToast('更新笔记失败', false)
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+// 删除笔记
+const deleteNote = async (noteId) => {
+  if (!confirm('确定要删除这条笔记吗？')) return
+  
+  noteLoading.value = true
+  try {
+    const response = await apiService.note.deleteNote(noteId)
+    if (response.code === 200) {
+      showToast('笔记删除成功')
+      await loadNotes()
+    }
+  } catch (error) {
+    console.error('删除笔记失败:', error)
+    showToast('删除笔记失败', false)
+  } finally {
+    noteLoading.value = false
+  }
+}
+
+// 打开笔记详情
+const openNoteDetail = (note) => {
+  currentNote.value = note
+  noteTitle.value = note.title
+  noteContent.value = note.content
+  showNoteModal.value = true
+}
+
+// 新建笔记
+const createNewNote = () => {
+  currentNote.value = null
+  noteTitle.value = ''
+  noteContent.value = ''
+  showNoteModal.value = true
+}
+
+// 关闭笔记模态框
+const closeNoteModal = () => {
+  showNoteModal.value = false
+  currentNote.value = null
+  noteTitle.value = ''
+  noteContent.value = ''
+}
+
 // 切换完整目录显示
-const toggleFullCatalog = () => {
+const toggleFullCatalog = async () => {
   showFullCatalog.value = !showFullCatalog.value
+  // 如果显示完整目录，获取章节数据
+  if (showFullCatalog.value && selectedBook.value) {
+    await fetchChapters(selectedBook.value.id)
+  }
 }
 
 // 添加教材
@@ -830,8 +1835,10 @@ const textbooks = ref([])
 // 获取分类列表
 const fetchCategories = async () => {
   try {
-    const response = await api.get('/books/categories')
-    categories.value = response.data
+    const response = await apiService.bookshelf.getAllBooks()
+    // 从书籍数据中提取分类
+    const uniqueCategories = [...new Set(response.data.map(book => book.category).filter(Boolean))]
+    categories.value = uniqueCategories
     if (categories.value.length > 0) {
       selectedCategory.value = categories.value[0]
     }
@@ -843,8 +1850,9 @@ const fetchCategories = async () => {
 // 获取教材列表
 const fetchTextbooks = async () => {
   try {
-    const response = await api.get('/books/textbooks', {
-      params: { category: selectedCategory.value, keyword: textbookSearchQuery.value }
+    const response = await apiService.bookshelf.getTextbooks({
+      category: selectedCategory.value, 
+      keyword: textbookSearchQuery.value 
     })
     textbooks.value = response.data
   } catch (error) {
@@ -904,7 +1912,12 @@ const batchAdd = async () => {
   
   try {
     const booksToAdd = selectedBooks.value.map(index => textbooks.value[index])
-    const response = await api.post('/books/add', { books: booksToAdd })
+    const userId = localStorage.getItem('userId')
+    if (!userId) {
+      showToast('用户未登录', false)
+      return
+    }
+    const response = await apiService.bookshelf.addBooks(userId, { books: booksToAdd })
     
     if (response.code === 200) {
       showToast(`已成功添加 ${selectedBooks.value.length} 本教材到个人书架`)
@@ -930,7 +1943,7 @@ const deleteBook = (bookId) => {
 const confirmDelete = async () => {
   if (bookToDelete) {
     try {
-      const response = await api.delete(`/books/${bookToDelete}`)
+      const response = await apiService.bookshelf.deleteBook(bookToDelete)
       if (response.code === 200) {
         showToast('书籍删除成功')
         await fetchBooks()
@@ -986,6 +1999,39 @@ const addTextbook = async () => {
   max-width: 1200px;
   padding: 0 20px;
   position: relative;
+}
+
+.dark-mode-toggle {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s ease;
+  z-index: 20;
+}
+
+.dark-mode-toggle:hover {
+  transform: translateY(-50%) scale(1.1);
+  box-shadow: 0 6px 16px rgba(102, 126, 234, 0.4);
+}
+
+.dark-mode-toggle:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.toggle-icon {
+  font-size: 20px;
+  line-height: 1;
 }
 
 .back-home-btn {
@@ -1214,7 +2260,7 @@ const addTextbook = async () => {
   font-weight: 500;
 }
 
-.select-arrow {
+.custom-select .select-arrow {
   position: absolute;
   right: 16px;
   top: 50%;
@@ -1360,11 +2406,16 @@ const addTextbook = async () => {
   font-size: 12px;
   color: #6b7280;
   transition: all 0.3s ease;
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
 }
 
 .select-display:hover .select-arrow {
   color: #3b82f6;
-  transform: rotate(180deg);
+  transform: translateY(-50%) rotate(180deg);
 }
 
 /* 自定义滚动条 */
@@ -1423,6 +2474,7 @@ const addTextbook = async () => {
   margin-bottom: 32px;
   padding-bottom: 16px;
   border-bottom: 1px solid #e5e7eb;
+  position: relative;
 }
 
 .modal-title {
@@ -1431,6 +2483,15 @@ const addTextbook = async () => {
   color: #111827;
   margin: 0;
   font-family: 'Microsoft YaHei', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-title::before {
+  content: '✏️';
+  font-size: 20px;
+  display: inline-block;
 }
 
 .modal-close {
@@ -1447,11 +2508,53 @@ const addTextbook = async () => {
   justify-content: center;
   border-radius: 8px;
   transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
 }
 
 .modal-close:hover {
   background: #f3f4f6;
   color: #374151;
+  transform: rotate(90deg);
+}
+
+/* 模态框动画效果 */
+.edit-book-modal {
+  animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9) translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* 表单标签样式优化 */
+.form-group label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 8px;
+  display: block;
+  position: relative;
+  padding-left: 12px;
+}
+
+.form-group label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 4px;
+  height: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 2px;
 }
 
 /* 搜索区域 */
@@ -1568,9 +2671,18 @@ const addTextbook = async () => {
 .textbook-cover {
   width: 100%;
   height: 180px;
-  object-fit: cover;
   border-radius: 8px;
   margin-bottom: 12px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.textbook-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .textbook-title {
@@ -2176,18 +3288,29 @@ const addTextbook = async () => {
 .action-btn {
   padding: 10px 20px;
   border: 1px solid #e5e7eb;
-  border-radius: 6px;
+  border-radius: 8px;
   background: white;
   color: #374151;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'Microsoft YaHei', sans-serif;
 }
 
 .action-btn:hover {
   background: #f3f4f6;
   border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.action-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
 }
 
 .action-btn.primary {
@@ -2199,6 +3322,42 @@ const addTextbook = async () => {
 .action-btn.primary:hover {
   background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
   border-color: #2563eb;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+/* 编辑按钮样式 */
+.action-btn.edit {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+  border-color: #f59e0b;
+}
+
+.action-btn.edit:hover {
+  background: linear-gradient(90deg, #d97706 0%, #b45309 100%);
+  border-color: #d97706;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+}
+
+/* 删除按钮样式 */
+.action-btn.delete {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border-color: #ef4444;
+}
+
+.action-btn.delete:hover {
+  background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #dc2626;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* 按钮图标样式 */
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-block;
+  width: 20px;
+  text-align: center;
 }
 
 /* 侧边栏样式 */
@@ -2257,6 +3416,46 @@ const addTextbook = async () => {
   color: #1f2937;
   margin-bottom: 4px;
   line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.recommended-book-author {
+  font-size: 12px;
+  color: #6b7280;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recommendation-reason {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.no-recommendations,
+.no-reviews {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px 0;
+}
+
+.loading {
+  font-size: 12px;
+  color: #6b7280;
+  text-align: center;
+  padding: 20px 0;
 }
 
 .user-reviews {
@@ -2273,8 +3472,51 @@ const addTextbook = async () => {
 
 .review-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
   margin-bottom: 8px;
+}
+
+.review-rating {
+  font-size: 12px;
+  color: #ffd700;
+}
+
+.star {
+  opacity: 0.5;
+}
+
+.star.filled {
+  opacity: 1;
+}
+
+.review-content {
+  font-size: 12px;
+  color: #1f2937;
+  line-height: 1.4;
+  margin-bottom: 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.review-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: #6b7280;
+}
+
+.review-date {
+  margin-right: 10px;
+}
+
+.review-likes {
+  display: flex;
+  align-items: center;
 }
 
 .reviewer-name {
@@ -2339,6 +3581,91 @@ const addTextbook = async () => {
     border-top: 1px solid #e5e7eb;
     padding-left: 0;
     padding-top: 24px;
+  }
+  
+  /* 学习模态框响应式 */
+  .study-modal {
+    max-width: 95vw;
+    max-height: 95vh;
+    width: 100%;
+    height: 90vh;
+  }
+  
+  .study-content {
+    flex-direction: column;
+    padding: 12px;
+    gap: 12px;
+  }
+  
+  .study-content .sidebar {
+    width: 100%;
+    max-height: 200px;
+  }
+  
+  .reading-area {
+    flex: 1;
+    padding: 16px;
+  }
+  
+  .question-sidebar {
+    width: 100%;
+    max-height: 300px;
+  }
+  
+  .study-content.with-question-sidebar {
+    flex-direction: column;
+  }
+  
+  .study-content.with-question-sidebar .reading-area {
+    flex: 1;
+  }
+  
+  /* 目录响应式 */
+  .toc-item {
+    margin: 1px 4px;
+  }
+  
+  .toc-header {
+    padding: 4px 12px;
+  }
+  
+  .toc-title {
+    font-size: 12px;
+  }
+  
+  .toc-children {
+    margin-left: 8px;
+    padding-left: 6px;
+  }
+  
+  .toc-children .toc-header {
+    padding: 3px 8px;
+  }
+  
+  .toc-children .toc-title {
+    font-size: 11px;
+  }
+  
+  /* 搜索区域响应式 */
+  .search-section {
+    padding: 6px 8px;
+  }
+  
+  .search-input-container .search-input {
+    padding: 4px 28px 4px 8px;
+    font-size: 11px;
+  }
+  
+  .search-input-container .search-btn {
+    right: 32px;
+    font-size: 10px;
+  }
+  
+  .search-input-container .clear-btn {
+    right: 8px;
+    width: 16px;
+    height: 16px;
+    font-size: 12px;
   }
 }
 
@@ -2949,29 +4276,49 @@ const addTextbook = async () => {
 
 .toc-item {
   position: relative;
-  padding: 6px 16px;
-  cursor: pointer;
   transition: all 0.2s;
-  border-radius: 4px;
-  margin: 0 8px;
-  border-radius: 6px;
   margin: 2px 8px;
+  border-radius: 6px;
 }
 
-.toc-item:hover {
+.toc-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 16px;
+  cursor: pointer;
+  border-radius: 6px;
+}
+
+.toc-header:hover {
   background: #f3f4f6;
+}
+
+.toggle-icon {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #6b7280;
+  margin-right: 8px;
+  transition: all 0.2s ease;
+}
+
+.toc-title {
+  flex: 1;
+  font-size: 13px;
+  line-height: 1.5;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.toc-item.active .toc-title {
+  color: #3b82f6;
 }
 
 .toc-item.active {
   background: #eff6ff;
-  color: #3b82f6;
-}
-
-.toc-title {
-  font-size: 13px;
-  display: block;
-  line-height: 1.5;
-  font-weight: 500;
 }
 
 .toc-children {
@@ -2982,13 +4329,144 @@ const addTextbook = async () => {
 }
 
 .toc-children .toc-item {
-  padding: 4px 12px;
   margin: 1px 4px;
+}
+
+.toc-children .toc-header {
+  padding: 4px 12px;
 }
 
 .toc-children .toc-title {
   font-size: 12px;
   font-weight: 400;
+}
+
+.empty-chapters {
+  padding: 20px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* 搜索区域 */
+.search-section {
+  padding: 8px 12px;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+}
+
+.search-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-input-container .search-input {
+  flex: 1;
+  padding: 6px 32px 6px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  font-size: 12px;
+  transition: all 0.3s ease;
+}
+
+.search-input-container .search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-input-container .search-btn {
+  position: absolute;
+  right: 36px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #6b7280;
+  padding: 4px;
+}
+
+.search-input-container .clear-btn {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #6b7280;
+  padding: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.search-input-container .clear-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+/* 搜索结果 */
+.search-results {
+  margin: 8px;
+  padding: 8px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.search-results-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f3f4f6;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #374151;
+}
+
+.search-results-header .close-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  color: #6b7280;
+  padding: 2px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.search-results-header .close-btn:hover {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.search-result-item {
+  padding: 8px 12px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  margin-bottom: 4px;
+}
+
+.search-result-item:hover {
+  background: #f3f4f6;
+}
+
+.search-result-title {
+  font-size: 12px;
+  color: #374151;
+  line-height: 1.4;
 }
 
 /* 阅读区 */
@@ -3340,5 +4818,1999 @@ const addTextbook = async () => {
   .reading-area {
     order: -1;
   }
+}
+
+/* 笔记模态框样式 */
+.note-modal {
+  max-width: 1000px;
+  max-height: 80vh;
+  width: 90%;
+  overflow: hidden;
+}
+
+.note-content {
+  height: 600px;
+  overflow: hidden;
+}
+
+.note-container {
+  display: flex;
+  height: 100%;
+  gap: 20px;
+}
+
+/* 左侧笔记列表 */
+.note-list {
+  width: 300px;
+  background: #f9fafb;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.note-list-header {
+  padding: 16px;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.note-list-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.add-note-btn {
+  padding: 6px 12px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.add-note-btn:hover {
+  background: #2563eb;
+}
+
+.note-list-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.note-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.note-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.note-item.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.note-item-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #111827;
+  margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.note-item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.delete-note-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: #ef4444;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.delete-note-btn:hover {
+  background: #fee2e2;
+}
+
+.loading {
+  padding: 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+.empty-notes {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+}
+
+/* 右侧笔记编辑区 */
+.note-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.note-title-input {
+  padding: 12px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+  transition: all 0.3s ease;
+}
+
+.note-title-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.note-content-textarea {
+  flex: 1;
+  padding: 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #374151;
+  resize: none;
+  font-family: inherit;
+  transition: all 0.3s ease;
+}
+
+.note-content-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.note-editor-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.save-note-btn {
+  padding: 12px 24px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.save-note-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.save-note-btn:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.cancel-note-btn {
+  padding: 12px 24px;
+  background: #f3f4f6;
+  color: #374151;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-note-btn:hover {
+  background: #e5e7eb;
+}
+
+/* 夜间模式笔记样式 */
+.dark-mode .note-modal {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .note-list {
+  background: #1e293b;
+}
+
+.dark-mode .note-list-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .note-list-header h3 {
+  color: #e2e8f0;
+}
+
+.dark-mode .add-note-btn {
+  background: #3b82f6;
+}
+
+.dark-mode .add-note-btn:hover {
+  background: #2563eb;
+}
+
+.dark-mode .note-item {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .note-item:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+}
+
+.dark-mode .note-item.active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.dark-mode .note-item-title {
+  color: #e2e8f0;
+}
+
+.dark-mode .note-item-meta {
+  color: #94a3b8;
+}
+
+.dark-mode .delete-note-btn {
+  color: #f87171;
+}
+
+.dark-mode .delete-note-btn:hover {
+  background: rgba(248, 113, 113, 0.1);
+}
+
+.dark-mode .loading,
+.dark-mode .empty-notes {
+  color: #94a3b8;
+}
+
+.dark-mode .note-title-input {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .note-title-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dark-mode .note-content-textarea {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .note-content-textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dark-mode .save-note-btn {
+  background: #3b82f6;
+}
+
+.dark-mode .save-note-btn:hover:not(:disabled) {
+  background: #2563eb;
+}
+
+.dark-mode .save-note-btn:disabled {
+  background: #1e40af;
+}
+
+.dark-mode .cancel-note-btn {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .cancel-note-btn:hover {
+  background: #475569;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .note-container {
+    flex-direction: column;
+  }
+  
+  .note-list {
+    width: 100%;
+    max-height: 200px;
+  }
+  
+  .note-content {
+    height: 500px;
+  }
+}
+
+/* 夜间模式样式 */
+.dark-mode {
+  background-color: #0f172a;
+  color: #e2e8f0;
+  transition: all 0.3s ease;
+}
+
+/* 夜间模式页面背景 */
+.dark-mode .bookshelf-page {
+  background-color: #0f172a;
+}
+
+/* 夜间模式头部 */
+.dark-mode .bookshelf-header {
+  border-bottom-color: #1e293b;
+}
+
+.dark-mode .page-title {
+  color: #f1f5f9;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+/* 夜间模式搜索框 */
+.dark-mode .search-input {
+  background-color: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .search-input::placeholder {
+  color: #94a3b8;
+}
+
+.dark-mode .search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* 夜间模式筛选区域 */
+.dark-mode .bookshelf-filter {
+  background: #1e293b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .filter-label {
+  color: #cbd5e1;
+}
+
+.dark-mode .select-display {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .select-display:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+}
+
+.dark-mode .select-display .select-arrow {
+  color: #94a3b8;
+}
+
+.dark-mode .select-display:hover .select-arrow {
+  color: #3b82f6;
+  transform: translateY(-50%) rotate(180deg);
+}
+
+.dark-mode .select-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .select-option {
+  color: #e2e8f0;
+}
+
+.dark-mode .select-option:hover {
+  background-color: #334155;
+  color: #3b82f6;
+}
+
+.dark-mode .select-option.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* 夜间模式书籍卡片 */
+.dark-mode .book-card {
+  background: #1e293b;
+  border-color: #334155;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .book-card:hover {
+  border-color: #475569;
+  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .book-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .book-author {
+  color: #94a3b8;
+}
+
+.dark-mode .progress-bar {
+  background: #334155;
+}
+
+.dark-mode .book-cover {
+  background: #334155;
+}
+
+/* 夜间模式分页 */
+.dark-mode .pagination-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .pagination-btn:hover:not(:disabled) {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.dark-mode .pagination-number {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .pagination-number:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.dark-mode .pagination-number.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+/* 夜间模式模态框 */
+.dark-mode .modal-content {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .modal-header {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .modal-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .modal-close {
+  color: #94a3b8;
+}
+
+.dark-mode .modal-close:hover {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+/* 夜间模式教材模态框 */
+.dark-mode .category-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .category-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.dark-mode .category-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.dark-mode .textbook-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .textbook-card:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+}
+
+.dark-mode .textbook-card.selected {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.dark-mode .textbook-title {
+  color: #e2e8f0;
+}
+
+/* 夜间模式书籍详情 */
+.dark-mode .book-detail-modal {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .book-detail-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .book-detail-meta {
+  color: #94a3b8;
+}
+
+.dark-mode .book-detail-description h4,
+.dark-mode .book-detail-catalog h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .book-detail-description p {
+  color: #cbd5e1;
+}
+
+.dark-mode .catalog-link {
+  color: #60a5fa;
+}
+
+.dark-mode .chapter-title {
+  color: #e2e8f0;
+}
+
+.dark-mode .section-item {
+  color: #94a3b8;
+}
+
+.dark-mode .section-item:hover {
+  color: #60a5fa;
+}
+
+.dark-mode .catalog-chapter {
+  border-color: #334155;
+}
+
+.dark-mode .catalog-chapter:hover {
+  border-color: #3b82f6;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.dark-mode .action-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .action-btn:hover {
+  background: #334155;
+  border-color: #475569;
+}
+
+.dark-mode .action-btn.primary {
+  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  border-color: #3b82f6;
+}
+
+.dark-mode .action-btn.primary:hover {
+  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #2563eb;
+}
+
+.dark-mode .action-btn.edit {
+  background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+  border-color: #f59e0b;
+}
+
+.dark-mode .action-btn.edit:hover {
+  background: linear-gradient(90deg, #d97706 0%, #b45309 100%);
+  border-color: #d97706;
+}
+
+.dark-mode .action-btn.delete {
+  background: linear-gradient(90deg, #ef4444 0%, #dc2626 100%);
+  border-color: #ef4444;
+}
+
+.dark-mode .action-btn.delete:hover {
+  background: linear-gradient(90deg, #dc2626 0%, #b91c1c 100%);
+  border-color: #dc2626;
+}
+
+/* 深色模式下的模态框标题 */
+.dark-mode .modal-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .modal-header {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .modal-close {
+  color: #94a3b8;
+}
+
+.dark-mode .modal-close:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* 深色模式下的表单标签 */
+.dark-mode .form-group label {
+  color: #e2e8f0;
+}
+
+.dark-mode .form-group label::before {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+/* 夜间模式学习模态框 */
+.dark-mode .study-modal {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .study-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .study-header .back-btn, 
+.dark-mode .study-header .menu-btn, 
+.dark-mode .study-header .search-btn {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .study-header .back-btn:hover, 
+.dark-mode .study-header .menu-btn:hover, 
+.dark-mode .study-header .search-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-header .menu-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.dark-mode .study-header .icon-btn {
+  background: #334155;
+}
+
+.dark-mode .study-header .icon-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-content {
+  background: #1e293b;
+}
+
+/* 夜间模式侧边栏 */
+.dark-mode .study-content .sidebar {
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .study-content .sidebar-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .study-content .sidebar-header h3 {
+  color: #e2e8f0;
+}
+
+.dark-mode .study-content .collapse-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .toc-item {
+  color: #e2e8f0;
+}
+
+.dark-mode .toc-item:hover {
+  background: #334155;
+}
+
+.dark-mode .toc-item.active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #60a5fa;
+}
+
+.dark-mode .toc-children {
+  border-left-color: #334155;
+}
+
+/* 夜间模式阅读区 */
+.dark-mode .reading-area {
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .reading-header {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .reading-header h2 {
+  color: #e2e8f0;
+}
+
+.dark-mode .expand-btn {
+  background: #334155;
+  color: #94a3b8;
+}
+
+.dark-mode .reading-content {
+  color: #cbd5e1;
+}
+
+.dark-mode .section-title {
+  color: #e2e8f0;
+}
+
+.dark-mode .check-item span {
+  color: #cbd5e1;
+}
+
+.dark-mode .create-btn {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+}
+
+.dark-mode .create-btn:hover {
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+.dark-mode .pagination {
+  border-top-color: #334155;
+}
+
+.dark-mode .pagination span {
+  color: #94a3b8;
+}
+
+.dark-mode .pagination span:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+/* 夜间模式提问侧边栏 */
+.dark-mode .question-sidebar {
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .question-sidebar-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .question-sidebar-header h3 {
+  color: #e2e8f0;
+}
+
+.dark-mode .question-sidebar-header .close-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .question-sidebar-header .close-btn:hover {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .selected-text {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .selected-text h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .selected-text p {
+  color: #cbd5e1;
+}
+
+.dark-mode .question-input h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .question-input textarea {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .question-input textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dark-mode .submit-question-btn {
+  background: #3b82f6;
+  color: white;
+}
+
+.dark-mode .submit-question-btn:hover {
+  background: #2563eb;
+}
+
+.dark-mode .ai-answer {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.dark-mode .ai-answer h4 {
+  color: #60a5fa;
+}
+
+.dark-mode .answer-content p {
+  color: #cbd5e1;
+}
+
+.dark-mode .detailed-question-btn {
+  background: #334155;
+  color: #60a5fa;
+  border-color: #60a5fa;
+}
+
+.dark-mode .detailed-question-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+/* 夜间模式文本选择菜单 */
+.dark-mode .text-selection-menu {
+  background: #1e293b;
+  border: 1px solid #334155;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .menu-item {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .menu-item:hover {
+  background: #475569;
+  color: white;
+}
+
+/* 夜间模式底部工具栏 */
+.dark-mode .study-footer {
+  background: #1e293b;
+  border-top-color: #334155;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .study-footer .footer-btn {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .study-footer .footer-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-footer .footer-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.dark-mode .study-footer .ai-assistant {
+  background: linear-gradient(135deg, #334155, #475569);
+}
+
+.dark-mode .study-footer .ai-text {
+  color: #fbbf24;
+}
+
+.dark-mode .action-btn.primary:hover {
+  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
+  border-color: #2563eb;
+}
+
+.dark-mode .sidebar-section h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .recommended-book {
+  background: #334155;
+}
+
+.dark-mode .recommended-book:hover {
+  background: #475569;
+}
+
+.dark-mode .recommended-book-title {
+  color: #e2e8f0;
+}
+
+.dark-mode .review-item {
+  background: #334155;
+}
+
+.dark-mode .reviewer-name {
+  color: #e2e8f0;
+}
+
+.dark-mode .book-detail-sidebar {
+  border-left-color: #334155;
+}
+
+/* 夜间模式学习模态框 */
+.dark-mode .study-modal {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .study-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .study-header .back-btn,
+.dark-mode .study-header .menu-btn,
+.dark-mode .study-header .search-btn {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .study-header .back-btn:hover,
+.dark-mode .study-header .menu-btn:hover,
+.dark-mode .study-header .search-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-header .menu-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.dark-mode .study-header .icon-btn {
+  background: #334155;
+}
+
+.dark-mode .study-header .icon-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-content .sidebar {
+  background: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dark-mode .study-content .sidebar-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .study-content .sidebar-header h3 {
+  color: #f1f5f9;
+}
+
+.dark-mode .study-content .collapse-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .toc-item:hover {
+  background: #475569;
+}
+
+.dark-mode .toc-item.active {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.dark-mode .toc-children {
+  border-left-color: #334155;
+}
+
+.dark-mode .reading-area {
+  background: #1e293b;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dark-mode .reading-header {
+  border-bottom-color: #334155;
+}
+
+.dark-mode .reading-header h2 {
+  color: #f1f5f9;
+}
+
+.dark-mode .expand-btn {
+  background: #334155;
+  color: #94a3b8;
+}
+
+.dark-mode .reading-content {
+  color: #cbd5e1;
+}
+
+.dark-mode .section-title {
+  color: #e2e8f0;
+}
+
+.dark-mode .question-sidebar {
+  background: #334155;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.dark-mode .question-sidebar-header {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .question-sidebar-header h3 {
+  color: #e2e8f0;
+}
+
+.dark-mode .question-sidebar-header .close-btn {
+  color: #94a3b8;
+}
+
+.dark-mode .question-sidebar-header .close-btn:hover {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .selected-text {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .selected-text h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .selected-text p {
+  color: #94a3b8;
+}
+
+.dark-mode .question-input h4 {
+  color: #e2e8f0;
+}
+
+.dark-mode .question-input textarea {
+  background: #1e293b;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+.dark-mode .question-input textarea:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+.dark-mode .ai-answer {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+.dark-mode .ai-answer h4 {
+  color: #60a5fa;
+}
+
+.dark-mode .answer-content p {
+  color: #cbd5e1;
+}
+
+.dark-mode .detailed-question-btn {
+  background: #1e293b;
+  color: #60a5fa;
+  border-color: #3b82f6;
+}
+
+.dark-mode .detailed-question-btn:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.dark-mode .study-footer {
+  background: #1e293b;
+  border-top-color: #334155;
+  box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .study-footer .footer-btn {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .study-footer .footer-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .study-footer .footer-btn.active {
+  background: #3b82f6;
+  color: white;
+}
+
+.dark-mode .text-selection-menu {
+  background: #1e293b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .menu-item {
+  background: #334155;
+  color: #cbd5e1;
+}
+
+.dark-mode .menu-item:hover {
+  background: #475569;
+}
+
+/* 夜间模式确认删除对话框 */
+.dark-mode .confirm-modal {
+  background: #1e293b;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .confirm-header {
+  background: #334155;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .confirm-title {
+  color: #f1f5f9;
+}
+
+.dark-mode .confirm-message {
+  color: #cbd5e1;
+}
+
+.dark-mode .confirm-btn.cancel {
+  background: #334155;
+  color: #cbd5e1;
+  border-color: #334155;
+}
+
+.dark-mode .confirm-btn.cancel:hover {
+  background: #475569;
+}
+
+/* 夜间模式自定义滚动条 */
+.dark-mode ::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark-mode ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+.dark-mode .book-detail-main::-webkit-scrollbar-track,
+.dark-mode .book-detail-sidebar::-webkit-scrollbar-track,
+.dark-mode .full-catalog::-webkit-scrollbar-track {
+  background: #1e293b;
+}
+
+.dark-mode .book-detail-main::-webkit-scrollbar-thumb,
+.dark-mode .book-detail-sidebar::-webkit-scrollbar-thumb,
+.dark-mode .full-catalog::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark-mode .book-detail-main::-webkit-scrollbar-thumb:hover,
+.dark-mode .book-detail-sidebar::-webkit-scrollbar-thumb:hover,
+.dark-mode .full-catalog::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* 夜间模式响应式调整 */
+@media (max-width: 768px) {
+  .dark-mode .dark-mode-toggle {
+    position: static;
+    transform: none;
+  }
+  
+  .dark-mode .header-content {
+    justify-content: center;
+  }
+}
+
+/* 加载状态样式 */
+.loading-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #6b7280;
+}
+
+.loading-spinner {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #e5e7eb;
+  border-top: 2px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 10px;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.loading-text {
+  font-size: 14px;
+}
+
+/* 错误状态样式 */
+.error-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: #ef4444;
+  background-color: #fef2f2;
+  border-radius: 8px;
+  margin: 10px 0;
+}
+
+.error-icon {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+.error-text {
+  font-size: 14px;
+  text-align: center;
+}
+
+/* 空状态样式 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  color: #6b7280;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.empty-text {
+  font-size: 16px;
+  text-align: center;
+}
+
+/* 编辑书籍模态框样式 */
+.edit-book-modal {
+  max-width: 900px;
+  width: 95%;
+  max-height: 85vh;
+  overflow: hidden;
+  background: white;
+  border-radius: 20px;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.18);
+  animation: modalSlideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 24px 30px;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f9fafb;
+  border-radius: 20px 20px 0 0;
+}
+
+.modal-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-icon {
+  font-size: 24px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.modal-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #111827;
+  margin: 0;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #6b7280;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+  background: #f3f4f6;
+  color: #374151;
+  transform: rotate(90deg);
+}
+
+.edit-book-content {
+  padding: 30px;
+  overflow-y: auto;
+  flex: 1;
+  max-height: calc(85vh - 120px);
+}
+
+.book-form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.field-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #374151;
+  font-size: 14px;
+  position: relative;
+  padding-left: 8px;
+}
+
+.field-label::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 16px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border-radius: 3px;
+}
+
+.label-icon {
+  font-size: 16px;
+}
+
+.form-input,
+.form-textarea,
+.form-select {
+  padding: 14px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: white;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.form-input:focus,
+.form-textarea:focus,
+.form-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 16px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 140px;
+  line-height: 1.5;
+}
+
+/* 下拉选择框样式 */
+.form-select {
+  /* 完全重置样式 */
+  all: unset;
+  box-sizing: border-box;
+  
+  /* 基础样式 */
+  padding: 14px 18px;
+  padding-right: 40px;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  font-size: 14px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  background: white;
+  color: #374151;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  line-height: 1.5;
+}
+
+/* 隐藏所有浏览器的默认箭头 */
+.form-select::-ms-expand {
+  display: none;
+}
+
+/* 确保没有浏览器默认箭头 */
+.form-select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+}
+
+/* 使用CSS伪元素实现自定义箭头 */
+.form-select::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 6px;
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%236B7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.form-select:hover::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%233B82F6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.form-select:focus::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%233B82F6' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 5l4-4 4 4'/%3E%3C/svg%3E") no-repeat center;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.form-select:disabled::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%239CA3AF' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+}
+
+/* 确保:focus状态正常 */
+.form-select:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 16px rgba(59, 130, 246, 0.15);
+  transform: translateY(-1px);
+}
+
+.form-select:hover {
+  border-color: #93c5fd;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  transform: translateY(-1px);
+}
+
+.form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 确保.form-select元素不会显示额外的箭头 */
+.form-select + .select-arrow {
+  display: none;
+}
+
+/* 确保编辑模态框中的下拉框不会受到自定义下拉框样式的影响 */
+.edit-book-modal .select-arrow {
+  display: none;
+}
+
+.edit-book-modal .select-container {
+  position: static;
+  width: 100%;
+}
+
+.edit-book-modal .select-display {
+  display: block;
+  position: static;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: default;
+}
+
+.edit-book-modal .select-display .select-arrow {
+  display: none;
+}
+
+/* 优化选项样式 */
+.form-select option {
+  padding: 14px 18px;
+  background: white;
+  color: #374151;
+  font-size: 14px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin: 4px 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: block;
+  width: calc(100% - 16px);
+  box-sizing: border-box;
+}
+
+.form-select option:hover {
+  background: #f0f9ff;
+  color: #3b82f6;
+  border-color: #dbeafe;
+  transform: translateX(4px);
+}
+
+.form-select option:checked {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+  border-color: #3b82f6;
+  transform: translateX(8px);
+}
+
+.form-select option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 空选项样式 */
+.form-select option[value=""] {
+  font-style: italic;
+  color: #9ca3af;
+}
+
+.form-select option[value=""]:hover {
+  background: #f9fafb;
+  color: #6b7280;
+  border-color: #e5e7eb;
+  transform: none;
+}
+
+.form-actions {
+  display: flex;
+  gap: 16px;
+  justify-content: flex-end;
+  margin-top: 12px;
+  padding-top: 24px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.btn {
+  padding: 14px 28px;
+  border: none;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 120px;
+  justify-content: center;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #6b7280;
+  border: 1px solid #e5e7eb;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+  color: #374151;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 按钮图标 */
+.btn-icon {
+  font-size: 16px;
+  line-height: 1;
+  display: inline-block;
+  width: 20px;
+  text-align: center;
+}
+
+/* 加载状态 */
+.loading-spinner.small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top: 2px solid white;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 0;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 模态框动画 */
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 编辑模态框滚动条 */
+.edit-book-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.edit-book-content::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+  margin: 10px 0;
+}
+
+.edit-book-content::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 10px;
+  transition: background 0.3s ease;
+}
+
+.edit-book-content::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
+}
+
+/* 夜间模式编辑模态框 */
+.dark-mode .edit-book-modal {
+  background: #1e293b;
+  box-shadow: 0 25px 80px rgba(0, 0, 0, 0.4);
+}
+
+.dark-mode .modal-header {
+  background: #253347;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .modal-title {
+  color: #f8fafc;
+}
+
+.dark-mode .modal-close {
+  color: #94a3b8;
+}
+
+.dark-mode .modal-close:hover {
+  background: #334155;
+  color: #f8fafc;
+}
+
+.dark-mode .field-label {
+  color: #e2e8f0;
+}
+
+.dark-mode .field-label::before {
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+}
+
+.dark-mode .form-input,
+.dark-mode .form-textarea,
+.dark-mode .form-select {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.dark-mode .form-input:focus,
+.dark-mode .form-textarea:focus,
+.dark-mode .form-select:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 16px rgba(59, 130, 246, 0.25);
+}
+
+/* 夜间模式下的箭头样式 */
+.dark-mode .form-select::after {
+  content: '';
+  position: absolute;
+  right: 18px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 10px;
+  height: 6px;
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%2394A3B8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+  pointer-events: none;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1;
+}
+
+.dark-mode .form-select:hover::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%2360A5FA' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.dark-mode .form-select:focus::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%2360A5FA' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 5l4-4 4 4'/%3E%3C/svg%3E") no-repeat center;
+  transform: translateY(-50%) scale(1.1);
+}
+
+.dark-mode .form-select:disabled::after {
+  background: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 10 6'%3E%3Cpath stroke='%2364748B' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M1 1l4 4 4-4'/%3E%3C/svg%3E") no-repeat center;
+}
+
+/* 确保夜间模式下的:focus状态正常 */
+.dark-mode .form-select:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 16px rgba(59, 130, 246, 0.25);
+  transform: translateY(-1px);
+}
+
+.dark-mode .form-select:hover {
+  border-color: #60a5fa;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  transform: translateY(-1px);
+}
+
+.dark-mode .form-select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  background-color: #1e293b;
+  border-color: #334155;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 夜间模式选项样式 */
+.dark-mode .form-select option {
+  padding: 14px 18px;
+  background: #1e293b;
+  color: #e2e8f0;
+  font-size: 14px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all 0.2s ease;
+  border-radius: 8px;
+  margin: 4px 8px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  display: block;
+  width: calc(100% - 16px);
+  box-sizing: border-box;
+}
+
+.dark-mode .form-select option:hover {
+  background: #1e40af;
+  color: #60a5fa;
+  border-color: #3b82f6;
+  transform: translateX(4px);
+}
+
+.dark-mode .form-select option:checked {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  font-weight: 600;
+  border-color: #3b82f6;
+  transform: translateX(8px);
+}
+
+.dark-mode .form-select option:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 夜间模式空选项样式 */
+.dark-mode .form-select option[value=""] {
+  font-style: italic;
+  color: #64748b;
+}
+
+.dark-mode .form-select option[value=""]:hover {
+  background: #334155;
+  color: #94a3b8;
+  border-color: #475569;
+  transform: none;
+}
+
+.dark-mode .form-actions {
+  border-top-color: #334155;
+}
+
+.dark-mode .btn-secondary {
+  background: #334155;
+  color: #94a3b8;
+  border-color: #475569;
+}
+
+.dark-mode .btn-secondary:hover {
+  background: #475569;
+  color: #f8fafc;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.dark-mode .btn-primary {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.dark-mode .btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+}
+
+/* 夜间模式编辑模态框滚动条 */
+.dark-mode .edit-book-content::-webkit-scrollbar-track {
+  background: #334155;
+}
+
+.dark-mode .edit-book-content::-webkit-scrollbar-thumb {
+  background: #475569;
+}
+
+.dark-mode .edit-book-content::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .edit-book-modal {
+    width: 98%;
+    max-height: 90vh;
+  }
+  
+  .modal-header {
+    padding: 20px 24px;
+  }
+  
+  .modal-title {
+    font-size: 18px;
+  }
+  
+  .modal-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
+  }
+  
+  .edit-book-content {
+    padding: 24px;
+    max-height: calc(90vh - 100px);
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .btn {
+    width: 100%;
+  }
+}
+
+/* 夜间模式状态样式 */
+.dark-mode .loading-state {
+  color: #9ca3af;
+}
+
+.dark-mode .loading-spinner {
+  border-color: #374151;
+  border-top-color: #60a5fa;
+}
+
+.dark-mode .error-state {
+  color: #f87171;
+  background-color: #7f1d1d;
+}
+
+.dark-mode .empty-state {
+  color: #9ca3af;
 }
 </style>

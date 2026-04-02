@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed } from 'vue'
 
 const props = defineProps({
@@ -21,10 +21,13 @@ const emit = defineEmits(['update:currentFilter', 'select-senior'])
 const filterOptions = computed(() => {
   return [
     { value: 'all', label: '全部' },
+    { value: 'computer', label: '计算机科学' },
+    { value: 'electronics', label: '电子信息' },
+    { value: 'software', label: '软件工程' },
+    { value: 'data', label: '数据科学' },
     { value: 'math', label: '数学' },
     { value: 'physics', label: '物理' },
-    { value: 'cs', label: '计算机' },
-    { value: 'english', label: '英语' }
+    { value: 'other', label: '其他' }
   ]
 })
 

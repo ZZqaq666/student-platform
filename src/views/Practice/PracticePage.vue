@@ -38,7 +38,7 @@
           <div class="question-body">
             <div class="question-text">
               <span class="question-number">{{ currentIndex + 1 }}.</span>
-              {{ currentExercise?.question }}
+              <span class="math-text">{{ currentExercise?.question }}</span>
             </div>
 
             <!-- 选择题选项 -->
@@ -55,7 +55,7 @@
                 @click="selectOption(index)"
               >
                 <span class="option-label">{{ ['A', 'B', 'C', 'D'][index] }}.</span>
-                <span class="option-text">{{ option }}</span>
+                <span class="option-text"><span class="math-text">{{ option }}</span></span>
                 <span v-if="showAnswer && index === currentExercise?.correctAnswer" class="option-icon correct">✓</span>
                 <span v-if="showAnswer && selectedOption === index && index !== currentExercise?.correctAnswer" class="option-icon wrong">✗</span>
               </div>
@@ -93,23 +93,23 @@
               </span>
             </div>
             <div class="analysis-content">
-              <div class="user-answer" :class="isCorrect ? 'correct' : 'wrong'">
-                <span class="label">我的答案：</span>
-                <span class="value">{{ getUserAnswerText() }}</span>
+                <div class="user-answer" :class="isCorrect ? 'correct' : 'wrong'">
+                  <span class="label">我的答案：</span>
+                  <span class="value"><span class="math-text">{{ getUserAnswerText() }}</span></span>
+                </div>
+                <div class="correct-answer">
+                  <span class="label">正确答案：</span>
+                  <span class="value"><span class="math-text">{{ currentExercise?.correctAnswerText }}</span></span>
+                </div>
+                <div class="analysis-text">
+                  <span class="label">解析：</span>
+                  <p><span class="math-text">{{ currentExercise?.analysis }}</span></p>
+                </div>
+                <div class="knowledge-point">
+                  <span class="label">知识点：</span>
+                  <span class="tag"><span class="math-text">{{ currentExercise?.knowledgePoint }}</span></span>
+                </div>
               </div>
-              <div class="correct-answer">
-                <span class="label">正确答案：</span>
-                <span class="value">{{ currentExercise?.correctAnswerText }}</span>
-              </div>
-              <div class="analysis-text">
-                <span class="label">解析：</span>
-                <p>{{ currentExercise?.analysis }}</p>
-              </div>
-              <div class="knowledge-point">
-                <span class="label">知识点：</span>
-                <span class="tag">{{ currentExercise?.knowledgePoint }}</span>
-              </div>
-            </div>
           </div>
         </div>
 
@@ -152,21 +152,21 @@
         <div class="answer-card">
           <h3 class="panel-title">答题卡</h3>
           <div class="question-grid">
-            <div
-              v-for="(exercise, index) in exercises"
-              :key="index"
-              v-if="!showResults || viewMode === 'all' || (viewMode === 'wrong' && showResults && !results[index]?.isCorrect)"
-              class="question-number-btn"
-              :class="{
-                current: currentIndex === index,
-                answered: answers[index] !== undefined,
-                correct: showResults && results[index]?.isCorrect,
-                wrong: showResults && !results[index]?.isCorrect
-              }"
-              @click="jumpToQuestion(index)"
-            >
-              {{ index + 1 }}
-            </div>
+            <template v-for="(exercise, index) in exercises" :key="index">
+              <div
+                v-if="!showResults || viewMode === 'all' || (viewMode === 'wrong' && showResults && (!results[index] || !results[index].isCorrect))"
+                class="question-number-btn"
+                :class="{
+                  current: currentIndex === index,
+                  answered: answers[index] !== undefined,
+                  correct: showResults && results[index] && results[index].isCorrect,
+                  wrong: showResults && results[index] && !results[index].isCorrect
+                }"
+                @click="jumpToQuestion(index)"
+              >
+                {{ index + 1 }}
+              </div>
+            </template>
           </div>
         </div>
 
@@ -273,12 +273,15 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
-import axios from 'axios'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import api from '@/api/api.js'
 
 const router = useRouter()
 const route = useRoute()
+
+// 组件挂载状态
+const isMounted = ref(false)
 
 // 练习数据
 const exercises = ref([])
@@ -316,8 +319,82 @@ const currentExercise = computed(() => {
   console.log('Exercises data:', exercises.value)
   const exercise = exercises.value[currentIndex.value]
   console.log('Current exercise:', exercise)
-  return exercise
+  return exercise || {} // 确保返回一个空对象，避免undefined
 })
+
+// 动态加载KaTeX库
+const loadKaTeX = () => {
+  if (window.katex) return Promise.resolve()
+  
+  return new Promise((resolve, reject) => {
+    // 加载KaTeX CSS
+    const css = document.createElement('link')
+    css.rel = 'stylesheet'
+    css.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css'
+    css.integrity = 'sha384-vKruj+a13U8yHIkAyGgK1J3ArTLzrFGBbBc0tDp4ad/EyewESeXE/Iv67Aj8gKZ0'
+    css.crossOrigin = 'anonymous'
+    css.onload = () => {
+      // 加载KaTeX JS
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js'
+      script.integrity = 'sha384-PwRUT/YqbnEjkZO0zZxNqcxACrXe+j766U2amXcgMg5457rve2Y7I6ZJSm2A0mS4'
+      script.crossOrigin = 'anonymous'
+      script.onload = () => resolve()
+      script.onerror = reject
+      document.head.appendChild(script)
+    }
+    css.onerror = reject
+    document.head.appendChild(css)
+  })
+}
+
+// 渲染数学公式
+const renderMathInElement = (element) => {
+  if (!window.katex || !element) return
+  
+  // 查找所有包含数学公式的元素
+  const mathElements = element.querySelectorAll('.math-text')
+  mathElements.forEach(el => {
+    const text = el.textContent
+    if (text) {
+      try {
+        // 检查是否包含数学公式符号，只有包含数学公式的内容才使用KaTeX渲染
+        // 更严格的数学公式符号检查
+        const mathPattern = /[\$\\\^_\(\)\[\]\{\}\frac\sqrt\sum\int\pi\times\div\pm\mp\leq\geq\neq]/
+        if (mathPattern.test(text)) {
+          window.katex.render(text, el, {
+            throwOnError: false,
+            displayMode: true,
+            strict: false // 禁用严格模式，避免中文警告
+          })
+        }
+      } catch (e) {
+        console.error('KaTeX render error:', e)
+      }
+    }
+  })
+}
+
+// 监听题目变化，重新渲染公式
+watch(() => currentExercise.value, async () => {
+  if (currentExercise.value) {
+    await loadKaTeX()
+    setTimeout(() => {
+      renderMathInElement(document.querySelector('.question-body'))
+      renderMathInElement(document.querySelector('.answer-analysis'))
+    }, 0)
+  }
+}, { deep: true, immediate: false })
+
+// 监听显示答案变化，重新渲染公式
+watch(showAnswer, async () => {
+  if (showAnswer.value && currentExercise.value) {
+    await loadKaTeX()
+    setTimeout(() => {
+      renderMathInElement(document.querySelector('.answer-analysis'))
+    }, 0)
+  }
+}, { immediate: false })
 
 const progressPercent = computed(() => {
   return ((currentIndex.value + 1) / exercises.value.length) * 100
@@ -325,9 +402,14 @@ const progressPercent = computed(() => {
 
 const isCorrect = computed(() => {
   if (!showAnswer.value) return false
-  const exercise = currentExercise
+  const exercise = currentExercise.value
   if (exercise?.type === '选择题') {
     return selectedOption.value === exercise.correctAnswer
+  } else if (exercise?.type === '填空题') {
+    const userAnswer = answers.value[currentIndex.value]
+    return userAnswer !== undefined && userAnswer.trim() === exercise.correctAnswer
+  } else if (exercise?.type === '解答题') {
+    return true // 解答题默认正确，需要人工批改
   }
   return false
 })
@@ -364,14 +446,14 @@ const submitAnswer = () => {
     userAnswer = selectedOption.value
     isCorrect = selectedOption.value === exercise.correctAnswer
   } else if (exercise?.type === '填空题') {
-    if (!fillAnswer.value.trim()) {
+    if (!fillAnswer.value || !fillAnswer.value.trim()) {
       alert('请输入答案')
       return
     }
     userAnswer = fillAnswer.value
     isCorrect = fillAnswer.value.trim() === exercise.correctAnswer
   } else if (exercise?.type === '解答题') {
-    if (!essayAnswer.value.trim()) {
+    if (!essayAnswer.value || !essayAnswer.value.trim()) {
       alert('请输入解答')
       return
     }
@@ -386,7 +468,9 @@ const submitAnswer = () => {
   // 检查是否完成所有题目
   if (currentIndex.value === exercises.value.length - 1) {
     setTimeout(() => {
-      showCompleteModal.value = true
+      if (isMounted.value) {
+        showCompleteModal.value = true
+      }
     }, 1500)
   }
 }
@@ -404,13 +488,13 @@ const saveAndNext = () => {
     }
     userAnswer = selectedOption.value
   } else if (exercise?.type === '填空题') {
-    if (!fillAnswer.value.trim()) {
+    if (!fillAnswer.value || !fillAnswer.value.trim()) {
       alert('请输入答案')
       return
     }
     userAnswer = fillAnswer.value
   } else if (exercise?.type === '解答题') {
-    if (!essayAnswer.value.trim()) {
+    if (!essayAnswer.value || !essayAnswer.value.trim()) {
       alert('请输入解答')
       return
     }
@@ -438,10 +522,10 @@ const submitAllAnswers = () => {
     if (exercise.type === '选择题' && selectedOption.value !== null) {
       userAnswer = selectedOption.value
       hasAnswer = true
-    } else if (exercise.type === '填空题' && fillAnswer.value.trim()) {
+    } else if (exercise.type === '填空题' && fillAnswer.value && fillAnswer.value.trim()) {
       userAnswer = fillAnswer.value
       hasAnswer = true
-    } else if (exercise.type === '解答题' && essayAnswer.value.trim()) {
+    } else if (exercise.type === '解答题' && essayAnswer.value && essayAnswer.value.trim()) {
       userAnswer = essayAnswer.value
       hasAnswer = true
     }
@@ -511,7 +595,7 @@ const doSubmitAll = () => {
     const userAnswer = answers.value[index]
     let isCorrect = false
     
-    if (userAnswer !== undefined) {
+    if (userAnswer !== undefined && userAnswer !== null) {
       if (exercise.type === '选择题') {
         isCorrect = userAnswer === exercise.correctAnswer
       } else if (exercise.type === '填空题') {
@@ -736,7 +820,7 @@ const formatTime = (seconds) => {
 // 获取用户答案文本
 const getUserAnswerText = () => {
   const userAnswer = answers.value[currentIndex.value]
-  if (userAnswer === undefined) {
+  if (userAnswer === undefined || userAnswer === null || userAnswer === '') {
     return '未作答'
   }
   
@@ -744,7 +828,10 @@ const getUserAnswerText = () => {
   if (exercise?.type === '选择题') {
     const optionLabels = ['A', 'B', 'C', 'D']
     const optionText = exercise.options?.[userAnswer]
-    return `${optionLabels[userAnswer]}. ${optionText || ''}`
+    if (!optionText) {
+      return '未作答'
+    }
+    return `${optionLabels[userAnswer] || ''}. ${optionText}`
   }
   
   return userAnswer
@@ -757,33 +844,38 @@ const fetchExercises = async () => {
     if (route.query.single === 'true' && route.query.exerciseId) {
       // 单个习题模式
       const exerciseId = route.query.exerciseId
-      const response = await axios.get(`/api/exercises/${exerciseId}`)
+      const response = await axios.get(`/api/exercise/${exerciseId}`)
       if (response.data.code === 200) {
         exercises.value = [response.data.data]
       }
     } else if (route.query.multiple === 'true' && route.query.exerciseIds) {
       // 多个习题模式
       const exerciseIds = route.query.exerciseIds
-      const response = await axios.get(`/api/exercises/batch`, {
-        params: { ids: exerciseIds }
-      })
-      if (response.data.code === 200) {
-        exercises.value = response.data.data
-      }
+      // 由于后端没有批量获取习题的接口，我们逐个获取
+      const exercisePromises = exerciseIds.split(',').map(id => api.get(`/exercise/${id}`))
+      const responses = await Promise.all(exercisePromises)
+      const exerciseData = responses
+        .filter(response => response.code === 200)
+        .map(response => response.data)
+      exercises.value = exerciseData
     } else if (route.query.knowledgePoint) {
       // 根据知识点获取习题
       const knowledgePoint = route.query.knowledgePoint
-      const response = await axios.get('/api/exercises', {
-        params: { knowledgePoint: knowledgePoint }
+      const response = await api.get('/exercise/exercises', {
+        knowledgePoint: knowledgePoint, 
+        difficulty: 'basic'
       })
-      if (response.data.code === 200) {
-        exercises.value = response.data.data
+      if (response && response.code === 200) {
+        exercises.value = response.data
       }
     } else {
       // 获取默认习题
-      const response = await axios.get('/api/exercises')
-      if (response.data.code === 200) {
-        exercises.value = response.data.data
+      const response = await api.get('/exercise/exercises', {
+        knowledgePoint: 'Java基础', 
+        difficulty: 'basic'
+      })
+      if (response && response.code === 200) {
+        exercises.value = response.data
       }
     }
   } catch (error) {
@@ -793,6 +885,9 @@ const fetchExercises = async () => {
 
 // 生命周期
 onMounted(async () => {
+  // 设置组件为已挂载状态
+  isMounted.value = true
+  
   // 从路由参数获取题目数据
   if (route.query.exercises) {
     try {
@@ -815,11 +910,15 @@ onMounted(async () => {
 
   // 开始计时
   timer = setInterval(() => {
-    practiceTime.value++
+    if (isMounted.value) {
+      practiceTime.value++
+    }
   }, 1000)
 })
 
 onUnmounted(() => {
+  // 设置组件为未挂载状态
+  isMounted.value = false
   clearInterval(timer)
 })
 </script>

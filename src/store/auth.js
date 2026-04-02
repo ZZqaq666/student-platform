@@ -9,7 +9,8 @@ export const useAuthStore = defineStore('auth', {
   }),
   getters: {
     currentUser: (state) => state.user,
-    isLoggedIn: (state) => state.isAuthenticated
+    isLoggedIn: (state) => state.isAuthenticated,
+    userId: () => localStorage.getItem('userId')
   },
   actions: {
     setToken(token, expiry) {
@@ -21,6 +22,10 @@ export const useAuthStore = defineStore('auth', {
     },
     setUser(user) {
       this.user = user;
+      // 确保用户ID存储在localStorage中，并转换为字符串避免精度丢失
+      if (user && user.id) {
+        localStorage.setItem('userId', String(user.id));
+      }
     },
     logout() {
       this.user = null;
@@ -29,6 +34,8 @@ export const useAuthStore = defineStore('auth', {
       this.isAuthenticated = false;
       localStorage.removeItem('token');
       localStorage.removeItem('tokenExpiry');
+      localStorage.removeItem('userId');
+      localStorage.removeItem('userName');
     },
     checkAuth() {
       const token = localStorage.getItem('token');

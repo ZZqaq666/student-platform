@@ -74,7 +74,9 @@ import { apiService } from '@/api/api.js'
 import { useAuthStore } from '@/store/auth.js'
 
 const loginApi = async (data) => {
-  const response = await apiService.auth.login(data)
+  // 只发送username和password字段，移除remember字段
+  const { remember, ...loginData } = data
+  const response = await apiService.auth.login(loginData)
   return response
 }
 
@@ -126,8 +128,15 @@ const handleLogin = async () => {
         const authStore = useAuthStore()
         authStore.setToken(res.data.token, res.data.expiry)
         authStore.setUser(res.data.user)
-        // 存储用户名
+        // 存储用户名和userId，确保从两个来源获取的用户ID一致，并转换为字符串避免精度丢失
+        const userId = String(res.data.userId || res.data.user?.id)
         localStorage.setItem('userName', loginForm.value.username)
+        localStorage.setItem('userId', userId)
+        // 打印用户ID和完整响应，以便调试
+        console.log('Current User ID:', userId)
+        console.log('Login response:', res.data)
+        console.log('userId from response:', res.data.userId)
+        console.log('userId from user object:', res.data.user?.id)
         // 处理记住用户名和密码功能
         if (loginForm.value.remember) {
           // 设置10天的过期时间

@@ -37,8 +37,8 @@
         <div class="entry-card blue" @click="toPage('/bookshelf')">
           <div class="card-content">
             <div class="card-text">
-              <div class="card-title">个人书架</div>
-              <div class="card-subtitle">藏书阁</div>
+              <div class="card-title">大学教材库</div>
+              <div class="card-subtitle">教材资源</div>
             </div>
             <div class="card-icon">
               <div class="icon-bg">
@@ -68,19 +68,25 @@
     <!-- 最近一本书的学习进度 -->
     <div class="book-progress-section">
       <div class="section-title">最近学习</div>
-      <div class="book-progress-card" v-if="recentBook">
+      <div v-if="loading" class="loading-container">
+        <el-skeleton :rows="10" animated />
+      </div>
+      <div class="book-progress-card" v-else-if="recentBook">
         <div class="book-info">
-          <div class="book-image-placeholder" v-if="!recentBook.cover">
+          <div class="book-image-placeholder" v-if="!getBookCover()">
             <span class="placeholder-text">书籍封面</span>
           </div>
-          <img :src="recentBook.cover" :alt="recentBook.title" class="book-cover" v-else>
+          <img :src="getBookCover()" :alt="getBookTitle()" class="book-cover" v-else>
           <div class="book-details">
-            <h3 class="book-title">{{ recentBook.title }}</h3>
-            <p class="book-author">{{ recentBook.author }}</p>
+            <h3 class="book-title">{{ getBookTitle() }}</h3>
+            <p class="book-author">{{ getBookAuthor() }}</p>
             <div class="progress-info">
-              <span class="progress-text">已读 {{ recentBook.progress }}%</span>
+              <span class="progress-text">已读 {{ getBookProgress() }}%</span>
               <div class="progress-bar">
-                <div class="progress-fill" :style="{ width: recentBook.progress + '%' }"></div>
+                <div class="progress-fill" :style="{ width: getBookProgress() + '%' }"></div>
+              </div>
+              <div class="last-read-info">
+                <span class="last-read-text">最后阅读: {{ formatLastReadTime() }}</span>
               </div>
             </div>
           </div>
@@ -115,9 +121,9 @@
               <text x="30" y="195" text-anchor="middle" fill="#9ca3af" font-size="12">25%</text>
               
               <!-- X轴日期标签 -->
-              <text v-for="(point, index) in learningData" :key="index" 
+              <text v-for="(point, index) in processedLearningData" :key="index" 
                     :x="100 + index * 150" y="230" text-anchor="middle" fill="#9ca3af" font-size="12">
-                {{ point.date }}
+                {{ formatDate(point.date) }}
               </text>
               
               <!-- 学习曲线区域 -->
@@ -127,16 +133,36 @@
               <path :d="linePath" fill="none" stroke="url(#lineGradient)" stroke-width="3"/>
               
               <!-- 数据点 -->
-              <circle v-for="(point, index) in learningData" :key="index" 
+              <circle v-for="(point, index) in processedLearningData" :key="index" 
                       :cx="100 + index * 150" 
                       :cy="200 - (point.progress / 100) * 160" 
                       r="5" fill="#3b82f6"/>
             </svg>
           </div>
+          
+          <!-- 学习统计信息 -->
+          <div class="learning-stats">
+            <div class="stat-item">
+              <div class="stat-value">{{ getTotalStudyTime() }}</div>
+              <div class="stat-label">总学习时间</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ getTotalPagesRead() }}</div>
+              <div class="stat-label">总阅读页数</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-value">{{ processedLearningData.length }}</div>
+              <div class="stat-label">学习天数</div>
+            </div>
+          </div>
         </div>
       </div>
       <div class="no-data" v-else>
-        <p>暂无学习数据</p>
+        <div class="no-data-content">
+          <div class="no-data-icon">📚</div>
+          <p class="no-data-text">暂无学习数据</p>
+          <button class="no-data-btn" @click="toPage('/bookshelf')">去添加书籍</button>
+        </div>
       </div>
     </div>
   </div>
@@ -145,7 +171,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/api/api.js'
+import { apiService } from '@/api/api.js'
 
 const router = useRouter()
 // 跳转到对应页面
@@ -155,13 +181,39 @@ const toPage = (path) => router.push(path)
 const recentBook = ref(null)
 // 学习数据
 const learningData = ref([])
+// 加载状态
+const loading = ref(true)
 
 // 获取最近学习的书籍
 const fetchRecentBook = async () => {
   try {
-    const response = await api.get('/books/recent')
-    if (response.code === 200) {
-      recentBook.value = response.data
+    // 使用apiService的learning.getHistory方法获取学习历史，然后找到最近的书籍
+    const response = await apiService.learning.getHistory()
+    if (response && response.data) {
+      // 首先尝试直接获取recentBook字段
+      if (response.data.recentBook) {
+        recentBook.value = response.data.recentBook
+      } else if (response.data.learningHistory && response.data.learningHistory.length > 0) {
+        // 如果没有recentBook字段，从learningHistory中找到最近的学习记录
+        const sortedHistory = [...response.data.learningHistory].sort((a, b) => {
+          const dateA = new Date(a.date || a.Date || 0)
+          const dateB = new Date(b.date || b.Date || 0)
+          return dateB - dateA
+        })
+        
+        if (sortedHistory.length > 0) {
+          // 获取最近的学习记录
+          const latestRecord = sortedHistory[0]
+          // 构建recentBook对象
+          recentBook.value = {
+            id: latestRecord.bookId || latestRecord.book_id,
+            title: latestRecord.bookTitle || latestRecord.book_title || '未知书籍',
+            author: latestRecord.bookAuthor || latestRecord.book_author || '未知作者',
+            progress: latestRecord.progress || 0,
+            lastReadAt: latestRecord.date || latestRecord.Date
+          }
+        }
+      }
     }
   } catch (error) {
     console.error('获取最近学习书籍失败:', error)
@@ -171,21 +223,136 @@ const fetchRecentBook = async () => {
 // 获取学习数据
 const fetchLearningData = async () => {
   try {
-    const response = await api.get('/learning/history')
-    if (response.code === 200) {
-      learningData.value = response.data
+    const response = await apiService.learning.getHistory()
+    if (response && response.data) {
+      learningData.value = response.data.learningHistory || []
     }
   } catch (error) {
     console.error('获取学习数据失败:', error)
   }
 }
 
+// 处理学习数据，确保数据结构正确
+const processedLearningData = computed(() => {
+  if (!learningData.value || learningData.value.length === 0) {
+    return []
+  }
+  
+  return learningData.value.map(item => {
+    // 确保每个数据项都有必要的字段
+    return {
+      date: item.date || item.Date || new Date().toISOString().split('T')[0],
+      progress: item.progress || item.Progress || 0,
+      pagesRead: item.pagesRead || item.PagesRead || 0,
+      studyTimeMinutes: item.studyTimeMinutes || item.StudyTimeMinutes || 0
+    }
+  }).sort((a, b) => new Date(a.date) - new Date(b.date))
+})
+
+// 获取书籍封面
+const getBookCover = () => {
+  if (!recentBook.value) return ''
+  // 处理不同的数据结构
+  let coverUrl = ''
+  if (recentBook.value.cover) coverUrl = recentBook.value.cover
+  if (recentBook.value.book && recentBook.value.book.coverImage) coverUrl = recentBook.value.book.coverImage
+  if (recentBook.value.book && recentBook.value.book.cover) coverUrl = recentBook.value.book.cover
+  
+  // 如果已经是完整的图片链接（包含http://或https://），直接返回
+  if (coverUrl && (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))) {
+    return coverUrl
+  }
+  // 否则使用后端图片代理服务处理
+  if (coverUrl) {
+    return `/api/image-proxy/proxy?url=${encodeURIComponent(coverUrl)}`
+  }
+  return ''
+}
+
+// 获取书籍标题
+const getBookTitle = () => {
+  if (!recentBook.value) return '未知书籍'
+  // 处理不同的数据结构
+  if (recentBook.value.title) return recentBook.value.title
+  if (recentBook.value.book && recentBook.value.book.title) return recentBook.value.book.title
+  return '未知书籍'
+}
+
+// 获取书籍作者
+const getBookAuthor = () => {
+  if (!recentBook.value) return '未知作者'
+  // 处理不同的数据结构
+  if (recentBook.value.author) return recentBook.value.author
+  if (recentBook.value.book && recentBook.value.book.author) return recentBook.value.book.author
+  return '未知作者'
+}
+
+// 获取书籍进度
+const getBookProgress = () => {
+  if (!recentBook.value) return 0
+  // 处理不同的数据结构
+  if (recentBook.value.progress) return recentBook.value.progress
+  if (recentBook.value.book && recentBook.value.book.progress) return recentBook.value.book.progress
+  return 0
+}
+
+// 格式化最后阅读时间
+const formatLastReadTime = () => {
+  if (!recentBook.value) return '未知'
+  
+  let lastReadAt = null
+  // 处理不同的数据结构
+  if (recentBook.value.lastReadAt) lastReadAt = recentBook.value.lastReadAt
+  if (recentBook.value.book && recentBook.value.book.lastReadAt) lastReadAt = recentBook.value.book.lastReadAt
+  
+  if (!lastReadAt) return '未知'
+  
+  const date = new Date(lastReadAt)
+  return date.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
+// 格式化日期
+const formatDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  return date.toLocaleDateString('zh-CN', {
+    month: '2-digit',
+    day: '2-digit'
+  })
+}
+
+// 计算总学习时间
+const getTotalStudyTime = () => {
+  const totalMinutes = processedLearningData.value.reduce((total, item) => {
+    return total + (item.studyTimeMinutes || 0)
+  }, 0)
+  
+  if (totalMinutes < 60) {
+    return `${totalMinutes}分钟`
+  } else {
+    const hours = Math.floor(totalMinutes / 60)
+    const minutes = totalMinutes % 60
+    return `${hours}小时${minutes}分钟`
+  }
+}
+
+// 计算总阅读页数
+const getTotalPagesRead = () => {
+  return processedLearningData.value.reduce((total, item) => {
+    return total + (item.pagesRead || 0)
+  }, 0)
+}
+
 // 计算区域路径
 const areaPath = computed(() => {
-  if (learningData.value.length === 0) {
+  if (processedLearningData.value.length === 0) {
     return 'M 100,200 L 700,200 Z'
   }
-  const points = learningData.value.map((point, index) => {
+  const points = processedLearningData.value.map((point, index) => {
     const x = 100 + index * 150
     const y = 200 - (point.progress / 100) * 160
     return `${x},${y}`
@@ -195,10 +362,10 @@ const areaPath = computed(() => {
 
 // 计算线路径
 const linePath = computed(() => {
-  if (learningData.value.length === 0) {
+  if (processedLearningData.value.length === 0) {
     return 'M 100,200 L 700,200'
   }
-  const points = learningData.value.map((point, index) => {
+  const points = processedLearningData.value.map((point, index) => {
     const x = 100 + index * 150
     const y = 200 - (point.progress / 100) * 160
     return `${x},${y}`
@@ -208,8 +375,15 @@ const linePath = computed(() => {
 
 // 组件挂载时获取数据
 onMounted(async () => {
-  await fetchRecentBook()
-  await fetchLearningData()
+  loading.value = true
+  try {
+    await fetchRecentBook()
+    await fetchLearningData()
+  } catch (error) {
+    console.error('获取数据失败:', error)
+  } finally {
+    loading.value = false
+  }
 })
 </script>
 
@@ -315,17 +489,30 @@ onMounted(async () => {
   margin-top: 24px;
 }
 
-.book-progress-card {
+.loading-container {
   background: white;
   border-radius: 16px;
   padding: 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+.book-progress-card {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.book-progress-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
 .book-info {
   display: flex;
   gap: 20px;
   margin-bottom: 24px;
+  align-items: center;
 }
 
 .book-image-placeholder {
@@ -337,6 +524,7 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .book-cover {
@@ -345,6 +533,12 @@ onMounted(async () => {
   border-radius: 12px;
   object-fit: cover;
   flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: transform 0.3s ease;
+}
+
+.book-cover:hover {
+  transform: scale(1.02);
 }
 
 .placeholder-text {
@@ -365,6 +559,7 @@ onMounted(async () => {
   font-weight: 600;
   color: #1f2937;
   margin: 0 0 8px 0;
+  line-height: 1.3;
 }
 
 .book-author {
@@ -390,6 +585,7 @@ onMounted(async () => {
   background: #e5e7eb;
   border-radius: 5px;
   overflow: hidden;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .progress-fill {
@@ -397,6 +593,16 @@ onMounted(async () => {
   background: linear-gradient(90deg, #3b82f6 0%, #06b6d4 100%);
   border-radius: 5px;
   transition: width 0.3s ease;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+}
+
+.last-read-info {
+  margin-top: 4px;
+}
+
+.last-read-text {
+  font-size: 12px;
+  color: #9ca3af;
 }
 
 /* 无数据状态 */
@@ -406,8 +612,47 @@ onMounted(async () => {
   padding: 48px 24px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   text-align: center;
+  transition: all 0.3s ease;
+}
+
+.no-data:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.no-data-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.no-data-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.no-data-text {
   color: #6b7280;
   font-size: 16px;
+  margin: 0;
+}
+
+.no-data-btn {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  margin-top: 8px;
+}
+
+.no-data-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
 }
 
 /* 图表部分 */
@@ -426,10 +671,100 @@ onMounted(async () => {
 .chart-container {
   width: 100%;
   height: 260px;
+  margin-bottom: 24px;
 }
 
 .learning-chart {
   width: 100%;
   height: 100%;
+  transition: all 0.3s ease;
+}
+
+.learning-chart:hover {
+  transform: scale(1.01);
+}
+
+/* 学习统计信息 */
+.learning-stats {
+  display: flex;
+  gap: 24px;
+  margin-top: 20px;
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.stat-item {
+  flex: 1;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+.stat-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: #f3f4f6;
+}
+
+.stat-value {
+  font-size: 20px;
+  font-weight: 600;
+  color: #3b82f6;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .home-page {
+    padding: 16px;
+  }
+  
+  .quick-entry {
+    margin-bottom: 24px;
+  }
+  
+  .entry-card {
+    height: 90px;
+    padding: 16px;
+  }
+  
+  .card-title {
+    font-size: 16px;
+  }
+  
+  .book-info {
+    flex-direction: column;
+    text-align: center;
+    gap: 16px;
+  }
+  
+  .book-details {
+    align-items: center;
+  }
+  
+  .book-title {
+    font-size: 20px;
+  }
+  
+  .chart-container {
+    height: 200px;
+  }
+  
+  .learning-stats {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .stat-item {
+    padding: 12px;
+  }
 }
 </style>
