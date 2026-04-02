@@ -1,6 +1,7 @@
 package com.student.platform.service.impl;
 
 import com.student.platform.service.SeniorService;
+import com.student.platform.util.RedisUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -9,12 +10,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class SeniorServiceImpl implements SeniorService {
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
+    
+    @Autowired
+    private RedisUtil redisUtil;
 
     @Override
     public List<Map<String, Object>> getSeniors() {
@@ -52,6 +57,19 @@ public class SeniorServiceImpl implements SeniorService {
 
     @Override
     public List<Map<String, Object>> getQuestions(String seniorId, String filter, String sort, int page, int pageSize) {
+        // 生成缓存键
+        String cacheKey = "senior:questions:" + (seniorId != null ? seniorId : "all") + ":" + (filter != null ? filter : "all") + ":" + (sort != null ? sort : "created") + ":" + page + ":" + pageSize;
+        
+        // 尝试从缓存中获取
+        try {
+            List<Map<String, Object>> cachedQuestions = (List<Map<String, Object>>) redisUtil.get(cacheKey);
+            if (cachedQuestions != null) {
+                return cachedQuestions;
+            }
+        } catch (Exception e) {
+            // 缓存读取失败，继续执行数据库查询
+        }
+        
         StringBuilder sql = new StringBuilder();
         sql.append("SELECT q.id, q.title, q.content, q.category, q.author_id as authorId, q.author, q.created_at as createdAt, q.views, q.likes, q.solved, q.accepted_answer_id as acceptedAnswerId, q.images");
         sql.append(" FROM senior_question q");
@@ -66,7 +84,7 @@ public class SeniorServiceImpl implements SeniorService {
         }
         
         // 应用过滤条件
-        if (filter != null) {
+        if (filter != null && !"all".equals(filter)) {
             if (!params.isEmpty()) {
                 sql.append(" AND");
             } else {
@@ -81,7 +99,8 @@ public class SeniorServiceImpl implements SeniorService {
                     sql.append(" q.solved = true");
                     break;
                 case "hot":
-                    sql.append(" q.hot_score >= 100");
+                    // 使用likes字段代替hot_score，避免字段不存在的错误
+                    sql.append(" q.likes >= 5");
                     break;
             }
         }
@@ -91,6 +110,7 @@ public class SeniorServiceImpl implements SeniorService {
         if ("likes".equals(sort)) {
             sql.append(" q.likes DESC");
         } else {
+            // 默认按创建时间降序，包括"latest"排序
             sql.append(" q.created_at DESC");
         }
         
@@ -139,6 +159,13 @@ public class SeniorServiceImpl implements SeniorService {
                 tagNames.add((String) tag.get("name"));
             }
             question.put("tags", tagNames);
+        }
+        
+        // 缓存结果，设置10分钟过期
+        try {
+            redisUtil.set(cacheKey, questions, 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            // 缓存写入失败，不影响返回结果
         }
         
         return questions;
@@ -190,10 +217,32 @@ public class SeniorServiceImpl implements SeniorService {
 
     @Override
     public Map<String, Object> publishQuestion(Map<String, Object> data) {
-        String id = "q-" + UUID.randomUUID().toString().substring(0, 8);
+        // 输入验证
+        if (data == null) {
+            throw new IllegalArgumentException("请求数据不能为空");
+        }
+        
         String title = (String) data.get("title");
-        String category = (String) data.get("category");
+        if (title == null || title.trim().isEmpty()) {
+            throw new IllegalArgumentException("问题标题不能为空");
+        }
+        
         String content = (String) data.get("content");
+        if (content == null || content.trim().isEmpty()) {
+            throw new IllegalArgumentException("问题内容不能为空");
+        }
+        
+        String category = (String) data.get("category");
+        if (category == null || category.trim().isEmpty()) {
+            throw new IllegalArgumentException("问题分类不能为空");
+        }
+        
+        // 清理输入，防止XSS攻击
+        title = title.trim();
+        content = content.trim();
+        category = category.trim();
+        
+        String id = "q-" + UUID.randomUUID().toString().substring(0, 8);
         List<String> tags = (List<String>) data.get("tags");
         List<String> mentorIds = (List<String>) data.get("mentorIds");
         
@@ -236,6 +285,14 @@ public class SeniorServiceImpl implements SeniorService {
             }
         }
         
+        // 清除相关缓存
+        try {
+            // 清除所有问题列表缓存
+            redisUtil.delete(redisUtil.keys("senior:questions:*"));
+        } catch (Exception e) {
+            // 缓存清除失败，不影响返回结果
+        }
+        
         Map<String, Object> result = new java.util.HashMap<>();
         result.put("id", id);
         result.put("title", title);
@@ -268,6 +325,14 @@ public class SeniorServiceImpl implements SeniorService {
                 answerId
             );
         }
+        
+        // 清除相关缓存
+        try {
+            // 清除所有问题列表缓存
+            redisUtil.delete(redisUtil.keys("senior:questions:*"));
+        } catch (Exception e) {
+            // 缓存清除失败，不影响返回结果
+        }
     }
 
     @Override
@@ -277,6 +342,14 @@ public class SeniorServiceImpl implements SeniorService {
             "UPDATE senior_question SET solved = true, accepted_answer_id = ? WHERE id = ?", 
             answerId, questionId
         );
+        
+        // 清除相关缓存
+        try {
+            // 清除所有问题列表缓存
+            redisUtil.delete(redisUtil.keys("senior:questions:*"));
+        } catch (Exception e) {
+            // 缓存清除失败，不影响返回结果
+        }
     }
 
     @Override
@@ -288,5 +361,13 @@ public class SeniorServiceImpl implements SeniorService {
             "INSERT INTO senior_follow_up (id, question_id, author_id, author, time, content) VALUES (?, ?, ?, ?, ?, ?)", 
             id, questionId, "u-current", "我", "刚刚", content
         );
+        
+        // 清除相关缓存
+        try {
+            // 清除所有问题列表缓存
+            redisUtil.delete(redisUtil.keys("senior:questions:*"));
+        } catch (Exception e) {
+            // 缓存清除失败，不影响返回结果
+        }
     }
 }

@@ -16,6 +16,7 @@ public class UserBookDTO {
     private BookDTO book;
     private BigDecimal progress;
     private Integer lastReadPage;
+    private Long lastReadChapterId;
     
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     private LocalDateTime lastReadAt;

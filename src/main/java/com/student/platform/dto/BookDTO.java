@@ -1,12 +1,10 @@
 package com.student.platform.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
 
 @Data
 @NoArgsConstructor
@@ -23,10 +21,13 @@ public class BookDTO {
     private String grade;
     private String version;
     private String status;
+    private String category;
+    private String courseType;
+    private String major;
+    private String semester;
+    private String universityLevel;
     
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime createdAt;
+    private String createdAt;
     
-    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
-    private LocalDateTime updatedAt;
+    private String updatedAt;
 }

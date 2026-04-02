@@ -8,6 +8,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Data
@@ -48,6 +50,21 @@ public class Book {
 
     @TableField("status")
     private String status;
+
+    @TableField("category")
+    private String category;
+
+    @TableField("course_type")
+    private String courseType;
+
+    @TableField("major")
+    private String major;
+
+    @TableField("semester")
+    private String semester;
+
+    @TableField("university_level")
+    private String universityLevel;
 
     @TableField("created_at")
     private LocalDateTime createdAt;

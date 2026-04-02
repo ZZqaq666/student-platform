@@ -14,4 +14,11 @@
         SELECT * FROM knowledge_relation WHERE relation_type = #{relationType}
     </select>
     
+    <select id="findBySourceNodeIds" resultType="com.student.platform.entity.KnowledgeRelation">
+        SELECT * FROM knowledge_relation WHERE source_node_id IN
+        <foreach collection="list" item="id" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+    </select>
+    
 </mapper>

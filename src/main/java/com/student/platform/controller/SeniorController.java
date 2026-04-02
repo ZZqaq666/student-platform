@@ -32,7 +32,9 @@ public class SeniorController {
                                  @RequestParam(required = false) String filter,
                                  @RequestParam(required = false) String sort,
                                  @RequestParam(defaultValue = "1") int page,
-                                 @RequestParam(defaultValue = "6") int pageSize) {
+                                 @RequestParam(defaultValue = "6") int pageSize,
+                                 @RequestParam(required = false) Integer userId) {
+        // userId参数由前端自动添加，但后端暂不使用
         return Result.success(seniorService.getQuestions(seniorId, filter, sort, page, pageSize));
     }
 

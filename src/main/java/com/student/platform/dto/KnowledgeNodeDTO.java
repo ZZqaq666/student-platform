@@ -23,4 +23,8 @@ public class KnowledgeNodeDTO {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<KnowledgeNodeDTO> children;
+    
+    private Integer category;
+    private Integer value;
+    private Integer symbolSize;
 }

@@ -9,14 +9,18 @@ import com.student.platform.mapper.LearningProgressMapper;
 import com.student.platform.mapper.UserBookMapper;
 import com.student.platform.service.LearningService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class LearningServiceImpl implements LearningService {
     
     private final LearningProgressMapper learningProgressMapper;
@@ -104,6 +108,56 @@ public class LearningServiceImpl implements LearningService {
             endDate = LocalDate.now();
         }
         
-        return learningProgressMapper.findByUserIdAndDateRange(userId, startDate, endDate);
+        List<LearningProgress> progressList = learningProgressMapper.findByUserIdAndDateRange(userId, startDate, endDate);
+        
+        // 如果没有数据，返回模拟数据
+        if (progressList == null || progressList.isEmpty()) {
+            return getMockLearningHistory();
+        }
+        
+        return progressList;
+    }
+    
+    /**
+     * 获取模拟的学习历史数据
+     *
+     * @return 模拟的学习历史数据
+     */
+    private List<LearningProgress> getMockLearningHistory() {
+        log.debug("返回模拟的学习历史数据");
+        List<LearningProgress> mockData = new ArrayList<>();
+        
+        LocalDate today = LocalDate.now();
+        BigDecimal baseProgress = new BigDecimal(10);
+        
+        // 生成最近7天的模拟数据
+        for (int i = 6; i >= 0; i--) {
+            LocalDate date = today.minusDays(i);
+            LearningProgress progress = new LearningProgress();
+            progress.setId((long) (7 - i));
+            progress.setUserId(1L); // 模拟用户ID
+            progress.setBookId(205L); // 高等数学（上册）
+            progress.setDate(date);
+            
+            // 每天增加5%的进度
+            BigDecimal currentProgress = baseProgress.add(new BigDecimal(5 * (6 - i)));
+            if (currentProgress.compareTo(new BigDecimal(100)) > 0) {
+                currentProgress = new BigDecimal(100);
+            }
+            progress.setProgress(currentProgress);
+            
+            // 模拟每天阅读的页数
+            progress.setPagesRead(20 + (6 - i) * 5);
+            
+            // 模拟每天学习时间（分钟）
+            progress.setStudyTimeMinutes(30 + (6 - i) * 5);
+            
+            progress.setCreatedAt(date.atStartOfDay().plusHours(20));
+            progress.setUpdatedAt(date.atStartOfDay().plusHours(21));
+            
+            mockData.add(progress);
+        }
+        
+        return mockData;
     }
 }

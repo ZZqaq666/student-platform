@@ -1,5 +1,5 @@
 server:
-  port: 8080
+  port: 8083
 
 spring:
   application:
@@ -14,9 +14,14 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://42.194.198.252:3306/student_platform?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: turing
+    password: tufirewall24
 
   data:
     redis:
+      host: 42.194.198.252
+      port: 6379
       database: 0
       timeout: 3000ms
       lettuce:
@@ -62,6 +67,26 @@ management:
     metrics:
       export:
         enabled: true
+
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com/v1
+      api-key: sk-86094d27647a4acfafc67ebb849e7de5
+      model-name: deepseek-chat
+    streaming-chat-model:
+      base-url: https://api.deepseek.com/v1
+      api-key: sk-86094d27647a4acfafc67ebb849e7de5
+      model-name: deepseek-chat
+    vision-chat-model:
+      base-url: https://api.deepseek.com/v1
+      api-key: sk-86094d27647a4acfafc67ebb849e7de5
+      model-name: deepseek-chat
+
+jwt:
+  secret: dummy-jwt-secret-key-must-be-at-least-256-bits-long
+  expiration: 86400000
 
 logging:
   level:

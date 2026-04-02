@@ -1,6 +1,7 @@
 package com.student.platform.controller;
 
 import com.student.platform.dto.LearningCurveDTO;
+import com.student.platform.dto.LearningProgressRequest;
 import com.student.platform.dto.Result;
 import com.student.platform.entity.LearningProgress;
 import com.student.platform.entity.User;
@@ -14,12 +15,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -89,5 +88,47 @@ public class LearningController {
         List<LearningProgress> history = learningService.getLearningHistory(userId, startDate, endDate);
         
         return Result.success(history);
+    }
+    
+    @PostMapping("/progress")
+    @Operation(summary = "保存学习进度", description = "保存当前用户的学习进度")
+    public Result<LearningProgress> saveProgress(
+            Authentication authentication,
+            @Parameter(description = "学习进度数据", required = true) @RequestBody LearningProgressRequest request
+    ) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return Result.error("用户未登录");
+        }
+        
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof UserDetails)) {
+            return Result.error("用户信息无效");
+        }
+        
+        UserDetails userDetails = (UserDetails) principal;
+        String username = userDetails.getUsername();
+        
+        User user = userMapper.findByUsername(username);
+        if (user == null) {
+            return Result.error("用户不存在");
+        }
+        
+        Long userId = user.getId();
+        
+        // 构建学习进度实体
+        LearningProgress learningProgress = new LearningProgress();
+        learningProgress.setUserId(userId);
+        learningProgress.setBookId(request.getBookId());
+        learningProgress.setDate(LocalDate.now());
+        learningProgress.setProgress(request.getProgress());
+        learningProgress.setPagesRead(request.getPagesRead());
+        learningProgress.setStudyTimeMinutes(request.getStudyTimeMinutes());
+        learningProgress.setCreatedAt(LocalDateTime.now());
+        learningProgress.setUpdatedAt(LocalDateTime.now());
+        
+        // 保存学习进度
+        LearningProgress savedProgress = learningService.saveLearningProgress(learningProgress);
+        
+        return Result.success(savedProgress);
     }
 }

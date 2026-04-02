@@ -1,10 +1,14 @@
 package com.student.platform.util;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Component;
 
+import java.io.File;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -158,5 +162,61 @@ public class RedisUtil {
 
     public Long zRemove(String key, Object... values) {
         return redisTemplate.opsForZSet().remove(key, values);
+    }
+    
+    /**
+     * 备份指定前缀的Redis数据到文件
+     * @param prefix 键前缀
+     * @param filePath 备份文件路径
+     * @return 备份的键数量
+     */
+    public int backupDataByPrefix(String prefix, String filePath) {
+        try {
+            Set<String> keys = redisTemplate.keys(prefix + "*");
+            if (keys == null || keys.isEmpty()) {
+                return 0;
+            }
+            
+            Map<String, Object> data = new HashMap<>();
+            for (String key : keys) {
+                data.put(key, redisTemplate.opsForValue().get(key));
+            }
+            
+            ObjectMapper objectMapper = new ObjectMapper();
+            objectMapper.writeValue(new File(filePath), data);
+            return keys.size();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+    
+    /**
+     * 从文件恢复Redis数据
+     * @param filePath 备份文件路径
+     * @return 恢复的键数量
+     */
+    public int restoreDataFromFile(String filePath) {
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            Map<String, Object> data = objectMapper.readValue(new File(filePath), new TypeReference<Map<String, Object>>() {});
+            
+            for (Map.Entry<String, Object> entry : data.entrySet()) {
+                redisTemplate.opsForValue().set(entry.getKey(), entry.getValue());
+            }
+            return data.size();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+    
+    /**
+     * 备份所有AI相关数据
+     * @param filePath 备份文件路径
+     * @return 备份的键数量
+     */
+    public int backupAllAiData(String filePath) {
+        return backupDataByPrefix("ai:", filePath);
     }
 }

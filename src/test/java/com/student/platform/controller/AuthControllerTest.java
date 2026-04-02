@@ -1,6 +1,7 @@
 package com.student.platform.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.student.platform.dto.AuthResponse;
 import com.student.platform.dto.LoginRequest;
 import com.student.platform.dto.RegisterRequest;
 import com.student.platform.service.UserService;
@@ -9,9 +10,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
@@ -19,13 +20,16 @@ import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
+/**
+ * 认证控制器测试类
+ */
 @WebMvcTest(AuthController.class)
 public class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private UserService userService;
 
     @Autowired
@@ -50,17 +54,28 @@ public class AuthControllerTest {
 
     @Test
     void testLogin() throws Exception {
+        // 使用Builder创建AuthResponse
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
+                .id(1L)
+                .username("testuser")
+                .role("STUDENT")
+                .nickname("Test User")
+                .email("test@example.com")
+                .phone("13800138000")
+                .build();
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .token("test-token-123")
+                .tokenType("Bearer")
+                .userId(1L)
+                .username("testuser")
+                .role("STUDENT")
+                .user(userInfo)
+                .expiry(System.currentTimeMillis() + 3600000)
+                .build();
+
         // Mock the userService.login method
-        when(userService.login(any(LoginRequest.class)))
-                .thenReturn(new com.student.platform.dto.AuthResponse(
-                        "test-token-123",
-                        "Bearer",
-                        1L,
-                        "testuser",
-                        "STUDENT",
-                        new com.student.platform.dto.AuthResponse.UserInfo(1L, "testuser", "STUDENT"),
-                        System.currentTimeMillis() + 3600000
-                ));
+        when(userService.login(any(LoginRequest.class))).thenReturn(authResponse);
 
         // Perform the POST request
         mockMvc.perform(MockMvcRequestBuilders.post("/auth/login")
@@ -73,17 +88,28 @@ public class AuthControllerTest {
 
     @Test
     void testRegister() throws Exception {
+        // 使用Builder创建AuthResponse
+        AuthResponse.UserInfo userInfo = AuthResponse.UserInfo.builder()
+                .id(2L)
+                .username("newuser")
+                .role("STUDENT")
+                .nickname("New User")
+                .email("newuser@example.com")
+                .phone("13800138000")
+                .build();
+
+        AuthResponse authResponse = AuthResponse.builder()
+                .token("test-token-123")
+                .tokenType("Bearer")
+                .userId(2L)
+                .username("newuser")
+                .role("STUDENT")
+                .user(userInfo)
+                .expiry(System.currentTimeMillis() + 3600000)
+                .build();
+
         // Mock the userService.register method
-        when(userService.register(any(RegisterRequest.class)))
-                .thenReturn(new com.student.platform.dto.AuthResponse(
-                        "test-token-123",
-                        "Bearer",
-                        2L,
-                        "newuser",
-                        "STUDENT",
-                        new com.student.platform.dto.AuthResponse.UserInfo(2L, "newuser", "STUDENT"),
-                        System.currentTimeMillis() + 3600000
-                ));
+        when(userService.register(any(RegisterRequest.class))).thenReturn(authResponse);
 
         // Perform the POST request
         mockMvc.perform(MockMvcRequestBuilders.post("/auth/register")

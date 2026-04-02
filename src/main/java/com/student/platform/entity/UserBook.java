@@ -32,6 +32,9 @@ public class UserBook {
     @TableField("last_read_page")
     private Integer lastReadPage;
 
+    @TableField("last_read_chapter_id")
+    private Long lastReadChapterId;
+
     @TableField("last_read_at")
     private LocalDateTime lastReadAt;
 

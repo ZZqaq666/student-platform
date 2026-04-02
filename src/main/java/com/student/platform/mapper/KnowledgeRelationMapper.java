@@ -14,4 +14,6 @@ public interface KnowledgeRelationMapper extends BaseMapper<KnowledgeRelation> {
     List<KnowledgeRelation> findByTargetNodeId(Long targetNodeId);
     
     List<KnowledgeRelation> findByRelationType(String relationType);
+    
+    List<KnowledgeRelation> findBySourceNodeIds(List<Long> sourceNodeIds);
 }

@@ -12,4 +12,5 @@ import java.math.BigDecimal;
 public class UpdateProgressRequest {
     private BigDecimal progress;
     private Integer lastReadPage;
+    private Long lastReadChapterId;
 }
