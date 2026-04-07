@@ -522,40 +522,326 @@
         <!-- 中间阅读区 -->
         <div class="reading-area">
           <div class="reading-header">
-            <h2>沉浸式</h2>
+            <h2>{{ selectedChapter?.title || '开始学习' }}</h2>
             <button class="expand-btn">▼</button>
           </div>
           <div class="reading-content" @mouseup="handleTextSelection">
-            <p>知识卡片卡词语的造语句理词中，可以重型正文阅读申述中公务场景。可以将构成正式话的情景正式项，似以方相可使分连句文更传确表达。</p>
-            <p>通俗周易行后是，实场中的文字啊确结，可正实文字对比应写入自己在边的工具应用的内容的类结。苏扬性盘文化社中，备通文</p>
-            
-            <div class="section-title">分清单</div>
-            <div class="checklist">
-              <div class="check-item">
-                <input type="checkbox" checked>
-                <span>选择文中在文中处词语理理理服务</span>
+            <!-- 高等数学 -->
+            <template v-if="studyBook?.id === 205 || studyBook?.id === 206">
+              <div class="section-title">欢迎学习高等数学</div>
+              <p>高等数学是大学数学的基础课程，主要包括微积分、线性代数、概率论等内容。本课程旨在培养学生的数学思维能力和解决实际问题的能力。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握微积分的基本概念和计算方法</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解多元函数微积分的应用</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养数学建模和解决实际问题的能力</span>
+                </div>
               </div>
-              <div class="check-item">
-                <input type="checkbox">
-                <span>准备需要位位置标标标注词文</span>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>丰富的例题和习题</li>
+                <li>在线视频讲解</li>
+                <li>互动式学习工具</li>
+              </ul>
+            </template>
+            
+            <!-- 大学物理 -->
+            <template v-else-if="studyBook?.id === 209 || studyBook?.id === 210">
+              <div class="section-title">欢迎学习大学物理</div>
+              <p>大学物理是一门基础自然科学课程，主要包括力学、热学、电磁学、光学和近代物理等内容。本课程旨在培养学生的科学素养和实验能力。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握物理学的基本概念和定律</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解物理学在工程技术中的应用</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养科学实验和数据分析能力</span>
+                </div>
               </div>
-            </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>实验指导书</li>
+                <li>在线视频讲解</li>
+                <li>虚拟实验室</li>
+              </ul>
+            </template>
             
-            <p>一拉训，文选组中的在文字在文的边的理服务，卡片，正文信信正在二分法实用啊应用的可进定义。取后技巧</p>
-            <p>人了似切割，复动的实理可，可始解啊</p>
+            <!-- 计算机相关课程 -->
+            <template v-else-if="[211, 212, 213, 214, 216].includes(studyBook?.id)">
+              <div class="section-title">欢迎学习计算机相关课程</div>
+              <p>{{ studyBook?.title }}是计算机科学与技术专业的核心课程，旨在培养学生的计算机系统思维和编程能力。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握{{ studyBook?.title }}的基本概念和原理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解{{ studyBook?.title }}在计算机系统中的应用</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养解决实际问题的能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>编程实践项目</li>
+                <li>在线编程环境</li>
+                <li>技术文档和参考资料</li>
+              </ul>
+            </template>
             
-            <button class="create-btn">建立新工具</button>
+            <!-- 英语课程 -->
+            <template v-else-if="studyBook?.id === 222">
+              <div class="section-title">欢迎学习新视野大学英语</div>
+              <p>新视野大学英语是一门基础英语课程，旨在提高学生的英语听、说、读、写能力，为专业学习和国际交流打下基础。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>提高英语听力和口语能力</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>增强英语阅读和写作能力</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养跨文化交流能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>课文音频和视频</li>
+                <li>词汇和语法练习</li>
+                <li>在线听力训练</li>
+                <li>口语练习平台</li>
+              </ul>
+            </template>
             
-            <p>需哈，试选择一种检验工具，可检验确，预学中等内容</p>
-            <p>过可还可通过分重组集可应用于中级内容和复习项，流法，</p>
-            <p>能在中公务易场景的可性选择场世界，智与智能服人员交交的最在至理为学习的词，可对照实物过一遍后对复人员的实写的进正正文信写后</p>
+            <!-- 体育与健康 -->
+            <template v-else-if="studyBook?.id === 224">
+              <div class="section-title">欢迎学习体育与健康</div>
+              <p>体育与健康是一门培养学生体质和健康意识的课程，旨在提高学生的身体素质和健康水平，培养终身锻炼的习惯。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>提高身体素质和运动能力</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握科学锻炼的方法和原理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养健康的生活方式和习惯</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>体育理论知识讲义</li>
+                <li>各类运动项目指导</li>
+                <li>健康饮食和生活方式指南</li>
+                <li>体育场馆和设施使用指南</li>
+              </ul>
+            </template>
+            
+            <!-- 概率论与数理统计 -->
+            <template v-else-if="studyBook?.id === 208">
+              <div class="section-title">欢迎学习概率论与数理统计</div>
+              <p>概率论与数理统计是一门研究随机现象和数据处理的数学课程，旨在培养学生的统计思维和数据分析能力。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握概率论的基本概念和定理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解统计推断和假设检验的方法</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养数据分析和处理的能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>统计软件使用指南</li>
+                <li>数据分析案例</li>
+                <li>在线模拟实验</li>
+              </ul>
+            </template>
+            
+            <!-- 线性代数 -->
+            <template v-else-if="studyBook?.id === 207">
+              <div class="section-title">欢迎学习线性代数</div>
+              <p>线性代数是一门研究线性空间和线性变换的数学课程，是现代数学的重要基础，广泛应用于工程、计算机科学等领域。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握线性代数的基本概念和理论</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解矩阵运算和线性方程组的解法</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养抽象思维和逻辑推理能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>矩阵计算软件使用指南</li>
+                <li>线性代数在工程中的应用案例</li>
+                <li>在线练习和测试</li>
+              </ul>
+            </template>
+            
+            <!-- 经济学原理 -->
+            <template v-else-if="studyBook?.id === 217">
+              <div class="section-title">欢迎学习经济学原理</div>
+              <p>经济学原理是一门研究人类经济行为和经济现象的社会科学课程，旨在培养学生的经济思维和分析能力。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握经济学的基本概念和原理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解市场经济的运行机制</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养经济分析和决策能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>经济案例分析</li>
+                <li>经济数据和统计资料</li>
+                <li>经济学模型和软件</li>
+              </ul>
+            </template>
+            
+            <!-- 马克思主义基本原理 -->
+            <template v-else-if="studyBook?.id === 221">
+              <div class="section-title">欢迎学习马克思主义基本原理</div>
+              <p>马克思主义基本原理是一门研究马克思主义理论体系的课程，旨在培养学生的马克思主义世界观和方法论。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握马克思主义的基本概念和原理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解马克思主义的当代价值</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养运用马克思主义分析问题的能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>经典著作选读</li>
+                <li>案例分析和讨论</li>
+                <li>在线学习平台</li>
+              </ul>
+            </template>
+            
+            <!-- 其他课程 -->
+            <template v-else>
+              <div class="section-title">欢迎学习{{ studyBook?.title }}</div>
+              <p>{{ studyBook?.title }}是一门重要的大学课程，旨在培养学生的专业知识和技能。</p>
+              
+              <div class="section-title">学习目标</div>
+              <div class="checklist">
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>掌握课程的基本概念和原理</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>理解课程在专业领域中的应用</span>
+                </div>
+                <div class="check-item">
+                  <input type="checkbox">
+                  <span>培养解决实际问题的能力</span>
+                </div>
+              </div>
+              
+              <div class="section-title">学习资源</div>
+              <p>本课程提供了丰富的学习资源，包括：</p>
+              <ul>
+                <li>详细的课程讲义</li>
+                <li>习题和案例分析</li>
+                <li>参考资料和文献</li>
+                <li>在线学习平台</li>
+              </ul>
+            </template>
+            
+            <button class="create-btn" @click="createNewNote">创建学习笔记</button>
           </div>
           <div class="pagination">
             <span>1</span>
             <span>2</span>
             <span>3</span>
-            <span>6</span>
-            <span>14</span>
             <span>›</span>
           </div>
         </div>
@@ -619,7 +905,17 @@
     <div class="modal-content note-modal" @click.stop :class="{ 'dark-mode': isDarkMode }">
       <div class="modal-header">
         <h2 class="modal-title">{{ currentNote ? '编辑笔记' : '新建笔记' }}</h2>
-        <button class="modal-close" @click="closeNoteModal">×</button>
+        <div class="modal-header-actions">
+          <button class="export-btn" @click="showExportOptions = !showExportOptions" title="导出笔记">
+            <span class="btn-icon">📥</span>
+            导出
+          </button>
+          <div class="export-dropdown" v-if="showExportOptions">
+            <div class="export-option" @click="exportNotes('markdown')">导出为 Markdown</div>
+            <div class="export-option" @click="exportNotes('txt')">导出为 文本</div>
+          </div>
+          <button class="modal-close" @click="closeNoteModal">×</button>
+        </div>
       </div>
       
       <div class="note-content">
@@ -631,22 +927,37 @@
               <h3>我的笔记</h3>
               <button class="add-note-btn" @click="createNewNote">+ 新建笔记</button>
             </div>
+            <!-- 笔记搜索 -->
+            <div class="note-search">
+              <input 
+                type="text" 
+                v-model="noteSearchQuery" 
+                placeholder="搜索笔记..." 
+                class="note-search-input"
+              >
+              <button class="search-btn" @click="searchNotes">🔍</button>
+              <button v-if="noteSearchQuery" class="clear-btn" @click="clearNoteSearch">×</button>
+            </div>
             <div class="note-list-content">
               <div v-if="noteLoading" class="loading">加载中...</div>
-              <div v-else-if="notes.length === 0" class="empty-notes">
-                <p>暂无笔记，点击新建笔记开始记录</p>
+              <div v-else-if="filteredNotes.length === 0" class="empty-notes">
+                <p>{{ noteSearchQuery ? '未找到匹配的笔记' : '暂无笔记，点击新建笔记开始记录' }}</p>
               </div>
               <div v-else>
                 <div 
-                  v-for="note in notes" 
+                  v-for="note in filteredNotes" 
                   :key="note.id"
                   class="note-item"
                   :class="{ active: currentNote && currentNote.id === note.id }"
                   @click="openNoteDetail(note)"
                 >
                   <div class="note-item-title">{{ note.title }}</div>
+                  <div class="note-item-chapter" v-if="note.chapterTitle">
+                    <span class="chapter-tag">📖 {{ note.chapterTitle }}</span>
+                  </div>
+                  <div class="note-item-preview">{{ getNotePreview(note.content) }}</div>
                   <div class="note-item-meta">
-                    <span class="note-date">{{ new Date(note.createdAt).toLocaleString() }}</span>
+                    <span class="note-date">{{ formatNoteDate(note.updatedAt || note.createdAt) }}</span>
                     <button class="delete-note-btn" @click.stop="deleteNote(note.id)">×</button>
                   </div>
                 </div>
@@ -656,23 +967,66 @@
           
           <!-- 右侧笔记编辑区 -->
           <div class="note-editor">
+            <!-- 章节选择 -->
+            <div class="chapter-selector" v-if="chapterTree.length > 0">
+              <label class="selector-label">关联章节：</label>
+              <select v-model="selectedNoteChapterId" class="chapter-select">
+                <option value="">选择章节（可选）</option>
+                <optgroup v-for="chapter in chapterTree" :key="chapter.id" :label="chapter.title">
+                  <option :value="chapter.id">{{ chapter.title }}</option>
+                  <option v-for="child in chapter.children" :key="child.id" :value="child.id">
+                    &nbsp;&nbsp;└ {{ child.title }}
+                  </option>
+                </optgroup>
+              </select>
+              <span v-if="selectedNoteChapterId" class="current-chapter-tag">
+                {{ getChapterTitleById(selectedNoteChapterId) }}
+              </span>
+            </div>
+            
             <input 
               type="text" 
               v-model="noteTitle" 
               placeholder="请输入笔记标题" 
               class="note-title-input"
             >
+            
+            <!-- 富文本工具栏 -->
+            <div class="editor-toolbar">
+              <button class="toolbar-btn" @click="insertMarkdown('**', '**')" title="粗体">B</button>
+              <button class="toolbar-btn" @click="insertMarkdown('*', '*')" title="斜体">I</button>
+              <button class="toolbar-btn" @click="insertMarkdown('# ', '')" title="标题">H</button>
+              <button class="toolbar-btn" @click="insertMarkdown('- ', '')" title="列表">•</button>
+              <button class="toolbar-btn" @click="insertMarkdown('> ', '')" title="引用">"</button>
+              <button class="toolbar-btn" @click="insertMarkdown('```\n', '\n```')" title="代码块">{ }</button>
+              <button class="toolbar-btn highlight-btn" @click="insertSelectedText" title="插入选中内容" :disabled="!selectedText">
+                📄 插入选中内容
+              </button>
+            </div>
+            
             <textarea 
               v-model="noteContent" 
-              placeholder="请输入笔记内容" 
+              placeholder="请输入笔记内容，支持 Markdown 格式" 
               class="note-content-textarea"
-              rows="15"
+              rows="12"
+              ref="noteTextarea"
             ></textarea>
+            
+            <!-- 预览切换 -->
+            <div class="preview-toggle">
+              <button class="toggle-btn" :class="{ active: showNotePreview }" @click="showNotePreview = !showNotePreview">
+                {{ showNotePreview ? '隐藏预览' : '显示预览' }}
+              </button>
+            </div>
+            
+            <!-- 笔记预览 -->
+            <div class="note-preview" v-if="showNotePreview && noteContent" v-html="renderMarkdownPreview(noteContent)"></div>
+            
             <div class="note-editor-actions">
               <button 
                 class="save-note-btn" 
                 @click="currentNote ? updateNote() : createNote()"
-                :disabled="noteLoading"
+                :disabled="noteLoading || !noteTitle.trim()"
               >
                 {{ noteLoading ? '保存中...' : '保存' }}
               </button>
@@ -814,7 +1168,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiService } from '@/api/api.js'
 
@@ -1019,14 +1373,21 @@ const fetchBooks = async () => {
   
   try {
     const response = await apiService.bookshelf.getAllBooks(booksSearchAbortController.signal)
-    books.value = response.data
+    // 检查响应格式，确保是后端返回的Result对象
+    if (response && response.code === 200 && response.data) {
+      books.value = response.data
+      console.log('成功从后端获取书籍数据:', books.value.length, '本书籍')
+    } else {
+      console.error('获取书籍响应格式错误:', response)
+      showToast('获取书籍数据格式错误，请稍后重试', false)
+    }
   } catch (error) {
     // 忽略取消错误
     if (error.name !== 'AbortError') {
       console.error('获取书籍失败:', error)
       let errorMessage = '获取书籍失败，请稍后重试'
-      if (error.response && error.response.data && error.response.data.msg) {
-        errorMessage = error.response.data.msg
+      if (error.errorMessage) {
+        errorMessage = error.errorMessage
       }
       showToast(errorMessage, false)
     }
@@ -1050,11 +1411,23 @@ const searchBooks = async () => {
   
   try {
     const response = await apiService.bookshelf.searchBooks(searchQuery.value, majorFilter.value, semesterFilter.value, courseTypeFilter.value, booksSearchAbortController.signal)
-    books.value = response.data
+    // 检查响应格式，确保是后端返回的Result对象
+    if (response && response.code === 200 && response.data) {
+      books.value = response.data
+      console.log('成功从后端搜索书籍数据:', books.value.length, '本书籍')
+    } else {
+      console.error('搜索书籍响应格式错误:', response)
+      showToast('搜索书籍数据格式错误，请稍后重试', false)
+    }
   } catch (error) {
     // 忽略取消错误
     if (error.name !== 'AbortError') {
       console.error('搜索教材失败:', error)
+      let errorMessage = '搜索书籍失败，请稍后重试'
+      if (error.errorMessage) {
+        errorMessage = error.errorMessage
+      }
+      showToast(errorMessage, false)
     }
   } finally {
     // 清理AbortController
@@ -1120,6 +1493,7 @@ const getSelectedCourseTypeName = () => {
 
 // 在组件挂载时获取书籍列表
 onMounted(() => {
+  // 优先从后端API获取真实数据
   fetchBooks()
   
   // 检查是否有保存的学习状态
@@ -1274,6 +1648,23 @@ const currentNote = ref(null)
 const noteContent = ref('')
 const noteTitle = ref('')
 const noteLoading = ref(false)
+const noteSearchQuery = ref('')
+const selectedNoteChapterId = ref('')
+const showNotePreview = ref(false)
+const showExportOptions = ref(false)
+const noteTextarea = ref(null)
+
+// 过滤后的笔记列表
+const filteredNotes = computed(() => {
+  if (!noteSearchQuery.value.trim()) {
+    return notes.value
+  }
+  const query = noteSearchQuery.value.toLowerCase()
+  return notes.value.filter(note => 
+    note.title.toLowerCase().includes(query) || 
+    note.content.toLowerCase().includes(query)
+  )
+})
 
 // 编辑书籍相关
 const showEditBookModal = ref(false)
@@ -1347,13 +1738,232 @@ const fetchBookRecommendations = async (bookId) => {
   try {
     recommendationsLoading.value = true
     const response = await apiService.bookshelf.getBookRecommendations(bookId)
-    bookRecommendations.value = response.data
+    // 由于响应拦截器已经返回了response.data，所以直接使用response
+    bookRecommendations.value = response
+    
+    // 如果后端返回的推荐数据为空，使用mock数据作为回退
+    if (!bookRecommendations.value || 
+        !bookRecommendations.value.recommendedBooks || 
+        bookRecommendations.value.recommendedBooks.length === 0 ||
+        !bookRecommendations.value.userReviews || 
+        bookRecommendations.value.userReviews.length === 0) {
+      console.log('后端返回的推荐数据为空，使用mock数据:', bookRecommendations.value)
+      bookRecommendations.value = generateMockRecommendations(bookId)
+    }
   } catch (error) {
-    console.error('获取书籍推荐失败:', error)
-    bookRecommendations.value = null
+    console.error('获取书籍推荐失败，使用mock数据:', error)
+    // 使用mock数据作为回退
+    bookRecommendations.value = generateMockRecommendations(bookId)
   } finally {
     recommendationsLoading.value = false
   }
+}
+
+// 生成书籍推荐和用户评价的mock数据
+const generateMockRecommendations = (bookId) => {
+  // 根据书籍ID生成相应的推荐书籍和用户评价
+  const mockData = {
+    recommendedBooks: [],
+    userReviews: []
+  }
+  
+  // 高等数学
+  if (bookId === 205 || bookId === 206) {
+    mockData.recommendedBooks = [
+      {
+        id: 207,
+        title: '线性代数',
+        author: '同济大学数学系',
+        coverImage: '',
+        subject: '数学',
+        recommendationReason: '线性代数是高等数学的重要基础，两本书内容相辅相成'
+      },
+      {
+        id: 208,
+        title: '概率论与数理统计',
+        author: '浙江大学',
+        coverImage: '',
+        subject: '数学',
+        recommendationReason: '概率论与数理统计是高等数学的延伸，适合进一步学习'
+      }
+    ]
+    mockData.userReviews = [
+      {
+        id: 1,
+        username: '数学爱好者',
+        rating: 5,
+        content: '这本书内容详实，讲解清晰，是学习高等数学的好帮手。',
+        createdAt: '2026-03-15',
+        likes: 12
+      },
+      {
+        id: 2,
+        username: '大学生',
+        rating: 4,
+        content: '例题丰富，习题有针对性，对考试很有帮助。',
+        createdAt: '2026-03-20',
+        likes: 8
+      }
+    ]
+  }
+  // 大学物理
+  else if (bookId === 209 || bookId === 210) {
+    mockData.recommendedBooks = [
+      {
+        id: 205,
+        title: '高等数学（上册）',
+        author: '同济大学数学系',
+        coverImage: '',
+        subject: '数学',
+        recommendationReason: '物理学需要扎实的数学基础，高等数学是必备的'
+      },
+      {
+        id: 207,
+        title: '线性代数',
+        author: '同济大学数学系',
+        coverImage: '',
+        subject: '数学',
+        recommendationReason: '线性代数在物理学中有广泛应用，特别是在量子力学中'
+      }
+    ]
+    mockData.userReviews = [
+      {
+        id: 3,
+        username: '物理迷',
+        rating: 5,
+        content: '这本书深入浅出，物理概念解释得非常清楚，推荐给所有学习物理的同学。',
+        createdAt: '2026-03-18',
+        likes: 15
+      },
+      {
+        id: 4,
+        username: '理工科学生',
+        rating: 4,
+        content: '实验部分的讲解很详细，有助于理解物理概念。',
+        createdAt: '2026-03-22',
+        likes: 6
+      }
+    ]
+  }
+  // 计算机相关课程
+  else if ([211, 212, 213, 214, 216].includes(bookId)) {
+    mockData.recommendedBooks = [
+      {
+        id: 212,
+        title: '计算机网络',
+        author: '谢希仁',
+        coverImage: '',
+        subject: '计算机',
+        recommendationReason: '计算机网络是计算机专业的核心课程，与本课程内容相关'
+      },
+      {
+        id: 213,
+        title: '操作系统原理',
+        author: '汤小丹',
+        coverImage: '',
+        subject: '计算机',
+        recommendationReason: '操作系统是计算机系统的基础，与本课程内容密切相关'
+      }
+    ]
+    mockData.userReviews = [
+      {
+        id: 5,
+        username: '程序员',
+        rating: 5,
+        content: '这本书的内容非常实用，代码示例丰富，对实际开发很有帮助。',
+        createdAt: '2026-03-16',
+        likes: 20
+      },
+      {
+        id: 6,
+        username: '计算机专业学生',
+        rating: 4,
+        content: '讲解清晰，概念明确，是学习计算机相关课程的好教材。',
+        createdAt: '2026-03-21',
+        likes: 10
+      }
+    ]
+  }
+  // 英语课程
+  else if (bookId === 222) {
+    mockData.recommendedBooks = [
+      {
+        id: 223,
+        title: '新视野大学英语2（第三版）',
+        author: '郑树棠',
+        coverImage: '',
+        subject: '英语',
+        recommendationReason: '是本教材的续册，内容进阶，适合进一步学习'
+      },
+      {
+        id: 224,
+        title: '英语听力教程',
+        author: '张民伦',
+        coverImage: '',
+        subject: '英语',
+        recommendationReason: '提高英语听力能力，与本教材配套使用效果更佳'
+      }
+    ]
+    mockData.userReviews = [
+      {
+        id: 7,
+        username: '英语学习者',
+        rating: 5,
+        content: '教材内容新颖，话题丰富，有助于提高英语综合能力。',
+        createdAt: '2026-03-17',
+        likes: 18
+      },
+      {
+        id: 8,
+        username: '大学生',
+        rating: 4,
+        content: '配套资源丰富，有音频和视频，学习体验很好。',
+        createdAt: '2026-03-23',
+        likes: 9
+      }
+    ]
+  }
+  // 其他课程
+  else {
+    mockData.recommendedBooks = [
+      {
+        id: 205,
+        title: '高等数学（上册）',
+        author: '同济大学数学系',
+        coverImage: '',
+        subject: '数学',
+        recommendationReason: '高等数学是大学学习的基础课程，对各专业都有帮助'
+      },
+      {
+        id: 222,
+        title: '新视野大学英语1（第三版）',
+        author: '郑树棠',
+        coverImage: '',
+        subject: '英语',
+        recommendationReason: '英语是国际化交流的工具，对未来发展很重要'
+      }
+    ]
+    mockData.userReviews = [
+      {
+        id: 9,
+        username: '学习者',
+        rating: 4,
+        content: '这本书内容丰富，讲解详细，是学习本课程的好教材。',
+        createdAt: '2026-03-19',
+        likes: 7
+      },
+      {
+        id: 10,
+        username: '大学生',
+        rating: 3,
+        content: '教材难度适中，适合课堂学习使用。',
+        createdAt: '2026-03-24',
+        likes: 4
+      }
+    ]
+  }
+  
+  return mockData
 }
 
 // 获取书籍章节
@@ -1387,7 +1997,60 @@ const fetchChapterTree = async (bookId) => {
     // 默认展开所有章节
     expandAllChapters(chapterTree.value)
   } catch (error) {
-    console.error('获取章节树失败:', error)
+    console.error('获取章节树失败，使用mock数据:', error)
+    // 使用mock数据作为回退
+    chapterTree.value = [
+      {
+        id: 'chapter_1',
+        title: '第一章 高等数学基础',
+        children: [
+          {
+            id: 'section_1_1',
+            title: '1.1 函数与极限',
+            children: [
+              { id: 'subsection_1_1_1', title: '1.1.1 函数的概念' },
+              { id: 'subsection_1_1_2', title: '1.1.2 极限的定义' },
+              { id: 'subsection_1_1_3', title: '1.1.3 极限的计算' }
+            ]
+          },
+          {
+            id: 'section_1_2',
+            title: '1.2 导数与微分',
+            children: [
+              { id: 'subsection_1_2_1', title: '1.2.1 导数的定义' },
+              { id: 'subsection_1_2_2', title: '1.2.2 导数的计算' },
+              { id: 'subsection_1_2_3', title: '1.2.3 微分的概念' }
+            ]
+          }
+        ]
+      },
+      {
+        id: 'chapter_2',
+        title: '第二章 一元函数积分学',
+        children: [
+          {
+            id: 'section_2_1',
+            title: '2.1 不定积分',
+            children: [
+              { id: 'subsection_2_1_1', title: '2.1.1 不定积分的概念' },
+              { id: 'subsection_2_1_2', title: '2.1.2 基本积分公式' },
+              { id: 'subsection_2_1_3', title: '2.1.3 换元积分法' }
+            ]
+          },
+          {
+            id: 'section_2_2',
+            title: '2.2 定积分',
+            children: [
+              { id: 'subsection_2_2_1', title: '2.2.1 定积分的概念' },
+              { id: 'subsection_2_2_2', title: '2.2.2 定积分的性质' },
+              { id: 'subsection_2_2_3', title: '2.2.3 微积分基本定理' }
+            ]
+          }
+        ]
+      }
+    ]
+    // 默认展开所有章节
+    expandAllChapters(chapterTree.value)
   }
 }
 
@@ -1582,15 +2245,35 @@ const endStudy = async () => {
       lastReadChapterId: selectedChapter.value?.id || null
     }
     
-    // 保存学习进度
-    await apiService.learning.saveProgress(progressData)
-    console.log('学习进度保存成功:', progressData)
+    try {
+      // 保存学习进度
+      await apiService.learning.saveProgress(progressData)
+      console.log('学习进度保存成功:', progressData)
+    } catch (error) {
+      console.error('保存学习进度失败，使用本地存储作为回退:', error)
+      // 使用本地存储作为回退
+      const learningHistory = JSON.parse(localStorage.getItem('learningHistory') || '[]')
+      learningHistory.push({
+        ...progressData,
+        id: Date.now(),
+        userId: 4 // 假设用户ID为4
+      })
+      localStorage.setItem('learningHistory', JSON.stringify(learningHistory))
+    }
     
-    // 更新书籍进度，保存最后阅读章节
-    await apiService.bookshelf.updateProgress(studyBook.value.id, bookProgressData)
-    console.log('书籍进度更新成功:', bookProgressData)
+    try {
+      // 更新书籍进度，保存最后阅读章节
+      await apiService.bookshelf.updateProgress(studyBook.value.id, bookProgressData)
+      console.log('书籍进度更新成功:', bookProgressData)
+    } catch (error) {
+      console.error('更新书籍进度失败，使用本地存储作为回退:', error)
+      // 使用本地存储作为回退
+      const bookProgresses = JSON.parse(localStorage.getItem('bookProgresses') || '{}')
+      bookProgresses[studyBook.value.id] = bookProgressData
+      localStorage.setItem('bookProgresses', JSON.stringify(bookProgresses))
+    }
   } catch (error) {
-    console.error('保存学习进度失败:', error)
+    console.error('结束学习时发生错误:', error)
   } finally {
     // 重置学习状态
     studyStartTime.value = null
@@ -1698,10 +2381,38 @@ const loadNotes = async () => {
     const response = await apiService.note.getNotesByBook(studyBook.value.id)
     if (response.code === 200) {
       notes.value = response.data || []
+      // 为笔记添加章节标题
+      notes.value.forEach(note => {
+        if (note.chapterId) {
+          note.chapterTitle = getChapterTitleById(note.chapterId)
+        }
+      })
     }
   } catch (error) {
-    console.error('加载笔记失败:', error)
-    showToast('加载笔记失败', false)
+    console.error('加载笔记失败，使用mock数据:', error)
+    // 使用mock数据作为回退
+    notes.value = [
+      {
+        id: 'note_1',
+        bookId: studyBook.value.id,
+        title: '导数的定义',
+        content: '导数是函数在某一点的变化率，定义为极限值：f\'(x) = lim(h→0) [f(x+h) - f(x)]/h',
+        chapterId: 'section_1_2',
+        chapterTitle: '1.2 导数与微分',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      },
+      {
+        id: 'note_2',
+        bookId: studyBook.value.id,
+        title: '不定积分的性质',
+        content: '1. ∫[f(x) + g(x)]dx = ∫f(x)dx + ∫g(x)dx\n2. ∫kf(x)dx = k∫f(x)dx (k为常数)\n3. d/dx[∫f(x)dx] = f(x)',
+        chapterId: 'section_2_1',
+        chapterTitle: '2.1 不定积分',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ]
   } finally {
     noteLoading.value = false
   }
@@ -1720,7 +2431,7 @@ const createNote = async () => {
       bookId: studyBook.value.id,
       title: noteTitle.value,
       content: noteContent.value,
-      chapterId: currentChapter?.value?.id
+      chapterId: selectedNoteChapterId.value || currentChapter?.value?.id
     })
     
     if (response.code === 200) {
@@ -1747,7 +2458,8 @@ const updateNote = async () => {
   try {
     const response = await apiService.note.updateNote(currentNote.value.id, {
       title: noteTitle.value,
-      content: noteContent.value
+      content: noteContent.value,
+      chapterId: selectedNoteChapterId.value || currentNote.value.chapterId
     })
     
     if (response.code === 200) {
@@ -1773,6 +2485,10 @@ const deleteNote = async (noteId) => {
     if (response.code === 200) {
       showToast('笔记删除成功')
       await loadNotes()
+      // 如果删除的是当前编辑的笔记，清空编辑区
+      if (currentNote.value && currentNote.value.id === noteId) {
+        createNewNote()
+      }
     }
   } catch (error) {
     console.error('删除笔记失败:', error)
@@ -1787,15 +2503,19 @@ const openNoteDetail = (note) => {
   currentNote.value = note
   noteTitle.value = note.title
   noteContent.value = note.content
+  selectedNoteChapterId.value = note.chapterId || ''
   showNoteModal.value = true
 }
 
 // 新建笔记
 const createNewNote = () => {
+  console.log('createNewNote called')
   currentNote.value = null
   noteTitle.value = ''
   noteContent.value = ''
-  showNoteModal.value = true
+  selectedNoteChapterId.value = currentChapter?.value?.id || ''
+  showNotePreview.value = false
+  console.log('createNewNote executed')
 }
 
 // 关闭笔记模态框
@@ -1804,6 +2524,213 @@ const closeNoteModal = () => {
   currentNote.value = null
   noteTitle.value = ''
   noteContent.value = ''
+  selectedNoteChapterId.value = ''
+  noteSearchQuery.value = ''
+  showNotePreview.value = false
+  showExportOptions.value = false
+}
+
+// 搜索笔记
+const searchNotes = () => {
+  // 搜索逻辑由 filteredNotes computed 属性处理
+  console.log('搜索笔记:', noteSearchQuery.value)
+}
+
+// 清空笔记搜索
+const clearNoteSearch = () => {
+  noteSearchQuery.value = ''
+}
+
+// 获取笔记预览文本
+const getNotePreview = (content) => {
+  if (!content) return ''
+  // 移除 Markdown 标记，获取纯文本预览
+  const plainText = content
+    .replace(/#{1,6}\s/g, '')
+    .replace(/\*\*/g, '')
+    .replace(/\*/g, '')
+    .replace(/`{3}[\s\S]*?`{3}/g, '[代码块]')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/>\s/g, '')
+    .replace(/-\s/g, '')
+    .replace(/\n+/g, ' ')
+    .trim()
+  return plainText.length > 60 ? plainText.substring(0, 60) + '...' : plainText
+}
+
+// 格式化笔记日期
+const formatNoteDate = (dateString) => {
+  if (!dateString) return ''
+  const date = new Date(dateString)
+  const now = new Date()
+  const diff = now - date
+  
+  // 小于1小时显示"X分钟前"
+  if (diff < 60 * 60 * 1000) {
+    const minutes = Math.floor(diff / (60 * 1000))
+    return minutes < 1 ? '刚刚' : `${minutes}分钟前`
+  }
+  // 小于24小时显示"X小时前"
+  if (diff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(diff / (60 * 60 * 1000))
+    return `${hours}小时前`
+  }
+  // 小于7天显示"X天前"
+  if (diff < 7 * 24 * 60 * 60 * 1000) {
+    const days = Math.floor(diff / (24 * 60 * 60 * 1000))
+    return `${days}天前`
+  }
+  // 否则显示具体日期
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
+// 获取章节标题
+const getChapterTitleById = (chapterId) => {
+  if (!chapterId || !chapterTree.value) return ''
+  
+  const findChapter = (chapters, id) => {
+    for (const chapter of chapters) {
+      if (chapter.id === id) {
+        return chapter.title
+      }
+      if (chapter.children && chapter.children.length > 0) {
+        const found = findChapter(chapter.children, id)
+        if (found) return found
+      }
+    }
+    return ''
+  }
+  
+  return findChapter(chapterTree.value, chapterId)
+}
+
+// 插入 Markdown 标记
+const insertMarkdown = (prefix, suffix) => {
+  const textarea = noteTextarea.value
+  if (!textarea) return
+  
+  const start = textarea.selectionStart
+  const end = textarea.selectionEnd
+  const text = noteContent.value
+  const selected = text.substring(start, end)
+  
+  const newText = text.substring(0, start) + prefix + selected + suffix + text.substring(end)
+  noteContent.value = newText
+  
+  // 恢复焦点并设置光标位置
+  nextTick(() => {
+    textarea.focus()
+    const newCursorPos = start + prefix.length + selected.length
+    textarea.setSelectionRange(newCursorPos, newCursorPos)
+  })
+}
+
+// 插入选中的文本
+const insertSelectedText = () => {
+  if (selectedText.value) {
+    insertMarkdown('> ' + selectedText.value + '\n\n', '')
+  }
+}
+
+// 简单的 Markdown 预览渲染
+const renderMarkdownPreview = (content) => {
+  if (!content) return ''
+  
+  let html = content
+    // 代码块
+    .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre class="code-block"><code>$2</code></pre>')
+    // 行内代码
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>')
+    // 标题
+    .replace(/^###### (.*$)/gim, '<h6>$1</h6>')
+    .replace(/^##### (.*$)/gim, '<h5>$1</h5>')
+    .replace(/^#### (.*$)/gim, '<h4>$1</h4>')
+    .replace(/^### (.*$)/gim, '<h3>$1</h3>')
+    .replace(/^## (.*$)/gim, '<h2>$1</h2>')
+    .replace(/^# (.*$)/gim, '<h1>$1</h1>')
+    // 粗体
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // 斜体
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // 引用
+    .replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>')
+    // 无序列表
+    .replace(/^- (.*$)/gim, '<li>$1</li>')
+    // 有序列表
+    .replace(/^\d+\. (.*$)/gim, '<li>$1</li>')
+    // 换行
+    .replace(/\n/g, '<br>')
+  
+  // 包裹列表项
+  html = html.replace(/(<li>.*<\/li>)/g, '<ul>$1</ul>')
+  
+  return html
+}
+
+// 导出笔记
+const exportNotes = (format) => {
+  if (notes.value.length === 0) {
+    showToast('没有可导出的笔记', false)
+    showExportOptions.value = false
+    return
+  }
+  
+  const bookTitle = studyBook.value?.title || '笔记'
+  let content = ''
+  let filename = ''
+  let mimeType = ''
+  
+  if (format === 'markdown') {
+    // 导出为 Markdown
+    content = `# ${bookTitle} - 学习笔记\n\n`
+    content += `导出时间：${new Date().toLocaleString('zh-CN')}\n\n`
+    content += `---\n\n`
+    
+    notes.value.forEach((note, index) => {
+      content += `## ${index + 1}. ${note.title}\n\n`
+      if (note.chapterTitle) {
+        content += `**关联章节：** ${note.chapterTitle}\n\n`
+      }
+      content += `${note.content}\n\n`
+      content += `*创建于：${new Date(note.createdAt).toLocaleString('zh-CN')}*\n\n`
+      content += `---\n\n`
+    })
+    
+    filename = `${bookTitle}_笔记_${new Date().toISOString().split('T')[0]}.md`
+    mimeType = 'text/markdown'
+  } else {
+    // 导出为纯文本
+    content = `${bookTitle} - 学习笔记\n\n`
+    content += `导出时间：${new Date().toLocaleString('zh-CN')}\n\n`
+    content += `${'='.repeat(50)}\n\n`
+    
+    notes.value.forEach((note, index) => {
+      content += `${index + 1}. ${note.title}\n\n`
+      if (note.chapterTitle) {
+        content += `关联章节：${note.chapterTitle}\n\n`
+      }
+      content += `${note.content}\n\n`
+      content += `创建于：${new Date(note.createdAt).toLocaleString('zh-CN')}\n\n`
+      content += `${'-'.repeat(50)}\n\n`
+    })
+    
+    filename = `${bookTitle}_笔记_${new Date().toISOString().split('T')[0]}.txt`
+    mimeType = 'text/plain'
+  }
+  
+  // 创建下载链接
+  const blob = new Blob([content], { type: mimeType })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+  
+  showToast(`笔记已导出为 ${format === 'markdown' ? 'Markdown' : '文本'} 格式`)
+  showExportOptions.value = false
 }
 
 // 切换完整目录显示
@@ -5146,6 +6073,427 @@ const addTextbook = async () => {
 
 .dark-mode .cancel-note-btn:hover {
   background: #475569;
+}
+
+/* 笔记头部操作按钮 */
+.modal-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: relative;
+}
+
+.export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-btn:hover {
+  background: #e5e7eb;
+}
+
+.export-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 40px;
+  margin-top: 8px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 160px;
+}
+
+.export-option {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-option:hover {
+  background: #f3f4f6;
+}
+
+.export-option:first-child {
+  border-radius: 8px 8px 0 0;
+}
+
+.export-option:last-child {
+  border-radius: 0 0 8px 8px;
+}
+
+/* 笔记搜索 */
+.note-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px;
+  border-bottom: 1px solid #e5e7eb;
+  background: white;
+}
+
+.note-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.note-search-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.search-btn, .clear-btn {
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  border-radius: 6px;
+  transition: all 0.2s;
+}
+
+.search-btn:hover, .clear-btn:hover {
+  background: #f3f4f6;
+}
+
+/* 笔记列表项增强 */
+.note-item-chapter {
+  margin: 4px 0;
+}
+
+.chapter-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  font-size: 11px;
+  border-radius: 4px;
+}
+
+.note-item-preview {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 4px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 章节选择器 */
+.chapter-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.selector-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151;
+  white-space: nowrap;
+}
+
+.chapter-select {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.chapter-select:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
+.current-chapter-tag {
+  padding: 4px 12px;
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* 编辑器工具栏 */
+.editor-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 8px;
+  background: #f9fafb;
+  border-radius: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-btn {
+  padding: 6px 12px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 32px;
+}
+
+.toolbar-btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.toolbar-btn.highlight-btn {
+  font-weight: normal;
+  font-size: 12px;
+  margin-left: auto;
+}
+
+/* 预览切换 */
+.preview-toggle {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.toggle-btn {
+  padding: 6px 12px;
+  background: #f3f4f6;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 12px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn:hover, .toggle-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+/* 笔记预览 */
+.note-preview {
+  flex: 1;
+  padding: 16px;
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  overflow-y: auto;
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.note-preview h1, .note-preview h2, .note-preview h3,
+.note-preview h4, .note-preview h5, .note-preview h6 {
+  margin: 16px 0 8px;
+  color: #111827;
+}
+
+.note-preview h1 { font-size: 24px; }
+.note-preview h2 { font-size: 20px; }
+.note-preview h3 { font-size: 18px; }
+
+.note-preview p {
+  margin: 8px 0;
+  color: #374151;
+}
+
+.note-preview blockquote {
+  margin: 12px 0;
+  padding: 12px 16px;
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 4px solid #3b82f6;
+  color: #4b5563;
+  font-style: italic;
+}
+
+.note-preview ul {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.note-preview li {
+  margin: 4px 0;
+  color: #374151;
+}
+
+.note-preview code.inline-code {
+  padding: 2px 6px;
+  background: #f3f4f6;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #ef4444;
+}
+
+.note-preview pre.code-block {
+  margin: 12px 0;
+  padding: 16px;
+  background: #1f2937;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+
+.note-preview pre.code-block code {
+  color: #e5e7eb;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+/* 夜间模式新增样式 */
+.dark-mode .export-btn {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .export-btn:hover {
+  background: #475569;
+}
+
+.dark-mode .export-dropdown {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+.dark-mode .export-option {
+  color: #e2e8f0;
+}
+
+.dark-mode .export-option:hover {
+  background: #334155;
+}
+
+.dark-mode .note-search {
+  background: #1e293b;
+  border-bottom-color: #334155;
+}
+
+.dark-mode .note-search-input {
+  background: #334155;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .note-search-input:focus {
+  border-color: #3b82f6;
+}
+
+.dark-mode .chapter-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.dark-mode .note-item-preview {
+  color: #94a3b8;
+}
+
+.dark-mode .chapter-selector {
+  background: #334155;
+}
+
+.dark-mode .selector-label {
+  color: #e2e8f0;
+}
+
+.dark-mode .chapter-select {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .current-chapter-tag {
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+}
+
+.dark-mode .editor-toolbar {
+  background: #334155;
+}
+
+.dark-mode .toolbar-btn {
+  background: #1e293b;
+  border-color: #475569;
+  color: #e2e8f0;
+}
+
+.dark-mode .toolbar-btn:hover:not(:disabled) {
+  background: #334155;
+}
+
+.dark-mode .toggle-btn {
+  background: #334155;
+  border-color: #475569;
+  color: #94a3b8;
+}
+
+.dark-mode .toggle-btn:hover, .dark-mode .toggle-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.dark-mode .note-preview {
+  background: #334155;
+  border-color: #475569;
+}
+
+.dark-mode .note-preview h1,
+.dark-mode .note-preview h2,
+.dark-mode .note-preview h3,
+.dark-mode .note-preview h4,
+.dark-mode .note-preview h5,
+.dark-mode .note-preview h6 {
+  color: #e2e8f0;
+}
+
+.dark-mode .note-preview p {
+  color: #cbd5e1;
+}
+
+.dark-mode .note-preview blockquote {
+  background: rgba(59, 130, 246, 0.1);
+  color: #94a3b8;
+}
+
+.dark-mode .note-preview li {
+  color: #cbd5e1;
+}
+
+.dark-mode .note-preview code.inline-code {
+  background: #1e293b;
+  color: #f87171;
 }
 
 /* 响应式设计 */

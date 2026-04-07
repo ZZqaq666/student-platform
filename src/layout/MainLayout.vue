@@ -8,10 +8,11 @@
 
        <!-- 中间导航链接 -->
        <div class="nav-middle" v-if="!isHomePage">
-         <router-link to="qa" class="nav-link" :class="{ 'nav-active': isActive('/qa') }">问答中心</router-link>
-         <router-link to="graph" class="nav-link" :class="{ 'nav-active': isActive('/graph') }">知识图谱</router-link>
-         <router-link to="bookshelf" class="nav-link" :class="{ 'nav-active': isActive('/bookshelf') }">个人书架</router-link>
-         <router-link to="senior" class="nav-link" :class="{ 'nav-active': isActive('/senior') }">学长学姐答疑</router-link>
+         <router-link to="/qa" class="nav-link" :class="{ 'nav-active': isActive('/qa') }">问答中心</router-link>
+         <router-link to="/graph" class="nav-link" :class="{ 'nav-active': isActive('/graph') }">知识图谱</router-link>
+         <router-link to="/bookshelf" class="nav-link" :class="{ 'nav-active': isActive('/bookshelf') }">个人书架</router-link>
+         <router-link to="/wrong-book" class="nav-link" :class="{ 'nav-active': isActive('/wrong-book') }">错题本</router-link>
+         <router-link to="/senior" class="nav-link" :class="{ 'nav-active': isActive('/senior') }">学长学姐答疑</router-link>
        </div>
 
        <!-- 用户操作区 --> 

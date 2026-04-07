@@ -61,7 +61,7 @@
         </el-form-item>
 
         <el-form-item label="科目">
-          <el-select v-model="filterForm.subject" placeholder="全部科目" clearable>
+          <el-select v-model="filterForm.subject" placeholder="全部科目" clearable style="width: 140px">
             <el-option
               v-for="item in subjectOptions"
               :key="item"
@@ -72,7 +72,7 @@
         </el-form-item>
 
         <el-form-item label="难度">
-          <el-select v-model="filterForm.difficulty" placeholder="全部难度" clearable>
+          <el-select v-model="filterForm.difficulty" placeholder="全部难度" clearable style="width: 140px">
             <el-option label="简单" value="EASY" />
             <el-option label="中等" value="MEDIUM" />
             <el-option label="困难" value="HARD" />
@@ -80,7 +80,7 @@
         </el-form-item>
 
         <el-form-item label="错误类型">
-          <el-select v-model="filterForm.errorType" placeholder="全部类型" clearable>
+          <el-select v-model="filterForm.errorType" placeholder="全部类型" clearable style="width: 140px">
             <el-option label="概念错误" value="CONCEPT" />
             <el-option label="计算错误" value="CALCULATION" />
             <el-option label="粗心大意" value="CARELESS" />
@@ -89,7 +89,7 @@
         </el-form-item>
 
         <el-form-item label="掌握状态">
-          <el-select v-model="filterForm.masterStatus" placeholder="全部状态" clearable>
+          <el-select v-model="filterForm.masterStatus" placeholder="全部状态" clearable style="width: 140px">
             <el-option label="未掌握" value="NOT_MASTERED" />
             <el-option label="掌握中" value="MASTERING" />
             <el-option label="已掌握" value="MASTERED" />
@@ -97,7 +97,7 @@
         </el-form-item>
 
         <el-form-item label="优先级">
-          <el-select v-model="filterForm.priority" placeholder="全部优先级" clearable>
+          <el-select v-model="filterForm.priority" placeholder="全部优先级" clearable style="width: 140px">
             <el-option label="高" value="HIGH" />
             <el-option label="中" value="MEDIUM" />
             <el-option label="低" value="LOW" />
@@ -166,7 +166,7 @@
           </template>
         </el-table-column>
 
-        <el-table-column label="操作" width="250" fixed="right">
+        <el-table-column label="操作" width="350" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" size="small" @click="handleReview(row)">
               复习
@@ -339,6 +339,18 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { TrendCharts, Download } from '@element-plus/icons-vue'
 import api from '@/api/api.js'
+import {
+  filterMockWrongBookList,
+  generateMockStats,
+  updateMockWrongBookItem,
+  deleteMockWrongBookItem,
+  redoMockWrongBookItem,
+  exportMockWrongBook,
+  getMockSubjectOptions
+} from './mockWrongBook.js'
+
+// 是否使用 mock 数据
+const USE_MOCK = true
 
 const router = useRouter()
 
@@ -375,7 +387,7 @@ const filterForm = reactive({
 })
 
 // 科目选项（动态获取）
-const subjectOptions = ref(['数学', '物理', '化学', '英语', '语文', '计算机'])
+const subjectOptions = ref(getMockSubjectOptions())
 
 // 分页
 const pagination = reactive({
@@ -397,18 +409,31 @@ const editForm = reactive({
 const fetchWrongBookList = async () => {
   loading.value = true
   try {
-    const requestData = {
-      ...filterForm,
-      pageNum: pagination.pageNum,
-      pageSize: pagination.pageSize
-    }
-
-    const response = await api.post('/exercise/wrong-book/filter', requestData)
-    if (response.code === 200) {
-      wrongBookList.value = response.data || []
-      pagination.total = response.data?.length || 0
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      await new Promise(resolve => setTimeout(resolve, 300))
+      const requestData = {
+        ...filterForm,
+        pageNum: pagination.pageNum,
+        pageSize: pagination.pageSize
+      }
+      const result = filterMockWrongBookList(requestData)
+      wrongBookList.value = result.list
+      pagination.total = result.total
     } else {
-      ElMessage.error(response.message || '获取错题列表失败')
+      const requestData = {
+        ...filterForm,
+        pageNum: pagination.pageNum,
+        pageSize: pagination.pageSize
+      }
+
+      const response = await api.post('/exercise/wrong-book/filter', requestData)
+      if (response.code === 200) {
+        wrongBookList.value = response.data || []
+        pagination.total = response.data?.length || 0
+      } else {
+        ElMessage.error(response.message || '获取错题列表失败')
+      }
     }
   } catch (error) {
     console.error('获取错题列表失败:', error)
@@ -421,9 +446,16 @@ const fetchWrongBookList = async () => {
 // 获取统计数据
 const fetchStats = async () => {
   try {
-    const response = await api.get('/exercise/wrong-book/stats')
-    if (response.code === 200) {
-      Object.assign(stats, response.data)
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      await new Promise(resolve => setTimeout(resolve, 200))
+      const mockStats = generateMockStats()
+      Object.assign(stats, mockStats)
+    } else {
+      const response = await api.get('/exercise/wrong-book/stats')
+      if (response.code === 200) {
+        Object.assign(stats, response.data)
+      }
     }
   } catch (error) {
     console.error('获取统计数据失败:', error)
@@ -486,18 +518,28 @@ const submitRedo = async () => {
   try {
     const isCorrect = checkAnswer(currentWrongBook.value, redoAnswer.value)
 
-    const response = await api.post(`/exercise/wrong-book/${currentWrongBook.value.id}/redo`, null, {
-      params: {
-        userAnswer: redoAnswer.value,
-        isCorrect: isCorrect
-      }
-    })
-
-    if (response.code === 200) {
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      await new Promise(resolve => setTimeout(resolve, 200))
+      redoMockWrongBookItem(currentWrongBook.value.id, redoAnswer.value, isCorrect)
       ElMessage.success(isCorrect ? '回答正确！' : '回答错误，继续努力！')
       showRedoDialog.value = false
       fetchWrongBookList()
       fetchStats()
+    } else {
+      const response = await api.post(`/exercise/wrong-book/${currentWrongBook.value.id}/redo`, null, {
+        params: {
+          userAnswer: redoAnswer.value,
+          isCorrect: isCorrect
+        }
+      })
+
+      if (response.code === 200) {
+        ElMessage.success(isCorrect ? '回答正确！' : '回答错误，继续努力！')
+        showRedoDialog.value = false
+        fetchWrongBookList()
+        fetchStats()
+      }
     }
   } catch (error) {
     console.error('提交重做失败:', error)
@@ -507,15 +549,17 @@ const submitRedo = async () => {
 
 // 检查答案
 const checkAnswer = (wrongBook, userAnswer) => {
-  const correctAnswer = wrongBook.exercise?.answer
-  if (!correctAnswer) return false
+  const exercise = wrongBook.exercise
+  if (!exercise) return false
 
-  // 选择题
-  if (wrongBook.exercise?.options) {
-    const options = parseOptions(wrongBook.exercise.options)
-    const correctIndex = options.findIndex(opt => opt === correctAnswer)
-    return userAnswer === correctIndex
+  // 选择题 - 使用 correctAnswer 索引
+  if (exercise.options && exercise.correctAnswer !== undefined) {
+    return userAnswer === exercise.correctAnswer
   }
+
+  // 其他题型 - 使用 answer 字段
+  const correctAnswer = exercise.answer
+  if (!correctAnswer) return false
 
   return userAnswer.toString().trim() === correctAnswer.toString().trim()
 }
@@ -541,13 +585,22 @@ const handleEdit = (row) => {
 // 保存编辑
 const saveEdit = async () => {
   try {
-    const response = await api.put(`/exercise/wrong-book/${editForm.id}`, editForm)
-    if (response.code === 200) {
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      await new Promise(resolve => setTimeout(resolve, 200))
+      updateMockWrongBookItem(editForm.id, editForm)
       ElMessage.success('保存成功')
       showEditDialog.value = false
       fetchWrongBookList()
     } else {
-      ElMessage.error(response.message || '保存失败')
+      const response = await api.put(`/exercise/wrong-book/${editForm.id}`, editForm)
+      if (response.code === 200) {
+        ElMessage.success('保存成功')
+        showEditDialog.value = false
+        fetchWrongBookList()
+      } else {
+        ElMessage.error(response.message || '保存失败')
+      }
     }
   } catch (error) {
     console.error('保存失败:', error)
@@ -562,13 +615,22 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    const response = await api.delete(`/exercise/wrong-book/${row.id}`)
-    if (response.code === 200) {
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      await new Promise(resolve => setTimeout(resolve, 200))
+      deleteMockWrongBookItem(row.id)
       ElMessage.success('删除成功')
       fetchWrongBookList()
       fetchStats()
     } else {
-      ElMessage.error(response.message || '删除失败')
+      const response = await api.delete(`/exercise/wrong-book/${row.id}`)
+      if (response.code === 200) {
+        ElMessage.success('删除成功')
+        fetchWrongBookList()
+        fetchStats()
+      } else {
+        ElMessage.error(response.message || '删除失败')
+      }
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -581,16 +643,25 @@ const handleDelete = async (row) => {
 // 导出
 const exportWrongBook = async () => {
   try {
-    const response = await api.get(`/exercise/wrong-book/export`, {
-      params: {
-        format: exportFormat.value
-      },
-      responseType: 'blob'
-    })
+    let blob
+    if (USE_MOCK) {
+      // 使用 mock 数据
+      const exportData = exportMockWrongBook(exportFormat.value)
+      blob = new Blob([exportData], {
+        type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
+      })
+    } else {
+      const response = await api.get(`/exercise/wrong-book/export`, {
+        params: {
+          format: exportFormat.value
+        },
+        responseType: 'blob'
+      })
+      blob = new Blob([response], {
+        type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
+      })
+    }
 
-    const blob = new Blob([response], {
-      type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
-    })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url

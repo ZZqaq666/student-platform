@@ -23,9 +23,10 @@ const routes = [
         component: QA
       },
       { path: 'bookshelf', name: 'Bookshelf', component: () => import('@/views/Bookshelf/Bookshelf.vue') },
-      { path: 'graph', name: 'KnowledgeGraph', component: KnowledgeGraph },
       { path: 'practice', name: 'Practice', component: () => import('@/views/Practice/PracticePage.vue') },
-      { path: 'senior', name: 'SeniorQA', component: SeniorQA }
+      { path: 'wrong-book', name: 'WrongBook', component: () => import('@/views/WrongBook/WrongBook.vue') },
+      { path: 'senior', name: 'SeniorQA', component: SeniorQA },
+      { path: 'graph', name: 'KnowledgeGraph', component: KnowledgeGraph }
     ]
   },
   { path: '/:pathMatch(.*)*', redirect: '/' }

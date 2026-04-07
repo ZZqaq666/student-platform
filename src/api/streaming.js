@@ -374,7 +374,8 @@ class StreamingService {
     return fetch(url, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${token}`
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'text/event-stream'
         // 注意：不要设置 Content-Type，让浏览器自动设置 multipart/form-data
       },
       body: formData

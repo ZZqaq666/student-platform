@@ -62,31 +62,6 @@ function decodeHtmlEntities(text) {
     });
 }
 
-// 清理SVG路径数据和其他无效内容
-function cleanFormulaContent(formula) {
-    // 移除SVG路径数据和相关内容
-    formula = formula.replace(/c[-\d,.\s]+z\s*\/>/g, '');
-    formula = formula.replace(/<\/svg>.*$/g, '');
-    formula = formula.replace(/^.*<svg/g, '');
-    // 移除HTML标签
-    formula = formula.replace(/<[^>]+>/g, '');
-    // 移除多余的空白字符
-    formula = formula.replace(/\s+/g, ' ');
-    // 确保基本的LaTeX语法正确
-    formula = formula.replace(/\s*([+\-*/=()\[\]{}])\s*/g, '$1');
-    // 修复分数格式
-    formula = formula.replace(/(\d+)\s*\/\s*(\d+)/g, '$1/$2');
-    // 修复指数格式
-    formula = formula.replace(/(x|e|a)\s*(\d+)/g, '$1^{$2}');
-    // 修复导数符号
-    formula = formula.replace(/f\s*′/g, "f'");
-    // 修复根号格式
-    formula = formula.replace(/√(\d+)/g, '\\sqrt{$1}');
-    // 移除无效字符
-    formula = formula.replace(/[^\w\s+\-*/=()\[\]{}.'"\\]/g, '');
-    return formula;
-}
-
 // 处理KaTeX公式的函数
 function processKaTeXFormulas(text) {
     // 先解码HTML实体
@@ -114,20 +89,10 @@ function processKaTeXFormulas(text) {
             const nextChar = text[backslashIndex + 1];
 
             if (nextChar === '(') {
-                // 检测行内公式  ...
+                // 检测行内公式 \( ... \)
                 const endIndex = findMatchingDelimiter(text, backslashIndex + 2, '\\)');
                 if (endIndex !== -1) {
                     let formula = text.substring(backslashIndex + 2, endIndex);
-                    // 清理公式内容
-                    formula = cleanFormulaContent(formula);
-                    // 处理LaTeX兼容的字符替换
-                    formula = formula
-                        .replace(/’/g, "'")
-                        .replace(/“/g, '"')
-                        .replace(/”/g, '"')
-                        .replace(/–/g, "-")
-                        .replace(/—/g, "-")
-                        .replace(/…/g, "...")
                     try {
                         const rendered = katex.renderToString(formula, {
                             displayMode: false,
@@ -148,16 +113,6 @@ function processKaTeXFormulas(text) {
                 const endIndex = findMatchingDelimiter(text, backslashIndex + 2, '\\]');
                 if (endIndex !== -1) {
                     let formula = text.substring(backslashIndex + 2, endIndex);
-                    // 清理公式内容
-                    formula = cleanFormulaContent(formula);
-                    // 处理LaTeX兼容的字符替换
-                    formula = formula
-                        .replace(/’/g, "'")
-                        .replace(/“/g, '"')
-                        .replace(/”/g, '"')
-                        .replace(/–/g, "-")
-                        .replace(/—/g, "-")
-                        .replace(/…/g, "...")
                     try {
                         const rendered = katex.renderToString(formula, {
                             displayMode: true,
@@ -186,11 +141,12 @@ function processKaTeXFormulas(text) {
 
 // 查找匹配的分隔符
 function findMatchingDelimiter(text, startIndex, delimiter) {
+    const delimiterLength = delimiter.length;
     let i = startIndex;
     const length = text.length;
-    const delimiterLength = delimiter.length;
 
     while (i <= length - delimiterLength) {
+        // 检查是否匹配分隔符
         if (text.substring(i, i + delimiterLength) === delimiter) {
             return i;
         }

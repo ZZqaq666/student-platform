@@ -1,0 +1,916 @@
+// 数据处理模块
+import { generateMockExercisesForPractice, getMockExerciseById } from './mockExercises.js'
+
+// 节点关系映射
+export const nodeRelations = {
+  // 高等数学
+  '高等数学': ['微积分', '线性代数', '概率论', '常微分方程'],
+  '微积分': ['导数', '积分', '极限', '定积分', '不定积分', '微积分基本定理'],
+  '线性代数': ['矩阵', '行列式', '特征值', '特征向量', '线性方程组', '向量空间'],
+  '概率论': ['随机变量', '概率分布', '期望', '方差', '大数定律', '中心极限定理'],
+  '常微分方程': ['一阶微分方程', '二阶微分方程', '齐次方程', '非齐次方程', '微分方程应用'],
+  '导数': ['极限', '微积分', '微分中值定理', '洛必达法则'],
+  '积分': ['定积分', '不定积分', '微积分', '反常积分'],
+  '极限': ['数列极限', '函数极限', '连续函数'],
+  '矩阵': ['特征值', '特征向量', '线性代数', '矩阵运算', '矩阵的秩'],
+  '行列式': ['线性代数', '行列式计算', '克莱姆法则'],
+  '随机变量': ['期望', '方差', '概率论', '概率分布'],
+  '概率分布': ['概率论', '离散型分布', '连续型分布'],
+  '一阶微分方程': ['齐次方程', '非齐次方程', '常微分方程', '变量分离法'],
+  '二阶微分方程': ['非齐次方程', '常微分方程', '线性微分方程'],
+  
+  // 计算机网络
+  '计算机网络': ['网络协议', '网络拓扑', '网络安全', '网络管理', '网络层', '传输层'],
+  '网络协议': ['TCP/IP', 'HTTP/HTTPS', 'DNS', 'FTP', 'SMTP'],
+  '网络拓扑': ['路由算法', '网络结构', '拓扑设计'],
+  '网络安全': ['防火墙', '加密技术', '安全协议', '入侵检测'],
+  '网络管理': ['SNMP', '网络监控', '故障诊断', '性能优化'],
+  '网络层': ['IP协议', '路由协议', '子网划分'],
+  '传输层': ['TCP', 'UDP', '流量控制', '拥塞控制'],
+  'TCP/IP': ['网络协议', '网络层', '传输层'],
+  'HTTP/HTTPS': ['网络协议', '应用层'],
+  '路由算法': ['网络拓扑', '最短路径算法', '路由选择'],
+  '防火墙': ['网络安全', '访问控制', '数据包过滤'],
+  
+  // 体育与健康
+  '体育与健康': ['体育理论', '运动技能', '健康知识', '体育赛事', '运动损伤', '体育锻炼'],
+  '体育理论': ['运动生理学', '运动心理学', '运动解剖学', '运动生物化学'],
+  '运动技能': ['球类运动', '田径运动', '体操', '武术'],
+  '健康知识': ['营养学', '健康评估', '心理健康', '疾病预防'],
+  '体育赛事': ['奥运会', '世锦赛', '亚运会', '全运会'],
+  '运动损伤': ['损伤预防', '损伤处理', '康复训练', '运动防护'],
+  '体育锻炼': ['锻炼原则', '锻炼方法', '锻炼计划', '运动负荷'],
+  '运动生理学': ['心肺功能', '肌肉系统', '能量代谢', '运动疲劳'],
+  '球类运动': ['篮球', '足球', '排球', '乒乓球'],
+  
+  // 大学物理
+  '大学物理（上册）': ['力学', '热学', '电磁学', '光学', '振动与波动'],
+  '大学物理（下册）': ['量子力学', '相对论', '固体物理', '近代物理', '原子核物理'],
+  '力学': ['牛顿运动定律', '动量守恒', '能量守恒', '角动量守恒', '刚体力学'],
+  '热学': ['热力学定律', '气体动理论', '热传导', '热膨胀'],
+  '电磁学': ['电场', '磁场', '电磁感应', '电磁场', '电磁波'],
+  '光学': ['几何光学', '波动光学', '光的干涉', '光的衍射', '光的偏振'],
+  '量子力学': ['波粒二象性', '薛定谔方程', '量子态', '量子跃迁'],
+  '相对论': ['狭义相对论', '广义相对论', '时空观', '质能关系'],
+  
+  // 操作系统原理
+  '操作系统原理': ['进程管理', '内存管理', '文件系统', '设备管理', '死锁', '虚拟内存'],
+  '进程管理': ['进程调度', '进程同步', '进程通信', '线程管理'],
+  '内存管理': ['分页存储', '分段存储', '虚拟内存', '内存分配', '内存回收'],
+  '文件系统': ['文件结构', '文件操作', '文件保护', '文件系统实现'],
+  '设备管理': ['设备驱动', 'I/O控制', '设备分配', '缓冲区管理'],
+  '死锁': ['死锁预防', '死锁避免', '死锁检测', '死锁恢复'],
+  '虚拟内存': ['分页置换算法', '请求分页', '页面调度'],
+  '进程调度': ['调度算法', '优先级调度', '时间片轮转'],
+  
+  // 数据库系统概论
+  '数据库系统概论': ['数据库模型', 'SQL语言', '事务管理', '数据库设计', '数据库安全', '数据库优化'],
+  '数据库模型': ['关系模型', 'ER模型', '层次模型', '网状模型', '面向对象模型'],
+  'SQL语言': ['查询语句', '数据定义', '数据操纵', '数据控制', '存储过程'],
+  '事务管理': ['ACID特性', '并发控制', '事务隔离级别', '锁机制'],
+  '数据库设计': ['范式理论', '数据库规划', '概念设计', '逻辑设计', '物理设计'],
+  '数据库安全': ['访问控制', '数据加密', '审计', '备份与恢复'],
+  '数据库优化': ['查询优化', '索引优化', '存储优化', '性能调优'],
+  '关系模型': ['关系代数', '关系演算', '规范化理论'],
+  
+  // 数据结构与算法
+  '数据结构与算法': ['线性结构', '树形结构', '图结构', '排序算法', '查找算法', '哈希表'],
+  '线性结构': ['数组', '链表', '栈', '队列', '字符串'],
+  '树形结构': ['二叉树', '平衡树', '红黑树', 'B树', '堆'],
+  '图结构': ['图的遍历', '最短路径', '最小生成树', '拓扑排序', '网络流'],
+  '排序算法': ['快速排序', '归并排序', '堆排序', '插入排序', '冒泡排序', '选择排序'],
+  '查找算法': ['二分查找', '顺序查找', '哈希查找', '二叉搜索树查找'],
+  '哈希表': ['哈希函数', '冲突处理', '负载因子', '哈希表实现'],
+  '链表': ['单链表', '双链表', '循环链表', '链表操作'],
+  
+  // 新视野大学英语1
+  '新视野大学英语1（第三版）': ['听力', '口语', '阅读', '写作', '词汇', '语法'],
+  '听力': ['对话理解', '短文听力', '新闻听力', '讲座听力'],
+  '口语': ['日常对话', '话题讨论', '演讲', '辩论'],
+  '阅读': ['精读', '泛读', '快速阅读', '批判性阅读'],
+  '写作': ['应用文', '议论文', '叙述文', '说明文'],
+  '词汇': ['核心词汇', '短语搭配', '词汇记忆', '词汇应用'],
+  '语法': ['时态', '语态', '从句', '虚拟语气', '非谓语动词'],
+  
+  // 概率论与数理统计
+  '概率论与数理统计': ['概率基础', '随机变量', '统计推断', '假设检验', '方差分析', '回归分析'],
+  '概率基础': ['概率公理', '条件概率', '独立性', '贝叶斯定理'],
+  '随机变量': ['离散型', '连续型', '分布函数', '数字特征'],
+  '统计推断': ['参数估计', '区间估计', '点估计', '估计量评价'],
+  '假设检验': ['t检验', '卡方检验', 'F检验', '假设检验步骤'],
+  '方差分析': ['单因素方差分析', '多因素方差分析', '方差齐性检验'],
+  '回归分析': ['线性回归', '多元回归', '回归模型诊断', '非线性回归'],
+  
+  // 离散数学
+  '离散数学': ['集合论', '图论', '代数系统', '数理逻辑', '组合数学', '数论'],
+  '集合论': ['集合运算', '关系', '函数', '基数', '序数'],
+  '图论': ['图的基本概念', '树', '路径', '回路', '图的着色'],
+  '代数系统': ['群', '环', '域', '格', '布尔代数'],
+  '数理逻辑': ['命题逻辑', '谓词逻辑', '推理规则', '范式'],
+  '组合数学': ['排列组合', '容斥原理', '生成函数', '递推关系'],
+  '数论': ['整除性', '同余', '素数', '最大公约数'],
+  
+  // 线性代数
+  '线性代数': ['矩阵', '行列式', '线性方程组', '特征值', '向量空间', '线性变换'],
+  '矩阵': ['矩阵运算', '矩阵的秩', '逆矩阵', '转置矩阵', '正定矩阵'],
+  '行列式': ['行列式计算', '克莱姆法则', '行列式性质'],
+  '线性方程组': ['高斯消元', '解的结构', '解的存在性', '解空间'],
+  '特征值': ['特征向量', '相似对角化', '特征值性质'],
+  '向量空间': ['向量运算', '基与维数', '子空间', '正交性'],
+  '线性变换': ['变换矩阵', '特征变换', '正交变换'],
+  
+  // 经济学原理
+  '经济学原理': ['微观经济学', '宏观经济学', '国际经济学', '发展经济学', '计量经济学', '博弈论'],
+  '微观经济学': ['供给与需求', '市场结构', '消费者行为', '生产者行为', '市场失灵'],
+  '宏观经济学': ['GDP', '通货膨胀', '失业', '经济增长', '财政政策', '货币政策'],
+  '国际经济学': ['国际贸易', '汇率', '国际收支', '经济全球化'],
+  '发展经济学': ['经济增长', '发展战略', '贫困与不平等', '可持续发展'],
+  '计量经济学': ['回归分析', '时间序列分析', '因果推断', '经济预测'],
+  '博弈论': ['纳什均衡', '囚徒困境', '重复博弈', '合作博弈'],
+  
+  // 马克思主义基本原理
+  '马克思主义基本原理': ['哲学', '政治经济学', '科学社会主义', '马克思主义发展史', '马克思主义中国化'],
+  '哲学': ['唯物辩证法', '认识论', '历史唯物主义', '辩证唯物主义'],
+  '政治经济学': ['剩余价值理论', '资本主义经济', '劳动价值论', '资本积累'],
+  '科学社会主义': ['社会主义理论', '共产主义', '无产阶级革命', '社会主义建设'],
+  '马克思主义发展史': ['马克思恩格斯', '列宁主义', '毛泽东思想', '中国特色社会主义理论体系'],
+  '马克思主义中国化': ['毛泽东思想', '邓小平理论', '三个代表重要思想', '科学发展观', '习近平新时代中国特色社会主义思想'],
+  
+  // 横向关联关系
+  '微积分': ['力学', '电磁学', '经济学原理'],
+  '线性代数': ['计算机网络', '数据结构与算法', '量子力学'],
+  '概率论': ['统计学', '机器学习', '经济学原理'],
+  '数据结构与算法': ['操作系统原理', '计算机网络', '数据库系统概论'],
+  '计算机网络': ['操作系统原理', '数据库系统概论'],
+  '操作系统原理': ['计算机网络', '数据库系统概论'],
+  '数据库系统概论': ['计算机网络', '操作系统原理'],
+  '大学物理': ['高等数学'],
+  '经济学原理': ['高等数学', '概率论'],
+  '离散数学': ['数据结构与算法', '计算机网络'],
+  '马克思主义基本原理': ['哲学', '经济学原理']
+}
+
+// 节点高频知识点映射
+export const nodeHighFrequencyKnowledge = {
+  // 高等数学
+  '高等数学': [
+    '高等数学是大学数学的基础课程',
+    '包括微积分、线性代数、概率论等核心内容',
+    '是理工科学生的必修课程',
+    '是许多专业课程的基础'
+  ],
+  '微积分': [
+    '微积分是研究函数的微分、积分以及相关概念和应用的数学分支',
+    '包括微分学和积分学两大部分',
+    '是现代数学的基础',
+    '在物理学、工程学等领域有广泛应用'
+  ],
+  '线性代数': [
+    '线性代数是研究向量空间和线性变换的数学分支',
+    '包括矩阵、行列式、特征值等核心概念',
+    '是计算机科学、物理学等领域的重要工具',
+    '在数据科学和机器学习中有广泛应用'
+  ],
+  '概率论': [
+    '概率论是研究随机现象数量规律的数学分支',
+    '包括随机变量、概率分布、期望、方差等概念',
+    '是统计学的基础',
+    '在金融、保险、人工智能等领域有广泛应用'
+  ],
+  '常微分方程': [
+    '常微分方程是研究含有一个自变量的微分方程的数学分支',
+    '包括一阶、二阶微分方程等',
+    '是描述自然现象的重要工具',
+    '在物理学、工程学、生物学等领域有广泛应用'
+  ],
+  
+  // 计算机网络
+  '计算机网络': [
+    '计算机网络是计算机科学与技术专业的核心课程',
+    'TCP/IP协议栈是互联网的基础',
+    '网络分层结构：物理层、数据链路层、网络层、传输层、应用层',
+    '网络安全是网络设计的重要考虑因素'
+  ],
+  '网络协议': [
+    '网络协议是计算机网络的核心组成部分',
+    'TCP/IP协议栈是互联网的基础',
+    'HTTP/HTTPS是Web应用的基础',
+    '协议的分层设计原则'
+  ],
+  '网络拓扑': [
+    '网络拓扑是网络的物理或逻辑结构',
+    '常见拓扑结构：星型、总线型、环型、网状',
+    '路由算法是网络拓扑的核心',
+    '网络拓扑影响网络性能和可靠性'
+  ],
+  '网络安全': [
+    '网络安全是网络设计的重要考虑因素',
+    '防火墙是网络安全的第一道防线',
+    '加密技术保护数据传输安全',
+    '安全协议确保通信安全'
+  ],
+  
+  // 体育与健康
+  '体育与健康': [
+    '体育与健康是促进身心健康的重要课程',
+    '包括体育理论、运动技能、健康知识等内容',
+    '体育锻炼可以增强体质，提高免疫力',
+    '健康的生活方式是幸福人生的基础'
+  ],
+  '运动生理学': [
+    '运动生理学研究运动对人体生理机能的影响',
+    '心肺功能是衡量体质的重要指标',
+    '能量代谢是运动的基础',
+    '运动疲劳是运动训练中的重要问题'
+  ],
+  
+  // 大学物理
+  '大学物理（上册）': [
+    '大学物理是理工科学生的必修基础课程',
+    '包括力学、热学、电磁学、光学等内容',
+    '是理解自然现象的重要工具',
+    '与高等数学密切相关'
+  ],
+  '大学物理（下册）': [
+    '包括量子力学、相对论、固体物理等内容',
+    '是现代物理学的基础',
+    '对理解现代科技发展至关重要',
+    '需要较强的数学基础'
+  ],
+  
+  // 操作系统原理
+  '操作系统原理': [
+    '操作系统是计算机系统的核心软件',
+    '管理计算机的硬件和软件资源',
+    '提供用户与计算机之间的接口',
+    '包括进程管理、内存管理、文件系统等核心功能'
+  ],
+  '进程管理': [
+    '进程是程序的执行实例',
+    '进程调度决定CPU的分配',
+    '进程同步解决进程间的协作问题',
+    '进程通信实现进程间的数据交换'
+  ],
+  
+  // 数据库系统概论
+  '数据库系统概论': [
+    '数据库是现代信息系统的核心',
+    '关系模型是主流的数据库模型',
+    'SQL是数据库操作的标准语言',
+    '事务管理确保数据的一致性和可靠性'
+  ],
+  'SQL语言': [
+    'SQL是结构化查询语言',
+    '用于数据库的查询、插入、更新和删除操作',
+    '包括数据定义语言(DDL)和数据操纵语言(DML)',
+    '是数据库管理员和开发人员的必备技能'
+  ],
+  
+  // 数据结构与算法
+  '数据结构与算法': [
+    '数据结构是组织和存储数据的方式',
+    '算法是解决问题的步骤和方法',
+    '是计算机科学的核心内容',
+    '对程序的效率和性能有重要影响'
+  ],
+  '排序算法': [
+    '排序是最基本的算法问题之一',
+    '快速排序、归并排序、堆排序是常见的高效排序算法',
+    '排序算法的时间复杂度是衡量其性能的重要指标',
+    '排序算法在实际应用中广泛使用'
+  ],
+  
+  // 新视野大学英语1
+  '新视野大学英语1（第三版）': [
+    '新视野大学英语是大学英语的主流教材',
+    '注重听说读写全面发展',
+    '培养学生的英语综合应用能力',
+    '是大学英语四级考试的重要参考资料'
+  ],
+  '听力': [
+    '听力是英语学习的重要组成部分',
+    '提高听力能力需要多听多练',
+    '掌握听力技巧可以提高听力水平',
+    '听力能力对英语考试成绩有重要影响'
+  ],
+  
+  // 概率论与数理统计
+  '概率论与数理统计': [
+    '概率论与数理统计是研究随机现象的数学分支',
+    '概率论研究随机现象的规律',
+    '数理统计研究数据的收集、整理和分析',
+    '在科学研究、工程技术、经济管理等领域有广泛应用'
+  ],
+  '统计推断': [
+    '统计推断是根据样本数据推断总体特征',
+    '参数估计和假设检验是统计推断的主要内容',
+    '统计推断在科学研究中起着重要作用',
+    '需要掌握抽样分布和统计量的性质'
+  ],
+  
+  // 离散数学
+  '离散数学': [
+    '离散数学是计算机科学的数学基础',
+    '包括集合论、图论、代数系统、数理逻辑等内容',
+    '是算法设计和分析的基础',
+    '对理解计算机科学的理论问题至关重要'
+  ],
+  '图论': [
+    '图论是研究图的性质和应用的数学分支',
+    '图是由顶点和边组成的数学结构',
+    '在计算机网络、社交网络、交通规划等领域有广泛应用',
+    '图的遍历、最短路径等算法是图论的核心内容'
+  ],
+  
+  // 线性代数
+  '线性代数': [
+    '线性代数是研究向量空间和线性变换的数学分支',
+    '矩阵是线性代数的重要工具',
+    '在计算机图形学、机器学习、信号处理等领域有广泛应用',
+    '是理解现代科技的重要数学基础'
+  ],
+  '矩阵': [
+    '矩阵是线性代数的核心概念',
+    '矩阵运算包括加法、乘法、转置等',
+    '矩阵的秩、特征值、特征向量等是重要的矩阵性质',
+    '在计算机科学和工程中广泛应用'
+  ],
+  
+  // 经济学原理
+  '经济学原理': [
+    '经济学是研究资源配置的社会科学',
+    '微观经济学研究个体经济行为',
+    '宏观经济学研究整体经济运行',
+    '经济学原理对理解社会经济现象至关重要'
+  ],
+  '微观经济学': [
+    '微观经济学研究个体经济单位的行为',
+    '供给与需求是微观经济学的核心概念',
+    '市场结构包括完全竞争、垄断、寡头等',
+    '消费者行为和生产者行为是微观经济学的重要内容'
+  ],
+  
+  // 马克思主义基本原理
+  '马克思主义基本原理': [
+    '马克思主义是科学的世界观和方法论',
+    '包括哲学、政治经济学、科学社会主义三个组成部分',
+    '是指导我们认识世界和改造世界的强大思想武器',
+    '马克思主义中国化是马克思主义的重要发展'
+  ],
+  '哲学': [
+    '哲学是关于世界观和方法论的学问',
+    '唯物辩证法是马克思主义哲学的核心',
+    '认识论研究认识的本质和规律',
+    '历史唯物主义是研究社会发展规律的科学'
+  ]
+}
+
+/**
+ * 生成默认知识图谱数据
+ * @param {string} bookTitle - 书籍标题
+ * @returns {Object} 图谱数据
+ */
+export const generateDefaultGraphData = (bookTitle) => {
+  const nodes = []
+  const links = []
+  let nodeId = 1
+  
+  // 添加中心节点
+  nodes.push({
+    id: nodeId,
+    name: bookTitle,
+    category: 0,
+    value: 100,
+    symbolSize: 80
+  })
+  nodeId++
+  
+  // 添加一级节点
+  const level1Nodes = nodeRelations[bookTitle] || []
+  level1Nodes.forEach(level1Name => {
+    nodes.push({
+      id: nodeId,
+      name: level1Name,
+      category: 1,
+      value: 80,
+      symbolSize: 60
+    })
+    links.push({
+      source: 1, // 中心节点
+      target: nodeId
+    })
+    
+    // 添加二级节点
+    const level2Nodes = nodeRelations[level1Name] || []
+    const currentLevel1Id = nodeId
+    nodeId++
+    
+    level2Nodes.forEach(level2Name => {
+      nodes.push({
+        id: nodeId,
+        name: level2Name,
+        category: 2,
+        value: 60,
+        symbolSize: 45
+      })
+      links.push({
+        source: currentLevel1Id,
+        target: nodeId
+      })
+      nodeId++
+    })
+  })
+  
+  return { nodes, links }
+}
+
+/**
+ * 生成模拟习题（兼容练习页面格式）
+ * @param {string} nodeName - 节点名称
+ * @param {string} exerciseFilter - 难度筛选
+ * @param {string} exerciseTypeFilter - 类型筛选
+ * @returns {Array} 习题列表
+ */
+export const generateMockExercises = (nodeName, exerciseFilter = 'all', exerciseTypeFilter = 'all') => {
+  // 使用新的 mock 数据生成器
+  return generateMockExercisesForPractice(nodeName, exerciseFilter, exerciseTypeFilter)
+}
+
+/**
+ * 根据ID获取模拟习题
+ * @param {string|number} id - 习题ID
+ * @returns {Object} 习题对象
+ */
+export const getMockExerciseByIdExport = (id) => {
+  return getMockExerciseById(id)
+}
+
+// 保持向后兼容的旧代码（不再使用）
+const generateMockExercisesOld = (nodeName, exerciseFilter = 'all', exerciseTypeFilter = 'all') => {
+  const exercises = []
+  
+  // 确保 nodeName 不为空
+  const safeNodeName = nodeName || '知识节点'
+  
+  // 高等数学相关习题
+  if (safeNodeName.includes('高等数学') || safeNodeName.includes('数学') || safeNodeName.includes('微积分') || safeNodeName.includes('导数') || safeNodeName.includes('积分') || safeNodeName.includes('极限') || safeNodeName.includes('线性代数') || safeNodeName.includes('矩阵') || safeNodeName.includes('行列式') || safeNodeName.includes('概率论') || safeNodeName.includes('常微分方程')) {
+    exercises.push(
+      {
+        id: 501,
+        title: '导数计算',
+        description: '请计算函数f(x) = x^3 + 2x^2 - 3x + 1的导数。',
+        difficulty: '基础巩固',
+        type: '计算题',
+        knowledgePoints: ['微积分', '导数', '函数']
+      },
+      {
+        id: 502,
+        title: '定积分',
+        description: '请计算从0到1的x^2的定积分。',
+        difficulty: '进阶提升',
+        type: '计算题',
+        knowledgePoints: ['微积分', '定积分', '反导数']
+      },
+      {
+        id: 503,
+        title: '矩阵运算',
+        description: '请计算两个3x3矩阵的乘积。',
+        difficulty: '进阶提升',
+        type: '计算题',
+        knowledgePoints: ['线性代数', '矩阵', '矩阵运算']
+      },
+      {
+        id: 504,
+        title: '微分方程',
+        description: '请求解一阶线性微分方程y + y = e^x。',
+        difficulty: '真题冲刺',
+        type: '计算题',
+        knowledgePoints: ['常微分方程', '一阶微分方程', '积分因子']
+      },
+      {
+        id: 505,
+        title: '概率论',
+        description: '请计算正态分布的概率密度函数在特定区间的积分。',
+        difficulty: '竞赛拓展',
+        type: '计算题',
+        knowledgePoints: ['概率论', '概率分布', '正态分布']
+      }
+    )
+  } else if (safeNodeName.includes('计算机网络') || safeNodeName.includes('网络协议') || safeNodeName.includes('网络拓扑') || safeNodeName.includes('网络安全') || safeNodeName.includes('网络管理') || safeNodeName.includes('网络层') || safeNodeName.includes('传输层') || safeNodeName.includes('TCP/IP') || safeNodeName.includes('HTTP/HTTPS')) {
+    // 计算机网络相关习题
+    exercises.push(
+      {
+        id: 101,
+        title: 'TCP/IP协议栈的层次结构',
+        description: '请描述TCP/IP协议栈的层次结构，并说明各层的主要功能。',
+        difficulty: '基础巩固',
+        type: '概念题',
+        knowledgePoints: ['网络协议', 'TCP/IP', '网络层次']
+      },
+      {
+        id: 102,
+        title: 'HTTP与HTTPS的区别',
+        description: '请详细说明HTTP与HTTPS的区别，以及HTTPS的工作原理。',
+        difficulty: '进阶提升',
+        type: '比较题',
+        knowledgePoints: ['网络协议', 'HTTP/HTTPS', '网络安全']
+      },
+      {
+        id: 103,
+        title: '路由算法的选择',
+        description: '请比较不同路由算法的优缺点，并说明在不同网络环境下如何选择合适的路由算法。',
+        difficulty: '进阶提升',
+        type: '分析题',
+        knowledgePoints: ['网络拓扑', '路由算法', '网络层']
+      },
+      {
+        id: 104,
+        title: '网络安全防护措施',
+        description: '请列举常见的网络安全威胁，并说明相应的防护措施。',
+        difficulty: '真题冲刺',
+        type: '应用题',
+        knowledgePoints: ['网络安全', '防火墙', '加密技术']
+      },
+      {
+        id: 105,
+        title: '网络拓扑设计',
+        description: '请设计一个企业网络拓扑结构，并说明设计理由。',
+        difficulty: '竞赛拓展',
+        type: '设计题',
+        knowledgePoints: ['网络拓扑', '网络结构', '网络规划']
+      }
+    )
+  } else if (safeNodeName.includes('操作系统原理') || safeNodeName.includes('操作系统') || safeNodeName.includes('进程管理') || safeNodeName.includes('内存管理') || safeNodeName.includes('文件系统') || safeNodeName.includes('设备管理') || safeNodeName.includes('死锁') || safeNodeName.includes('虚拟内存')) {
+    // 操作系统原理相关习题
+    exercises.push(
+      {
+        id: 201,
+        title: '进程管理与调度',
+        description: '请解释进程的概念和进程调度的基本原理。',
+        difficulty: '基础巩固',
+        type: '概念题',
+        knowledgePoints: ['进程管理', '进程调度', 'CPU调度']
+      },
+      {
+        id: 202,
+        title: '内存管理',
+        description: '请说明分页存储管理和分段存储管理的区别。',
+        difficulty: '进阶提升',
+        type: '比较题',
+        knowledgePoints: ['内存管理', '分页存储', '分段存储']
+      },
+      {
+        id: 203,
+        title: '文件系统',
+        description: '请描述文件系统的基本功能和常见的文件系统类型。',
+        difficulty: '进阶提升',
+        type: '概念题',
+        knowledgePoints: ['文件系统', '文件结构', '存储管理']
+      },
+      {
+        id: 204,
+        title: '设备管理',
+        description: '请解释设备驱动程序的作用和工作原理。',
+        difficulty: '真题冲刺',
+        type: '应用题',
+        knowledgePoints: ['设备管理', '设备驱动', 'I/O操作']
+      },
+      {
+        id: 205,
+        title: '死锁',
+        description: '请分析死锁产生的必要条件和预防死锁的方法。',
+        difficulty: '竞赛拓展',
+        type: '分析题',
+        knowledgePoints: ['死锁', '死锁预防', '进程同步']
+      }
+    )
+  } else if (safeNodeName.includes('数据库系统概论') || safeNodeName.includes('数据库') || safeNodeName.includes('数据库模型') || safeNodeName.includes('SQL语言') || safeNodeName.includes('事务管理') || safeNodeName.includes('数据库设计') || safeNodeName.includes('数据库安全') || safeNodeName.includes('数据库优化')) {
+    // 数据库系统概论相关习题
+    exercises.push(
+      {
+        id: 301,
+        title: '数据库模型',
+        description: '请解释关系模型的基本概念和特点。',
+        difficulty: '基础巩固',
+        type: '概念题',
+        knowledgePoints: ['数据库模型', '关系模型', 'SQL']
+      },
+      {
+        id: 302,
+        title: 'SQL查询',
+        description: '请编写SQL语句查询员工表中工资大于5000的员工信息。',
+        difficulty: '进阶提升',
+        type: '编程题',
+        knowledgePoints: ['SQL语言', '查询语句', '关系模型']
+      },
+      {
+        id: 303,
+        title: '事务管理',
+        description: '请解释事务的ACID特性及其重要性。',
+        difficulty: '进阶提升',
+        type: '概念题',
+        knowledgePoints: ['事务管理', 'ACID特性', '并发控制']
+      },
+      {
+        id: 304,
+        title: '数据库设计',
+        description: '请设计一个图书馆管理系统的数据库 schema。',
+        difficulty: '真题冲刺',
+        type: '设计题',
+        knowledgePoints: ['数据库设计', '范式理论', 'ER图']
+      },
+      {
+        id: 305,
+        title: '并发控制',
+        description: '请分析并发操作可能导致的数据不一致问题及解决方法。',
+        difficulty: '竞赛拓展',
+        type: '分析题',
+        knowledgePoints: ['事务管理', '并发控制', '锁机制']
+      }
+    )
+  } else if (safeNodeName.includes('数据结构与算法') || safeNodeName.includes('数据结构') || safeNodeName.includes('算法') || safeNodeName.includes('线性结构') || safeNodeName.includes('树形结构') || safeNodeName.includes('图结构') || safeNodeName.includes('排序算法') || safeNodeName.includes('查找算法') || safeNodeName.includes('哈希表')) {
+    // 数据结构与算法相关习题
+    exercises.push(
+      {
+        id: 401,
+        title: '线性表',
+        description: '请实现一个单链表的反转操作。',
+        difficulty: '基础巩固',
+        type: '编程题',
+        knowledgePoints: ['线性结构', '链表', '数据结构']
+      },
+      {
+        id: 402,
+        title: '树结构',
+        description: '请解释二叉树的遍历方法及其时间复杂度。',
+        difficulty: '进阶提升',
+        type: '概念题',
+        knowledgePoints: ['树形结构', '二叉树', '图遍历']
+      },
+      {
+        id: 403,
+        title: '排序算法',
+        description: '请比较快速排序和归并排序的优缺点。',
+        difficulty: '进阶提升',
+        type: '比较题',
+        knowledgePoints: ['排序算法', '快速排序', '归并排序', '时间复杂度']
+      },
+      {
+        id: 404,
+        title: '图算法',
+        description: '请实现Dijkstra算法求解最短路径问题。',
+        difficulty: '真题冲刺',
+        type: '编程题',
+        knowledgePoints: ['图结构', '最短路径', '贪心算法']
+      },
+      {
+        id: 405,
+        title: '动态规划',
+        description: '请使用动态规划解决最长公共子序列问题。',
+        difficulty: '竞赛拓展',
+        type: '编程题',
+        knowledgePoints: ['动态规划', '算法', '状态转移']
+      }
+    )
+  } else if (safeNodeName.includes('体育与健康') || safeNodeName.includes('体育理论') || safeNodeName.includes('运动技能') || safeNodeName.includes('健康知识') || safeNodeName.includes('体育赛事') || safeNodeName.includes('运动损伤') || safeNodeName.includes('体育锻炼')) {
+    // 体育与健康相关习题
+    exercises.push(
+      {
+        id: 601,
+        title: '运动生理学',
+        description: '请解释运动对心血管系统的影响。',
+        difficulty: '基础巩固',
+        type: '概念题',
+        knowledgePoints: ['运动生理学', '心肺功能', '心血管系统']
+      },
+      {
+        id: 602,
+        title: '运动技能',
+        description: '请描述篮球投篮的基本动作要领。',
+        difficulty: '进阶提升',
+        type: '应用题',
+        knowledgePoints: ['运动技能', '球类运动', '篮球']
+      },
+      {
+        id: 603,
+        title: '健康知识',
+        description: '请说明合理饮食对健康的重要性。',
+        difficulty: '进阶提升',
+        type: '概念题',
+        knowledgePoints: ['健康知识', '营养学', '合理饮食']
+      },
+      {
+        id: 604,
+        title: '体育赛事',
+        description: '请分析奥运会对城市发展的影响。',
+        difficulty: '真题冲刺',
+        type: '分析题',
+        knowledgePoints: ['体育赛事', '奥运会', '城市发展']
+      },
+      {
+        id: 605,
+        title: '运动损伤',
+        description: '请说明常见运动损伤的预防和处理方法。',
+        difficulty: '竞赛拓展',
+        type: '应用题',
+        knowledgePoints: ['运动损伤', '损伤预防', '急救处理']
+      }
+    )
+  } else if (safeNodeName.includes('英语') || safeNodeName.includes('新视野大学英语') || safeNodeName.includes('听力') || safeNodeName.includes('口语') || safeNodeName.includes('阅读') || safeNodeName.includes('写作') || safeNodeName.includes('词汇') || safeNodeName.includes('语法')) {
+    // 英语相关习题
+    exercises.push(
+      {
+        id: 701,
+        title: '词汇',
+        description: '请解释下列单词的含义并举例说明：ambitious, significant, implement。',
+        difficulty: '基础巩固',
+        type: '词汇题',
+        knowledgePoints: ['词汇', '核心词汇', '英语学习']
+      },
+      {
+        id: 702,
+        title: '语法',
+        description: '请分析并纠正下列句子的语法错误：He have been working here for five years.。',
+        difficulty: '进阶提升',
+        type: '语法题',
+        knowledgePoints: ['语法', '时态', '语态', '英语学习']
+      },
+      {
+        id: 703,
+        title: '阅读理解',
+        description: '请阅读以下短文并回答问题：...（短文内容）。',
+        difficulty: '进阶提升',
+        type: '阅读题',
+        knowledgePoints: ['阅读', '精读', '英语学习']
+      },
+      {
+        id: 704,
+        title: '写作',
+        description: '请写一篇关于环境保护的短文，不少于150词。',
+        difficulty: '真题冲刺',
+        type: '写作题',
+        knowledgePoints: ['写作', '议论文', '英语学习']
+      },
+      {
+        id: 705,
+        title: '口语',
+        description: '请准备一段关于大学生活的口语表达，时间2分钟。',
+        difficulty: '竞赛拓展',
+        type: '口语题',
+        knowledgePoints: ['口语', '话题讨论', '英语学习']
+      }
+    )
+  } else {
+    // 其他知识点的默认习题
+    exercises.push(
+      {
+        id: 1,
+        title: '知识点理解',
+        description: `请解释${safeNodeName}的基本概念和应用场景。`,
+        difficulty: '基础巩固',
+        type: '概念题',
+        knowledgePoints: [safeNodeName]
+      },
+      {
+        id: 2,
+        title: '知识点应用',
+        description: `请举例说明${safeNodeName}在实际问题中的应用。`,
+        difficulty: '进阶提升',
+        type: '应用题',
+        knowledgePoints: [safeNodeName]
+      },
+      {
+        id: 3,
+        title: '知识点综合',
+        description: `请结合其他相关知识点，分析${safeNodeName}的重要性。`,
+        difficulty: '真题冲刺',
+        type: '分析题',
+        knowledgePoints: [safeNodeName]
+      },
+      {
+        id: 4,
+        title: '知识点拓展',
+        description: `请探讨${safeNodeName}的最新发展趋势和未来应用。`,
+        difficulty: '竞赛拓展',
+        type: '拓展题',
+        knowledgePoints: [safeNodeName]
+      }
+    )
+  }
+
+  // 根据难度和类型筛选
+  let filteredExercises = exercises
+  
+  if (exerciseFilter !== 'all') {
+    const filterMap = {
+      'basic': '基础巩固',
+      'advanced': '进阶提升',
+      'exam': '真题冲刺',
+      'competition': '竞赛拓展'
+    }
+    filteredExercises = filteredExercises.filter(e => e.difficulty === filterMap[exerciseFilter])
+  }
+  
+  if (exerciseTypeFilter !== 'all') {
+    filteredExercises = filteredExercises.filter(e => e.type === exerciseTypeFilter)
+  }
+  
+  return filteredExercises
+}
+
+/**
+ * 根据难度筛选习题
+ * @param {Array} exercises - 习题列表
+ * @param {string} difficultyLevel - 难度级别
+ * @returns {Array} 筛选后的习题列表
+ */
+export const filterExercisesByDifficulty = (exercises, difficultyLevel) => {
+  const difficultyMap = {
+    'easy': ['基础巩固'],
+    'balanced': ['基础巩固', '进阶提升'],
+    'hard': ['真题冲刺', '竞赛拓展']
+  }
+  
+  return exercises.filter(exercise => 
+    difficultyMap[difficultyLevel].includes(exercise.difficulty)
+  )
+}
+
+/**
+ * 获取相关知识点
+ * @param {string} knowledgePoint - 知识点名称
+ * @returns {Array} 相关知识点列表
+ */
+export const getRelatedKnowledgePoints = (knowledgePoint) => {
+  const relatedPoints = new Set()
+  
+  // 直接相关的知识点
+  if (nodeRelations[knowledgePoint]) {
+    nodeRelations[knowledgePoint].forEach(point => {
+      relatedPoints.add(point)
+    })
+  }
+  
+  // 反向相关的知识点
+  for (const [key, value] of Object.entries(nodeRelations)) {
+    if (value.includes(knowledgePoint)) {
+      relatedPoints.add(key)
+    }
+  }
+  
+  return Array.from(relatedPoints)
+}
+
+/**
+ * 获取习题列表
+ * @param {string} nodeName - 节点名称
+ * @param {Object} exerciseFilter - 习题难度筛选的ref
+ * @param {Object} exercises - 习题列表的ref
+ * @param {Object} componentState - 组件状态
+ */
+export const fetchExercisesUtil = async (nodeName, exerciseFilter, exercises, componentState) => {
+  if (!componentState.isMounted.value) {
+    console.warn('Component destroyed, skipping fetchExercises')
+    return
+  }
+  
+  try {
+    // 模拟API请求延迟
+    await new Promise(resolve => setTimeout(resolve, 500))
+    
+    // 生成模拟习题数据，使用旧版生成函数
+    const mockExercises = generateMockExercisesOld(nodeName, exerciseFilter.value, 'all')
+    
+    // 检查组件是否已销毁
+    if (!componentState.isMounted.value) return
+    
+    exercises.value = mockExercises
+  } catch (error) {
+    console.error('获取习题失败:', error)
+    // 发生错误时使用模拟数据
+    exercises.value = generateMockExercisesOld(nodeName, exerciseFilter.value, 'all')
+  }
+}
+
+/**
+ * 更新推荐策略
+ * @param {Object} selectedNode - 选中节点的ref
+ * @param {Object} currentBook - 当前书籍的ref
+ * @param {Object} recommendedExercises - 推荐习题的ref
+ * @param {Object} componentState - 组件状态
+ */
+export const updateRecommendationStrategyUtil = (selectedNode, currentBook, recommendedExercises, componentState) => {
+  if (!componentState.isMounted.value) {
+    console.warn('Component destroyed, skipping updateRecommendationStrategy')
+    return
+  }
+  
+  // 这里可以根据选中节点和当前书籍更新推荐策略
+  // 目前使用简单的模拟数据
+  recommendedExercises.value = [
+    '根据你的学习情况，推荐先掌握基础概念',
+    '建议多做一些相关的习题来巩固知识',
+    '可以尝试将知识点与实际应用相结合',
+    '定期复习是保持记忆的有效方法'
+  ]
+}

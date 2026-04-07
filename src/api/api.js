@@ -43,7 +43,7 @@ const api = axios.create({
       // 自定义JSON解析，将大数字转换为字符串
       return JSON.parse(data, (key, value) => {
         // 检查是否是可能的大数字ID
-        if (typeof value === 'number' && (key === 'id' || key === 'userId' || key === 'bookId' || key === 'knowledgeNodeId' || key === 'exerciseId' || key === 'wrongBookId' || key === 'questionId' || key === 'answerId' || key === 'seniorId')) {
+        if (typeof value === 'number' && (key === 'id' || key === 'userId' || key === 'bookId' || key === 'knowledgeNodeId' || key === 'exerciseId' || key === 'wrongBookId' || key === 'questionId' || key === 'answerId' || key === 'seniorId' || key === 'sourceNodeId' || key === 'targetNodeId')) {
           // 检查是否超过JavaScript安全整数范围
           if (Math.abs(value) > Number.MAX_SAFE_INTEGER) {
             return String(value);
@@ -365,6 +365,8 @@ export const apiService = {
     getBookChapterTree: (bookId) => request.get(`/books/${bookId}/chapters/tree`, null, true), // 启用缓存
     searchChapters: (bookId, keyword) => request.get(`/books/${bookId}/chapters/search`, { keyword }), // 不缓存搜索结果
     getBookRecommendations: (bookId) => request.get(`/books/${bookId}/recommendations`, null, true), // 启用缓存
+    getHighFrequencyKnowledge: (bookId, signal) => request.get(`/books/${bookId}/high-frequency`, null, { signal }), // 获取书籍高频知识点
+    getRelatedNodes: (bookId, signal) => request.get(`/books/${bookId}/related-nodes`, null, { signal }), // 获取书籍关联知识点
     getTextbooks: (params) => request.get('/bookshelf/books/search', params), // 获取教材列表
     addBooks: (userId, data) => request.post(`/books/add?userId=${userId}`, data), // 批量添加教材
     deleteBook: (bookId) => request.delete(`/books/${bookId}`) // 删除书籍
@@ -385,11 +387,11 @@ export const apiService = {
   
   // 知识图谱相关
   knowledgeGraph: {
-    getKnowledgeGraphByBook: (bookId) => request.get(`/knowledge-graph/book/${bookId}`, null, true), // 启用缓存
-    getKnowledgeTreeByBook: (bookId) => request.get(`/knowledge-graph/book/${bookId}/tree`, null, true), // 启用缓存
-    getKnowledgeNodeById: (id) => request.get(`/knowledge-graph/node/${id}`, null, true), // 启用缓存
-    getRelationsByNode: (nodeId) => request.get(`/knowledge-graph/node/${nodeId}/relations`, null, true), // 启用缓存
-    searchKnowledgeNodes: (bookId, keyword) => request.get(`/knowledge-graph/book/${bookId}/search`, { keyword })
+    getKnowledgeGraphByBook: (bookId, signal) => request.get(`/knowledge-graph/book/${bookId}`, null, { signal }), // 不启用缓存，确保获取最新数据
+    getKnowledgeTreeByBook: (bookId, signal) => request.get(`/knowledge-graph/book/${bookId}/tree`, null, { signal }), // 不启用缓存，确保获取最新数据
+    getKnowledgeNodeById: (id, signal) => request.get(`/knowledge-graph/node/${id}`, null, { signal }), // 不启用缓存，确保获取最新数据
+    getRelationsByNode: (nodeId, signal) => request.get(`/knowledge-graph/node/${nodeId}/relations`, null, { signal }), // 不启用缓存，确保获取最新数据
+    searchKnowledgeNodes: (bookId, keyword, signal) => request.get(`/knowledge-graph/book/${bookId}/search`, { keyword }, { signal })
   },
   
   // AI问答相关

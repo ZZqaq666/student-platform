@@ -22,188 +22,199 @@
 
     <!-- 主体内容区 -->
     <div class="practice-content">
-      <!-- 左侧题目区 -->
-      <div class="question-panel">
-        <div class="question-card">
-          <!-- 题目头部 -->
-          <div class="question-header">
-            <span class="question-type">{{ currentExercise?.type || '选择题' }}</span>
-            <span class="question-difficulty" :class="currentExercise?.difficulty">
-              {{ currentExercise?.difficultyText }}
-            </span>
-            <span class="question-score">{{ currentExercise?.score || 10 }}分</span>
-          </div>
-
-          <!-- 题目内容 -->
-          <div class="question-body">
-            <div class="question-text">
-              <span class="question-number">{{ currentIndex + 1 }}.</span>
-              <span class="math-text">{{ currentExercise?.question }}</span>
-            </div>
-
-            <!-- 选择题选项 -->
-            <div v-if="currentExercise?.type === '选择题'" class="options-list">
-              <div
-                v-for="(option, index) in currentExercise?.options || []"
-                :key="index"
-                class="option-item"
-                :class="{
-                  selected: selectedOption === index,
-                  correct: showAnswer && index === currentExercise?.correctAnswer,
-                  wrong: showAnswer && selectedOption === index && index !== currentExercise?.correctAnswer
-                }"
-                @click="selectOption(index)"
-              >
-                <span class="option-label">{{ ['A', 'B', 'C', 'D'][index] }}.</span>
-                <span class="option-text"><span class="math-text">{{ option }}</span></span>
-                <span v-if="showAnswer && index === currentExercise?.correctAnswer" class="option-icon correct">✓</span>
-                <span v-if="showAnswer && selectedOption === index && index !== currentExercise?.correctAnswer" class="option-icon wrong">✗</span>
-              </div>
-            </div>
-
-            <!-- 填空题输入 -->
-            <div v-else-if="currentExercise?.type === '填空题'" class="fill-blank-area">
-              <input
-                v-model="fillAnswer"
-                type="text"
-                placeholder="请输入答案"
-                class="fill-input"
-                :disabled="showAnswer"
-              />
-            </div>
-
-            <!-- 解答题输入 -->
-            <div v-else-if="currentExercise?.type === '解答题'" class="essay-area">
-              <textarea
-                v-model="essayAnswer"
-                placeholder="请在此输入解答过程..."
-                class="essay-input"
-                rows="8"
-                :disabled="showAnswer"
-              ></textarea>
-            </div>
-          </div>
-
-          <!-- 答题后的解析 -->
-          <div v-if="showAnswer" class="answer-analysis">
-            <div class="analysis-header">
-              <span class="analysis-title">答案解析</span>
-              <span class="answer-result" :class="isCorrect ? 'correct' : 'wrong'">
-                {{ isCorrect ? '回答正确' : '回答错误' }}
-              </span>
-            </div>
-            <div class="analysis-content">
-                <div class="user-answer" :class="isCorrect ? 'correct' : 'wrong'">
-                  <span class="label">我的答案：</span>
-                  <span class="value"><span class="math-text">{{ getUserAnswerText() }}</span></span>
-                </div>
-                <div class="correct-answer">
-                  <span class="label">正确答案：</span>
-                  <span class="value"><span class="math-text">{{ currentExercise?.correctAnswerText }}</span></span>
-                </div>
-                <div class="analysis-text">
-                  <span class="label">解析：</span>
-                  <p><span class="math-text">{{ currentExercise?.analysis }}</span></p>
-                </div>
-                <div class="knowledge-point">
-                  <span class="label">知识点：</span>
-                  <span class="tag"><span class="math-text">{{ currentExercise?.knowledgePoint }}</span></span>
-                </div>
-              </div>
-          </div>
-        </div>
-
-        <!-- 底部操作栏 -->
-        <div class="question-actions">
-          <button
-            class="action-btn prev-btn"
-            :disabled="currentIndex === 0"
-            @click="prevQuestion"
-          >
-            上一题
-          </button>
-          <button
-            v-if="!showAnswer && currentIndex < exercises.length - 1"
-            class="action-btn next-btn"
-            @click="saveAndNext"
-          >
-            下一题
-          </button>
-          <button
-            v-else-if="!showAnswer"
-            class="action-btn submit-btn"
-            @click="submitAllAnswers"
-          >
-            提交练习
-          </button>
-          <button
-            v-else-if="showAnswer && currentIndex < exercises.length - 1"
-            class="action-btn next-btn"
-            @click="nextQuestion"
-          >
-            下一题
-          </button>
-        </div>
+      <!-- 无练习题时的提示 -->
+      <div v-if="exercises.length === 0" class="empty-state">
+        <div class="empty-icon">📚</div>
+        <h3>暂无练习题</h3>
+        <p>当前没有可用的练习题，请稍后再试</p>
+        <button class="back-btn" @click="goBack">返回</button>
       </div>
+      
+      <!-- 有练习题时的内容 -->
+      <template v-else>
+        <!-- 左侧题目区 -->
+        <div class="question-panel">
+          <div class="question-card">
+            <!-- 题目头部 -->
+            <div class="question-header">
+              <span class="question-type">{{ currentExercise?.type || currentExercise?.questionType || '选择题' }}</span>
+              <span class="question-difficulty" :class="currentExercise?.difficulty">
+                {{ currentExercise?.difficultyText }}
+              </span>
+              <span class="question-score">{{ currentExercise?.score || 10 }}分</span>
+            </div>
 
-      <!-- 右侧信息面板 -->
-      <div class="info-panel">
-        <!-- 答题卡 -->
-        <div class="answer-card">
-          <h3 class="panel-title">答题卡</h3>
-          <div class="question-grid">
-            <template v-for="(exercise, index) in exercises" :key="index">
-              <div
-                v-if="!showResults || viewMode === 'all' || (viewMode === 'wrong' && showResults && (!results[index] || !results[index].isCorrect))"
-                class="question-number-btn"
-                :class="{
-                  current: currentIndex === index,
-                  answered: answers[index] !== undefined,
-                  correct: showResults && results[index] && results[index].isCorrect,
-                  wrong: showResults && results[index] && !results[index].isCorrect
-                }"
-                @click="jumpToQuestion(index)"
-              >
-                {{ index + 1 }}
+            <!-- 题目内容 -->
+            <div class="question-body">
+              <div class="question-text">
+                <span class="question-number">{{ currentIndex + 1 }}.</span>
+                <span class="math-text" style="white-space: pre-wrap;">{{ formatQuestionText(currentExercise?.content || currentExercise?.title || currentExercise?.question) }}</span>
               </div>
-            </template>
-          </div>
-        </div>
 
-        <!-- 练习统计 -->
-        <div class="practice-stats">
-          <h3 class="panel-title">练习统计</h3>
-          <div class="stats-grid">
-            <div class="stat-item">
-              <span class="stat-value">{{ answeredCount }}</span>
-              <span class="stat-label">已答</span>
+              <!-- 选择题选项 -->
+              <div v-if="currentExercise?.type === '选择题' || currentExercise?.questionType === '选择题'" class="options-list">
+                <div
+                  v-for="(option, index) in currentExercise?.options || []"
+                  :key="index"
+                  class="option-item"
+                  :class="{
+                    selected: selectedOption === index,
+                    correct: showAnswer && index === currentExercise?.correctAnswer,
+                    wrong: showAnswer && selectedOption === index && index !== currentExercise?.correctAnswer
+                  }"
+                  @click="selectOption(index)"
+                >
+                  <span class="option-label">{{ ['A', 'B', 'C', 'D'][index] }}.</span>
+                  <span class="option-text"><span class="math-text">{{ formatOptionText(option) }}</span></span>
+                  <span v-if="showAnswer && index === currentExercise?.correctAnswer" class="option-icon correct">✓</span>
+                  <span v-if="showAnswer && selectedOption === index && index !== currentExercise?.correctAnswer" class="option-icon wrong">✗</span>
+                </div>
+              </div>
+
+              <!-- 填空题输入 -->
+              <div v-else-if="currentExercise?.type === '填空题' || currentExercise?.questionType === '填空题'" class="fill-blank-area">
+                <input
+                  v-model="fillAnswer"
+                  type="text"
+                  placeholder="请输入答案"
+                  class="fill-input"
+                  :disabled="showAnswer"
+                />
+              </div>
+
+              <!-- 解答题输入 -->
+              <div v-else-if="currentExercise?.type === '解答题' || currentExercise?.questionType === '解答题'" class="essay-area">
+                <textarea
+                  v-model="essayAnswer"
+                  placeholder="请在此输入解答过程..."
+                  class="essay-input"
+                  rows="8"
+                  :disabled="showAnswer"
+                ></textarea>
+              </div>
             </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ correctCount }}</span>
-              <span class="stat-label">正确</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ accuracyRate }}%</span>
-              <span class="stat-label">正确率</span>
-            </div>
-            <div class="stat-item">
-              <span class="stat-value">{{ formatTime(practiceTime) }}</span>
-              <span class="stat-label">用时</span>
+
+            <!-- 答题后的解析 -->
+            <div v-if="showAnswer" class="answer-analysis">
+              <div class="analysis-header">
+                <span class="analysis-title">答案解析</span>
+                <span class="answer-result" :class="isCorrect ? 'correct' : 'wrong'">
+                  {{ isCorrect ? '回答正确' : '回答错误' }}
+                </span>
+              </div>
+              <div class="analysis-content">
+                  <div class="user-answer" :class="isCorrect ? 'correct' : 'wrong'">
+                    <span class="label">我的答案：</span>
+                    <span class="value"><span class="math-text">{{ getUserAnswerText() }}</span></span>
+                  </div>
+                  <div class="correct-answer">
+                    <span class="label">正确答案：</span>
+                    <span class="value"><span class="math-text">{{ getCorrectAnswerText() }}</span></span>
+                  </div>
+                  <div class="analysis-text">
+                    <span class="label">解析：</span>
+                    <p><span class="math-text">{{ currentExercise?.analysis }}</span></p>
+                  </div>
+                  <div class="knowledge-point">
+                    <span class="label">知识点：</span>
+                    <span class="tag"><span class="math-text">{{ currentExercise?.knowledgePoint }}</span></span>
+                  </div>
+                </div>
             </div>
           </div>
-        </div>
 
-        <!-- 快捷操作 - 只在提交答案后显示 -->
-        <div v-if="showAnswer" class="quick-actions">
-          <h3 class="panel-title">快捷操作</h3>
-          <div class="action-list">
-            <button class="quick-btn wrong-book-btn" @click="addToWrongBook">
-              <span class="btn-icon">📚</span>
-              <span class="btn-text">加入错题本</span>
+          <!-- 底部操作栏 -->
+          <div class="question-actions">
+            <button
+              class="action-btn prev-btn"
+              :disabled="currentIndex === 0"
+              @click="prevQuestion"
+            >
+              上一题
+            </button>
+            <button
+              v-if="!showAnswer && currentIndex < exercises.length - 1"
+              class="action-btn next-btn"
+              @click="saveAndNext"
+            >
+              下一题
+            </button>
+            <button
+              v-else-if="!showAnswer"
+              class="action-btn submit-btn"
+              @click="submitAllAnswers"
+            >
+              提交练习
+            </button>
+            <button
+              v-else-if="showAnswer && currentIndex < exercises.length - 1"
+              class="action-btn next-btn"
+              @click="nextQuestion"
+            >
+              下一题
             </button>
           </div>
         </div>
-      </div>
+
+        <!-- 右侧信息面板 -->
+        <div class="info-panel">
+          <!-- 答题卡 -->
+          <div class="answer-card">
+            <h3 class="panel-title">答题卡</h3>
+            <div class="question-grid">
+              <template v-for="(exercise, index) in exercises" :key="index">
+                <div
+                  v-if="!showResults || viewMode === 'all' || (viewMode === 'wrong' && showResults && (!results[index] || !results[index].isCorrect))"
+                  class="question-number-btn"
+                  :class="{
+                    current: currentIndex === index,
+                    answered: answers[index] !== undefined,
+                    correct: showResults && results[index] && results[index].isCorrect,
+                    wrong: showResults && results[index] && !results[index].isCorrect
+                  }"
+                  @click="jumpToQuestion(index)"
+                >
+                  {{ index + 1 }}
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- 练习统计 -->
+          <div class="practice-stats">
+            <h3 class="panel-title">练习统计</h3>
+            <div class="stats-grid">
+              <div class="stat-item">
+                <span class="stat-value">{{ answeredCount }}</span>
+                <span class="stat-label">已答</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ correctCount }}</span>
+                <span class="stat-label">正确</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ accuracyRate }}%</span>
+                <span class="stat-label">正确率</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ formatTime(practiceTime) }}</span>
+                <span class="stat-label">用时</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 快捷操作 - 只在提交答案后显示 -->
+          <div v-if="showAnswer" class="quick-actions">
+            <h3 class="panel-title">快捷操作</h3>
+            <div class="action-list">
+              <button class="quick-btn wrong-book-btn" @click="openWrongBookDialog">
+                <span class="btn-icon">📚</span>
+                <span class="btn-text">加入错题本</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </template>
     </div>
 
     <!-- 退出确认弹窗 -->
@@ -270,12 +281,68 @@
       </div>
     </div>
   </div>
+
+  <!-- 添加错题本对话框 -->
+  <el-dialog
+    v-model="showWrongBookDialog"
+    title="添加到错题本"
+    width="500px"
+    :close-on-click-modal="false"
+  >
+    <el-form :model="wrongBookForm" label-width="100px">
+      <el-form-item label="错误类型">
+        <el-select v-model="wrongBookForm.errorType" placeholder="请选择错误类型" style="width: 100%">
+          <el-option
+            v-for="item in errorTypeOptions"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+
+      <el-form-item label="优先级">
+        <el-radio-group v-model="wrongBookForm.priority">
+          <el-radio-button label="HIGH">高</el-radio-button>
+          <el-radio-button label="MEDIUM">中</el-radio-button>
+          <el-radio-button label="LOW">低</el-radio-button>
+        </el-radio-group>
+      </el-form-item>
+
+      <el-form-item label="标签">
+        <el-input
+          v-model="wrongBookForm.tags"
+          placeholder="多个标签用逗号分隔，如：数学,函数,易错"
+        />
+      </el-form-item>
+
+      <el-form-item label="笔记">
+        <el-input
+          v-model="wrongBookForm.notes"
+          type="textarea"
+          :rows="4"
+          placeholder="记录错误原因、解题思路等..."
+        />
+      </el-form-item>
+    </el-form>
+
+    <template #footer>
+      <span class="dialog-footer">
+        <el-button @click="showWrongBookDialog = false">取消</el-button>
+        <el-button type="primary" @click="addToWrongBook">确定添加</el-button>
+      </span>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import api from '@/api/api.js'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
+import { simulateButtonClick, updateButtonState, getButtonData } from '@/mock/buttonMock'
 
 const router = useRouter()
 const route = useRoute()
@@ -322,39 +389,41 @@ const currentExercise = computed(() => {
   return exercise || {} // 确保返回一个空对象，避免undefined
 })
 
-// 动态加载KaTeX库
-const loadKaTeX = () => {
-  if (window.katex) return Promise.resolve()
-  
-  return new Promise((resolve, reject) => {
-    // 加载KaTeX CSS
-    const css = document.createElement('link')
-    css.rel = 'stylesheet'
-    css.href = 'https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css'
-    css.integrity = 'sha384-vKruj+a13U8yHIkAyGgK1J3ArTLzrFGBbBc0tDp4ad/EyewESeXE/Iv67Aj8gKZ0'
-    css.crossOrigin = 'anonymous'
-    css.onload = () => {
-      // 加载KaTeX JS
-      const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.js'
-      script.integrity = 'sha384-PwRUT/YqbnEjkZO0zZxNqcxACrXe+j766U2amXcgMg5457rve2Y7I6ZJSm2A0mS4'
-      script.crossOrigin = 'anonymous'
-      script.onload = () => resolve()
-      script.onerror = reject
-      document.head.appendChild(script)
+// 获取正确答案文本
+const getCorrectAnswerText = () => {
+  const exercise = currentExercise.value
+  if (!exercise) return ''
+
+  if (exercise.type === '选择题') {
+    const optionLabels = ['A', 'B', 'C', 'D']
+    const correctIndex = exercise.correctAnswer
+    const optionText = exercise.options?.[correctIndex]
+    if (optionText === undefined || optionText === null) {
+      return ''
     }
-    css.onerror = reject
-    document.head.appendChild(css)
-  })
+    // 去掉选项前缀，避免重复显示
+    const cleanOptionText = formatOptionText(optionText)
+    return `${optionLabels[correctIndex] || ''}. ${cleanOptionText}`
+  }
+
+  return exercise.correctAnswer || ''
+}
+
+// KaTeX 已通过 npm 安装并导入，无需动态加载
+const loadKaTeX = () => {
+  return Promise.resolve()
 }
 
 // 渲染数学公式
 const renderMathInElement = (element) => {
-  if (!window.katex || !element) return
-  
+  if (!element) return
+
   // 查找所有包含数学公式的元素
   const mathElements = element.querySelectorAll('.math-text')
   mathElements.forEach(el => {
+    // 如果已经渲染过，跳过
+    if (el.getAttribute('data-rendered') === 'true') return
+
     const text = el.textContent
     if (text) {
       try {
@@ -362,11 +431,12 @@ const renderMathInElement = (element) => {
         // 更严格的数学公式符号检查
         const mathPattern = /[\$\\\^_\(\)\[\]\{\}\frac\sqrt\sum\int\pi\times\div\pm\mp\leq\geq\neq]/
         if (mathPattern.test(text)) {
-          window.katex.render(text, el, {
+          katex.render(text, el, {
             throwOnError: false,
             displayMode: true,
             strict: false // 禁用严格模式，避免中文警告
           })
+          el.setAttribute('data-rendered', 'true')
         }
       } catch (e) {
         console.error('KaTeX render error:', e)
@@ -397,6 +467,7 @@ watch(showAnswer, async () => {
 }, { immediate: false })
 
 const progressPercent = computed(() => {
+  if (exercises.value.length === 0) return 0
   return ((currentIndex.value + 1) / exercises.value.length) * 100
 })
 
@@ -434,27 +505,31 @@ const selectOption = (index) => {
 }
 
 const submitAnswer = () => {
-  const exercise = currentExercise
+  if (exercises.value.length === 0) return
+  
+  const exercise = currentExercise.value
+  if (!exercise) return
+  
   let isCorrect = false
   let userAnswer = null
 
   if (exercise?.type === '选择题') {
     if (selectedOption.value === null) {
-      alert('请选择答案')
+      ElMessage.warning('请选择答案')
       return
     }
     userAnswer = selectedOption.value
     isCorrect = selectedOption.value === exercise.correctAnswer
   } else if (exercise?.type === '填空题') {
     if (!fillAnswer.value || !fillAnswer.value.trim()) {
-      alert('请输入答案')
+      ElMessage.warning('请输入答案')
       return
     }
     userAnswer = fillAnswer.value
     isCorrect = fillAnswer.value.trim() === exercise.correctAnswer
   } else if (exercise?.type === '解答题') {
     if (!essayAnswer.value || !essayAnswer.value.trim()) {
-      alert('请输入解答')
+      ElMessage.warning('请输入解答')
       return
     }
     userAnswer = essayAnswer.value
@@ -477,25 +552,29 @@ const submitAnswer = () => {
 
 // 保存答案并进入下一题
 const saveAndNext = () => {
-  const exercise = currentExercise
+  if (exercises.value.length === 0) return
+  
+  const exercise = currentExercise.value
+  if (!exercise) return
+  
   let userAnswer = null
 
   // 检查是否已作答
   if (exercise?.type === '选择题') {
     if (selectedOption.value === null) {
-      alert('请选择答案')
+      ElMessage.warning('请选择答案')
       return
     }
     userAnswer = selectedOption.value
   } else if (exercise?.type === '填空题') {
     if (!fillAnswer.value || !fillAnswer.value.trim()) {
-      alert('请输入答案')
+      ElMessage.warning('请输入答案')
       return
     }
     userAnswer = fillAnswer.value
   } else if (exercise?.type === '解答题') {
     if (!essayAnswer.value || !essayAnswer.value.trim()) {
-      alert('请输入解答')
+      ElMessage.warning('请输入解答')
       return
     }
     userAnswer = essayAnswer.value
@@ -513,6 +592,8 @@ const saveAndNext = () => {
 
 // 提交所有答案
 const submitAllAnswers = () => {
+  if (exercises.value.length === 0) return
+  
   // 先保存当前题目的答案（如果已作答但未保存）
   const exercise = currentExercise.value
   if (exercise && answers.value[currentIndex.value] === undefined) {
@@ -590,6 +671,12 @@ const doSubmitAll = () => {
     timer = null
   }
   
+  if (exercises.value.length === 0) {
+    // 没有练习题时直接显示完成弹窗
+    showCompleteModal.value = true
+    return
+  }
+  
   // 计算所有答案的正确性
   exercises.value.forEach((exercise, index) => {
     const userAnswer = answers.value[index]
@@ -642,6 +729,8 @@ const handleSubmitCancel = () => {
 }
 
 const nextQuestion = () => {
+  if (exercises.value.length === 0) return
+  
   if (viewMode.value === 'wrong') {
     // 只在错题之间导航
     const wrongIndices = Object.keys(results.value)
@@ -665,31 +754,39 @@ const nextQuestion = () => {
   }
 }
 
-const prevQuestion = () => {
-  if (viewMode.value === 'wrong') {
-    // 只在错题之间导航
-    const wrongIndices = Object.keys(results.value)
-      .map(Number)
-      .filter(index => !results.value[index].isCorrect)
-      .sort((a, b) => a - b)
-    
-    const currentIndexInWrong = wrongIndices.indexOf(currentIndex.value)
-    if (currentIndexInWrong > 0) {
-      currentIndex.value = wrongIndices[currentIndexInWrong - 1]
-      showAnswer.value = true
-      selectedOption.value = answers.value[currentIndex.value]
+const prevQuestion = async () => {
+  if (exercises.value.length === 0) return
+  
+  const response = await simulateButtonClick('practice', 'prevBtn');
+  if (response.success) {
+    if (viewMode.value === 'wrong') {
+      // 只在错题之间导航
+      const wrongIndices = Object.keys(results.value)
+        .map(Number)
+        .filter(index => !results.value[index].isCorrect)
+        .sort((a, b) => a - b)
+      
+      const currentIndexInWrong = wrongIndices.indexOf(currentIndex.value)
+      if (currentIndexInWrong > 0) {
+        currentIndex.value = wrongIndices[currentIndexInWrong - 1]
+        showAnswer.value = true
+        selectedOption.value = answers.value[currentIndex.value]
+      }
+    } else {
+      // 查看全部题目
+      if (currentIndex.value > 0) {
+        currentIndex.value--
+        showAnswer.value = true
+        selectedOption.value = answers.value[currentIndex.value]
+      }
     }
-  } else {
-    // 查看全部题目
-    if (currentIndex.value > 0) {
-      currentIndex.value--
-      showAnswer.value = true
-      selectedOption.value = answers.value[currentIndex.value]
-    }
+    ElMessage.success(response.message);
   }
 }
 
 const jumpToQuestion = (index) => {
+  if (exercises.value.length === 0) return
+  
   if (viewMode.value === 'wrong') {
     // 在查看错题模式下，只允许跳转到错题
     if (!results.value[index] || results.value[index].isCorrect) {
@@ -719,6 +816,8 @@ const jumpToQuestion = (index) => {
 }
 
 const resetQuestion = () => {
+  if (exercises.value.length === 0) return
+  
   showAnswer.value = false
   selectedOption.value = null
   fillAnswer.value = ''
@@ -761,37 +860,49 @@ const finishPractice = () => {
   router.back()
 }
 
-const reviewAll = () => {
-  // 查看全部题目
-  showCompleteModal.value = false
-  showResults.value = true
-  viewMode.value = 'all'
+const reviewAll = async () => {
+  if (exercises.value.length === 0) return
   
-  // 跳转到第一题
-  currentIndex.value = 0
-  // 重置当前题目的答题状态以便查看
-  showAnswer.value = true
-  selectedOption.value = answers.value[0]
-}
-
-const reviewWrong = () => {
-  // 筛选错题并显示
-  showCompleteModal.value = false
-  showResults.value = true
-  viewMode.value = 'wrong'
-  
-  // 找到第一道错题的索引
-  const wrongIndices = Object.keys(results.value)
-    .map(Number)
-    .filter(index => !results.value[index].isCorrect)
-    .sort((a, b) => a - b)
-  
-  if (wrongIndices.length > 0) {
-    // 跳转到第一道错题
-    currentIndex.value = wrongIndices[0]
+  const response = await simulateButtonClick('practice', 'reviewAllBtn');
+  if (response.success) {
+    // 查看全部题目
+    showCompleteModal.value = false
+    showResults.value = true
+    viewMode.value = 'all'
+    
+    // 跳转到第一题
+    currentIndex.value = 0
     // 重置当前题目的答题状态以便查看
     showAnswer.value = true
-    selectedOption.value = answers.value[wrongIndices[0]]
+    selectedOption.value = answers.value[0]
+    ElMessage.success(response.message);
+  }
+}
+
+const reviewWrong = async () => {
+  if (exercises.value.length === 0) return
+  
+  const response = await simulateButtonClick('practice', 'reviewWrongBtn');
+  if (response.success) {
+    // 筛选错题并显示
+    showCompleteModal.value = false
+    showResults.value = true
+    viewMode.value = 'wrong'
+    
+    // 找到第一道错题的索引
+    const wrongIndices = Object.keys(results.value)
+      .map(Number)
+      .filter(index => !results.value[index].isCorrect)
+      .sort((a, b) => a - b)
+    
+    if (wrongIndices.length > 0) {
+      // 跳转到第一道错题
+      currentIndex.value = wrongIndices[0]
+      // 重置当前题目的答题状态以便查看
+      showAnswer.value = true
+      selectedOption.value = answers.value[wrongIndices[0]]
+    }
+    ElMessage.success(response.message);
   }
 }
 
@@ -799,8 +910,70 @@ const markQuestion = () => {
   alert('已标记该题目')
 }
 
-const addToWrongBook = () => {
-  alert('已加入错题本')
+// 错题本相关状态
+const showWrongBookDialog = ref(false)
+const wrongBookForm = ref({
+  errorType: 'OTHER',
+  notes: '',
+  tags: '',
+  priority: 'MEDIUM'
+})
+
+// 错误类型选项
+const errorTypeOptions = [
+  { label: '概念错误', value: 'CONCEPT' },
+  { label: '计算错误', value: 'CALCULATION' },
+  { label: '粗心大意', value: 'CARELESS' },
+  { label: '其他', value: 'OTHER' }
+]
+
+// 优先级选项
+const priorityOptions = [
+  { label: '高', value: 'HIGH' },
+  { label: '中', value: 'MEDIUM' },
+  { label: '低', value: 'LOW' }
+]
+
+// 打开添加错题对话框
+const openWrongBookDialog = () => {
+  const exercise = currentExercise.value
+  if (!exercise) {
+    ElMessage.warning('当前没有题目')
+    return
+  }
+
+  // 如果已经答错，自动填充用户答案
+  if (showAnswer.value && !isCorrect.value) {
+    const userAnswer = answers.value[currentIndex.value]
+    wrongBookForm.value.notes = `我的答案：${userAnswer}\n需要重点复习`
+  }
+
+  showWrongBookDialog.value = true
+}
+
+// 添加到错题本
+const addToWrongBook = async () => {
+  const exercise = currentExercise.value
+  if (!exercise) {
+    ElMessage.warning('当前没有题目')
+    return
+  }
+
+  const response = await simulateButtonClick('practice', 'addToWrongBookBtn');
+  if (response.success) {
+    ElMessage.success(response.message)
+    showWrongBookDialog.value = false
+
+    // 重置表单
+    wrongBookForm.value = {
+      errorType: 'OTHER',
+      notes: '',
+      tags: '',
+      priority: 'MEDIUM'
+    }
+  } else {
+    ElMessage.error(response.message || '添加失败')
+  }
 }
 
 const showHint = () => {
@@ -817,13 +990,44 @@ const formatTime = (seconds) => {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
+// 格式化选项文本，去掉 A. B. C. D. 前缀或 选项A 前缀
+const formatOptionText = (option) => {
+  if (!option) return ''
+  // 去掉开头的 A. B. C. D. 前缀（包括中英文冒号、点和空格）
+  // 或 选项A 这样的前缀
+  // 匹配模式：选项A 或 选项 A 后跟冒号或空格
+  const cleaned = option.replace(/^选项\s*[A-Da-d]\s*[:：]?\s*/i, '').trim()
+  // 再去掉 A. B. C. D. 前缀
+  const cleanedAgain = cleaned.replace(/^[A-Da-d][\.．:：]?\s*/i, '').trim()
+  return cleanedAgain
+}
+
+// 格式化题目文本，自动插入换行
+const formatQuestionText = (text) => {
+  if (!text) return ''
+  // 在标点符号后添加换行符，使长文本更易读
+  // 在逗号、句号、分号、问号、感叹号后添加换行
+  // 但不要在 LaTeX 公式内部添加换行
+  let result = text
+    .replace(/([，。；？！])([^\n])/g, '$1\n$2')
+    .replace(/([,;?!])([^\n])/g, '$1\n$2')
+  
+  // 在 LaTeX 块级公式前后添加换行，使其单独一行显示
+  result = result.replace(/(\\\[|\\\])/g, '\n$1\n')
+  
+  // 移除连续的换行符
+  result = result.replace(/\n{3,}/g, '\n\n')
+  
+  return result.trim()
+}
+
 // 获取用户答案文本
 const getUserAnswerText = () => {
   const userAnswer = answers.value[currentIndex.value]
   if (userAnswer === undefined || userAnswer === null || userAnswer === '') {
     return '未作答'
   }
-  
+
   const exercise = currentExercise.value
   if (exercise?.type === '选择题') {
     const optionLabels = ['A', 'B', 'C', 'D']
@@ -831,22 +1035,154 @@ const getUserAnswerText = () => {
     if (!optionText) {
       return '未作答'
     }
-    return `${optionLabels[userAnswer] || ''}. ${optionText}`
+    // 去掉选项前缀，避免重复显示
+    const cleanOptionText = formatOptionText(optionText)
+    return `${optionLabels[userAnswer] || ''}. ${cleanOptionText}`
   }
-  
+
   return userAnswer
+}
+
+// 生成 mock 习题数据
+const generateMockExercise = (id) => {
+  // 基础知识点和对应的题目
+  const knowledgePoints = [
+    {
+      point: '高等数学/导数',
+      title: '导数计算',
+      content: '函数f(x) = x²的导数是？',
+      options: ['f\'(x) = x', 'f\'(x) = 2x', 'f\'(x) = x²', 'f\'(x) = 2'],
+      correctAnswer: 1,
+      analysis: '根据幂函数求导法则，(x^n)\' = n*x^(n-1)，所以(x²)\' = 2x。'
+    },
+    {
+      point: '计算机网络/TCP/IP',
+      title: 'TCP/IP协议层次结构',
+      content: 'TCP/IP协议栈分为几个层次？',
+      options: ['4层', '5层', '6层', '7层'],
+      correctAnswer: 0,
+      analysis: 'TCP/IP协议栈分为应用层、传输层、网络层和网络接口层，共4层。'
+    },
+    {
+      point: '操作系统/进程管理',
+      title: '进程状态',
+      content: '进程的三种基本状态是？',
+      options: ['就绪、运行、阻塞', '创建、运行、终止', '挂起、运行、等待', '新建、就绪、运行'],
+      correctAnswer: 0,
+      analysis: '进程的三种基本状态是就绪（Ready）、运行（Running）和阻塞（Blocked）。'
+    },
+    {
+      point: '数据库/SQL',
+      title: 'SQL语句',
+      content: '以下哪个SQL语句用于删除表中的所有数据但保留表结构？',
+      options: ['DELETE FROM table', 'DROP TABLE table', 'TRUNCATE TABLE table', 'REMOVE FROM table'],
+      correctAnswer: 2,
+      analysis: 'TRUNCATE TABLE删除所有数据但保留表结构，比DELETE更快，但不能回滚。'
+    },
+    {
+      point: '数据结构/排序算法',
+      title: '时间复杂度',
+      content: '快速排序的平均时间复杂度是？',
+      options: ['O(n)', 'O(n log n)', 'O(n²)', 'O(log n)'],
+      correctAnswer: 1,
+      analysis: '快速排序的平均时间复杂度为O(n log n)，最坏情况下为O(n²)。'
+    }
+  ]
+  
+  // 根据ID选择知识点
+  let index = 0
+  if (id.includes('_')) {
+    index = parseInt(id.split('_')[1]) % knowledgePoints.length || 0
+  } else {
+    // 对于纯数字ID，使用特定的映射
+    const idNum = parseInt(id)
+    if (idNum >= 500 && idNum < 600) {
+      // 高等数学相关ID
+      index = 0
+    } else if (idNum >= 100 && idNum < 200) {
+      // 计算机网络相关ID
+      index = 1
+    } else if (idNum >= 200 && idNum < 300) {
+      // 操作系统相关ID
+      index = 2
+    } else if (idNum >= 300 && idNum < 400) {
+      // 数据库相关ID
+      index = 3
+    } else if (idNum >= 400 && idNum < 500) {
+      // 数据结构相关ID
+      index = 4
+    }
+  }
+  const knowledgePoint = knowledgePoints[index]
+  
+  return {
+    id: id,
+    title: knowledgePoint.title,
+    content: knowledgePoint.content,
+    type: '选择题',
+    questionType: '选择题',
+    options: knowledgePoint.options,
+    correctAnswer: knowledgePoint.correctAnswer,
+    analysis: knowledgePoint.analysis,
+    knowledgePoint: knowledgePoint.point,
+    difficulty: 'MEDIUM',
+    score: 10
+  }
 }
 
 // 从API获取习题数据
 const fetchExercises = async () => {
   try {
+    console.log('Route query:', route.query)
+    console.log('exerciseIds:', route.query.exerciseIds)
     // 根据路由参数决定获取哪种类型的习题
-    if (route.query.single === 'true' && route.query.exerciseId) {
+    if (route.query.exercisesKey) {
+      // 从知识图谱传递的完整习题数据（存储在sessionStorage中）
+      try {
+        const exercisesKey = route.query.exercisesKey
+        const exercisesData = sessionStorage.getItem(exercisesKey)
+        if (exercisesData) {
+          const parsedExercises = JSON.parse(exercisesData)
+          console.log('Parsed exercises from graph:', parsedExercises)
+          exercises.value = parsedExercises
+          // 读取后删除sessionStorage中的数据
+          sessionStorage.removeItem(exercisesKey)
+          return
+        }
+      } catch (error) {
+        console.error('Failed to parse exercises:', error)
+      }
+    }
+    if (route.query.exercises) {
+      // 兼容旧的URL参数方式（为了向后兼容）
+      try {
+        const parsedExercises = JSON.parse(route.query.exercises)
+        console.log('Parsed exercises from URL:', parsedExercises)
+        exercises.value = parsedExercises
+        return
+      } catch (error) {
+        console.error('Failed to parse exercises from URL:', error)
+      }
+    }
+    if ((route.query.single === 'true' || route.query.multiple === 'false') && route.query.exerciseId) {
       // 单个习题模式
       const exerciseId = route.query.exerciseId
-      const response = await axios.get(`/api/exercise/${exerciseId}`)
-      if (response.data.code === 200) {
-        exercises.value = [response.data.data]
+      console.log('Fetching exercise:', exerciseId)
+      try {
+        const response = await api.get(`/exercise/${exerciseId}`)
+        console.log('API response:', response)
+        if (response.code === 200) {
+          exercises.value = [response.data]
+          console.log('Exercises set:', exercises.value)
+        } else {
+          console.error('API error:', response.message)
+          // 使用 mock 数据
+          exercises.value = [generateMockExercise(exerciseId)]
+        }
+      } catch (error) {
+        console.error('Fetch error:', error)
+        // 使用 mock 数据
+        exercises.value = [generateMockExercise(exerciseId)]
       }
     } else if (route.query.multiple === 'true' && route.query.exerciseIds) {
       // 多个习题模式
@@ -888,8 +1224,27 @@ onMounted(async () => {
   // 设置组件为已挂载状态
   isMounted.value = true
   
-  // 从路由参数获取题目数据
-  if (route.query.exercises) {
+  // 优先检查 exercisesKey（sessionStorage 方式）
+  if (route.query.exercisesKey) {
+    try {
+      const exercisesKey = route.query.exercisesKey
+      const exercisesData = sessionStorage.getItem(exercisesKey)
+      if (exercisesData) {
+        const parsedExercises = JSON.parse(exercisesData)
+        console.log('Parsed exercises from sessionStorage:', parsedExercises)
+        exercises.value = parsedExercises
+        // 读取后删除sessionStorage中的数据
+        sessionStorage.removeItem(exercisesKey)
+      } else {
+        console.log('sessionStorage中没有找到习题数据，使用API获取')
+        await fetchExercises()
+      }
+    } catch (e) {
+      console.error('解析题目数据失败', e)
+      await fetchExercises()
+    }
+  } else if (route.query.exercises) {
+    // 兼容旧的URL参数方式（为了向后兼容）
     try {
       const parsedExercises = JSON.parse(route.query.exercises)
       // 检查数据结构是否正确
@@ -1037,6 +1392,58 @@ onUnmounted(() => {
   width: 100%;
 }
 
+/* 空状态样式 */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 60px 20px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin: 0 auto;
+  max-width: 500px;
+  width: 100%;
+}
+
+.empty-icon {
+  font-size: 64px;
+  margin-bottom: 24px;
+}
+
+.empty-state h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.empty-state p {
+  color: #6b7280;
+  margin-bottom: 32px;
+  line-height: 1.6;
+}
+
+.empty-state .back-btn {
+  padding: 12px 32px;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.empty-state .back-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
 /* 左侧题目区 */
 .question-panel {
   flex: 1;
@@ -1107,6 +1514,9 @@ onUnmounted(() => {
   line-height: 1.8;
   color: #1f2937;
   margin-bottom: 24px;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .question-number {
@@ -1162,6 +1572,9 @@ onUnmounted(() => {
 .option-text {
   flex: 1;
   color: #374151;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .option-icon {
@@ -1280,6 +1693,42 @@ onUnmounted(() => {
 
 .analysis-content .value {
   color: #111827;
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* 数学公式文本换行 */
+.math-text {
+  word-wrap: break-word;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  white-space: normal;
+  display: inline;
+}
+
+/* KaTeX 渲染后的公式换行 */
+.math-text .katex {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+.math-text .katex-html {
+  white-space: normal;
+  word-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 块级公式换行 */
+.math-text .katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
+}
+
+.math-text .katex-display .katex {
+  white-space: normal;
 }
 
 .correct-answer {

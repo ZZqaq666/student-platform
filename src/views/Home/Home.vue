@@ -187,33 +187,14 @@ const loading = ref(true)
 // 获取最近学习的书籍
 const fetchRecentBook = async () => {
   try {
-    // 使用apiService的learning.getHistory方法获取学习历史，然后找到最近的书籍
-    const response = await apiService.learning.getHistory()
-    if (response && response.data) {
-      // 首先尝试直接获取recentBook字段
-      if (response.data.recentBook) {
-        recentBook.value = response.data.recentBook
-      } else if (response.data.learningHistory && response.data.learningHistory.length > 0) {
-        // 如果没有recentBook字段，从learningHistory中找到最近的学习记录
-        const sortedHistory = [...response.data.learningHistory].sort((a, b) => {
-          const dateA = new Date(a.date || a.Date || 0)
-          const dateB = new Date(b.date || b.Date || 0)
-          return dateB - dateA
-        })
-        
-        if (sortedHistory.length > 0) {
-          // 获取最近的学习记录
-          const latestRecord = sortedHistory[0]
-          // 构建recentBook对象
-          recentBook.value = {
-            id: latestRecord.bookId || latestRecord.book_id,
-            title: latestRecord.bookTitle || latestRecord.book_title || '未知书籍',
-            author: latestRecord.bookAuthor || latestRecord.book_author || '未知作者',
-            progress: latestRecord.progress || 0,
-            lastReadAt: latestRecord.date || latestRecord.Date
-          }
-        }
-      }
+    // 使用mock数据作为最近学习的书籍
+    recentBook.value = {
+      id: 205,
+      title: '高等数学（上册）',
+      author: '同济大学数学系',
+      progress: 35,
+      lastReadAt: new Date().toISOString(),
+      cover: 'https://web-scc.oss-cn-guangzhou.aliyuncs.com/b303c777-0ec5-4d66-9a01-a516430bb0e3.jpg'
     }
   } catch (error) {
     console.error('获取最近学习书籍失败:', error)
@@ -223,10 +204,63 @@ const fetchRecentBook = async () => {
 // 获取学习数据
 const fetchLearningData = async () => {
   try {
-    const response = await apiService.learning.getHistory()
-    if (response && response.data) {
-      learningData.value = response.data.learningHistory || []
-    }
+    // 使用mock数据作为学习数据
+    learningData.value = [
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 10,
+        studyTimeMinutes: 30,
+        pagesRead: 20,
+        date: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 15,
+        studyTimeMinutes: 45,
+        pagesRead: 35,
+        date: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 20,
+        studyTimeMinutes: 60,
+        pagesRead: 50,
+        date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 25,
+        studyTimeMinutes: 40,
+        pagesRead: 65,
+        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 30,
+        studyTimeMinutes: 50,
+        pagesRead: 80,
+        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      },
+      {
+        bookId: 205,
+        bookTitle: '高等数学（上册）',
+        bookAuthor: '同济大学数学系',
+        progress: 35,
+        studyTimeMinutes: 65,
+        pagesRead: 95,
+        date: new Date().toISOString().split('T')[0]
+      }
+    ]
   } catch (error) {
     console.error('获取学习数据失败:', error)
   }

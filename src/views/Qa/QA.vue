@@ -1716,7 +1716,7 @@ const compressImage = (file, quality, maxWidth, maxHeight) => {
   })
 }
 
-// 通用图片提交函数（流式）
+// 通用图片提交函数（非流式，直接返回HTML）
 const submitImageQuestion = async (image, question, isExam = false, subjectId = null) => {
   if (!image) {
     showErrorMessage('请先上传图片')
@@ -1729,26 +1729,21 @@ const submitImageQuestion = async (image, question, isExam = false, subjectId = 
   processedAnswer.value = ''
   
   try {
-    // 显示加载提示
     showInfoMessage('正在处理图片，请稍候...')
     
-    // 准备表单数据
     const formData = new FormData()
     const sanitizedQuestion = sanitizeInput(question || '基于上传的图片')
     formData.append('question', sanitizedQuestion)
     
-    // 如果是考试模式，添加科目ID
     if (isExam && subjectId) {
       formData.append('subjectId', subjectId)
     }
     
-    // 假设 image 是 base64 格式，需要转换为 Blob
     if (image) {
       try {
         const blob = await fetch(image).then(r => r.blob())
         formData.append('image', blob, isExam ? 'exam-question.jpg' : 'question.jpg')
         console.log('图片转换为Blob成功，大小:', blob.size)
-        console.log('FormData内容:', [...formData.entries()])
       } catch (error) {
         console.error('图片转换为Blob失败:', error)
         showErrorMessage('图片处理失败，请重试')
@@ -1757,101 +1752,58 @@ const submitImageQuestion = async (image, question, isExam = false, subjectId = 
       }
     }
     
-    // 使用流式接口
-    streamingApiService.stream.askImageQuestionStream(
-      formData,
-      (message) => {
-        if (message.error) {
-          errorMessage.value = message.error
-          isLoading.value = false
-          showErrorMessage('图片问答生成失败: ' + message.error)
-        } else {
-          // 处理流式数据
-          if (message.content) {
-            // 累积数据
-            fullAnswer.value += message.content
-            // 开始打字效果
-            if (!isTyping.value) {
-              isLoading.value = false
-              startTyping(fullAnswer.value)
-            }
-          }
-          if (message.completed) {
-            isLoading.value = false
-          }
+    const response = await apiService.qa.askImageQuestion(formData)
+    
+    if (response && response.code === 200 && response.data) {
+      const answerText = response.data
+      fullAnswer.value = answerText
+      processedAnswer.value = processMathText(answerText)
+      
+      if (isExam) {
+        examAnswer.value = processedAnswer.value
+        examHistory.value.unshift({ 
+          question: `[图片提问] ${question || '基于上传的图片'}`, 
+          answer: answerText 
+        })
+        if (examHistory.value.length > 5) {
+          examHistory.value.pop()
         }
-      },
-      () => {
-        // 完成回调
-        console.log('图片问答流式响应完成')
-        isLoading.value = false
+      } else {
+        showAnswer.value = true
+        historyQuestions.value.unshift({ 
+          question: `[图片提问] ${question || '基于上传的图片'}`, 
+          answer: answerText 
+        })
+        if (historyQuestions.value.length > 5) {
+          historyQuestions.value.pop()
+        }
         
-        // 确保有内容时处理完整回答
-        if (fullAnswer.value) {
-          processedAnswer.value = processMathText(fullAnswer.value)
-          
-          // 根据模式更新相应的回答和历史记录
-          if (isExam) {
-            examAnswer.value = processedAnswer.value
-            
-            // 添加到考试历史记录
-            examHistory.value.unshift({ 
-              question: `[图片提问] ${question || '基于上传的图片'}`, 
-              answer: fullAnswer.value 
-            })
-            if (examHistory.value.length > 5) {
-              examHistory.value.pop()
-            }
-          } else {
-            // 设置处理后的回答，用于显示
-            processedAnswer.value = processedAnswer.value
-            
-            // 添加到历史记录
-            historyQuestions.value.unshift({ 
-              question: `[图片提问] ${question || '基于上传的图片'}`, 
-              answer: fullAnswer.value 
-            })
-            if (historyQuestions.value.length > 5) {
-              historyQuestions.value.pop()
-            }
-            
-            // 显示回答
-            showAnswer.value = true
-            
-            // 保存处理后的文本到后端
-            const requestData = {
-              question: `[图片提问] ${question || '基于上传的图片'}`,
-              processedText: fullAnswer.value,
-              subject: selectedBook.value?.name || ''
-            }
-            
-            // 调用API保存处理后的文本
-            apiService.qa.saveProcessedText(requestData)
-              .then((response) => {
-                console.log('图片问答处理后的文本保存成功:', response)
-                fetchHistoryQuestions()
-              })
-              .catch(error => {
-                console.error('保存图片问答历史记录失败:', error)
-              })
-          }
-          
-          showSuccessMessage('图片问题处理成功')
+        const requestData = {
+          question: `[图片提问] ${question || '基于上传的图片'}`,
+          processedText: answerText,
+          subject: selectedBook.value?.name || ''
         }
-      },
-      (error) => {
-        // 错误回调
-        console.error('图片问答流式请求失败:', error)
-        const errorMsg = error.message || '提交图片问题失败'
-        errorMessage.value = errorMsg
-        showErrorMessage(errorMsg)
-        isLoading.value = false
+        
+        apiService.qa.saveProcessedText(requestData)
+          .then(() => {
+            console.log('图片问答处理后的文本保存成功')
+            fetchHistoryQuestions()
+          })
+          .catch(error => {
+            console.error('保存图片问答历史记录失败:', error)
+          })
       }
-    )
+      
+      showSuccessMessage('图片问题处理成功')
+    } else {
+      showErrorMessage(response?.message || '图片问答处理失败')
+    }
   } catch (err) {
-    const errorMsg = err.errorMessage || '提交图片问题失败'
+    console.error('图片问答请求失败:', err)
+    const errorMsg = err.message || '提交图片问题失败'
     errorMessage.value = errorMsg
     showErrorMessage(errorMsg)
+  } finally {
     isLoading.value = false
   }
 }
@@ -2342,11 +2294,15 @@ const startPractice = async (paper) => {
           knowledgePoint: question.knowledgePoint || paper.subjectName
         }))
         
+        // 使用 sessionStorage 存储习题数据，避免 URL 过长导致 431 错误
+        const exercisesKey = 'qaExercises_' + Date.now()
+        sessionStorage.setItem(exercisesKey, JSON.stringify(exercises))
+        
         // 跳转到练习页面，传递题目数据
         router.push({
           path: '/practice',
           query: {
-            exercises: JSON.stringify(exercises),
+            exercisesKey: exercisesKey,
             paperId: paper.id,
             paperName: paper.paperName,
             subjectName: paper.subjectName
@@ -2358,10 +2314,14 @@ const startPractice = async (paper) => {
         // 如果没有获取到题目，使用默认题目
         const defaultExercises = generateDefaultExercises(paper)
         
+        // 使用 sessionStorage 存储习题数据，避免 URL 过长导致 431 错误
+        const exercisesKey = 'qaExercises_' + Date.now()
+        sessionStorage.setItem(exercisesKey, JSON.stringify(defaultExercises))
+        
         router.push({
           path: '/practice',
           query: {
-            exercises: JSON.stringify(defaultExercises),
+            exercisesKey: exercisesKey,
             paperId: paper.id,
             paperName: paper.paperName,
             subjectName: paper.subjectName
@@ -2375,10 +2335,14 @@ const startPractice = async (paper) => {
       // 使用默认题目
       const defaultExercises = generateDefaultExercises(paper)
       
+      // 使用 sessionStorage 存储习题数据，避免 URL 过长导致 431 错误
+      const exercisesKey = 'qaExercises_' + Date.now()
+      sessionStorage.setItem(exercisesKey, JSON.stringify(defaultExercises))
+      
       router.push({
         path: '/practice',
         query: {
-          exercises: JSON.stringify(defaultExercises),
+          exercisesKey: exercisesKey,
           paperId: paper.id,
           paperName: paper.paperName,
           subjectName: paper.subjectName
