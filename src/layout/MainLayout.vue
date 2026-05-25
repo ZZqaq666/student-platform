@@ -1,347 +1,493 @@
 <template>
-   <div class="main-layout"> 
-     <!-- 全局顶部导航栏 --> 
-     <nav class="navbar"> 
-       <div class="nav-left"> 
-         <span class="logo">📖 学科智问</span> 
-       </div> 
+  <div class="main-layout">
+    <!-- 全局顶部导航栏 -->
+    <nav class="navbar">
+      <div class="nav-left">
+        <router-link to="/" class="logo-link">
+          <span class="logo-icon">🎓</span>
+          <span class="logo-text">学科<span class="logo-accent">智问</span></span>
+        </router-link>
+      </div>
 
-       <!-- 中间导航链接 -->
-       <div class="nav-middle" v-if="!isHomePage">
-         <router-link to="qa" class="nav-link" :class="{ 'nav-active': isActive('/qa') }">问答中心</router-link>
-         <router-link to="graph" class="nav-link" :class="{ 'nav-active': isActive('/graph') }">知识图谱</router-link>
-         <router-link to="bookshelf" class="nav-link" :class="{ 'nav-active': isActive('/bookshelf') }">个人书架</router-link>
-         <router-link to="senior" class="nav-link" :class="{ 'nav-active': isActive('/senior') }">学长学姐答疑</router-link>
-       </div>
+      <!-- 中间导航链接 -->
+      <div class="nav-middle" v-if="!isHomePage">
+        <router-link v-for="link in navLinks" :key="link.path" :to="link.path"
+          class="nav-link" :class="{ 'nav-active': isActive(link.path) }">
+          <span class="nav-icon">{{ link.icon }}</span>
+          <span>{{ link.label }}</span>
+        </router-link>
+      </div>
 
-       <!-- 用户操作区 --> 
-       <div v-if="!isLogin" class="nav-right"> 
-         <router-link to="/login"> 
-           <button class="login-btn">登录/注册</button> 
-         </router-link> 
-       </div> 
-       <!-- 登录后显示用户信息 --> 
-       <div v-else class="user-info"> 
-         <!-- 闹铃图标 -->
-         <div class="notification-icon" @click="toSeniorZone">
-           <span class="bell-icon">🔔</span>
-           <div v-if="hasNotification" class="notification-badge"></div>
-           <div class="notification-tooltip">
-             答疑消息有回复
-           </div>
-         </div>
-         <div class="user-avatar">
-           <div class="avatar-placeholder">{{ userName.charAt(0) }}</div>
-         </div> 
-         <span class="user-name">{{ userName }}</span> 
-         <button class="logout-btn" @click="handleLogout">退出登录</button>
-       </div> 
-     </nav> 
- 
-     <!-- 页面主体内容区 - 路由页面将在这里渲染 --> 
-     <main class="layout-main"> 
-       <keep-alive include="KnowledgeGraph">
-         <router-view /> 
-       </keep-alive>
-     </main> 
-   </div> 
- </template>
- 
- <script setup> 
-import { computed, ref, watch } from 'vue' 
-import { useRouter, useRoute } from 'vue-router' 
-import { ElMessage, ElMessageBox } from 'element-plus'
+      <!-- 用户操作区 -->
+      <div v-if="!isLogin" class="nav-right">
+        <router-link to="/login" class="login-link">
+          <button class="login-btn">登录 / 注册</button>
+        </router-link>
+      </div>
+
+      <!-- 登录后显示用户信息 -->
+      <div v-else class="user-info">
+        <!-- 通知铃铛 -->
+        <div class="notification-bell" @click="toSeniorZone">
+          <span class="bell-icon">🔔</span>
+          <span v-if="hasNotification" class="bell-dot" />
+          <div class="bell-tooltip">答疑消息有回复</div>
+        </div>
+
+        <!-- 用户头像 -->
+        <div class="user-avatar">
+          <span class="avatar-text">{{ userName.charAt(0) }}</span>
+        </div>
+
+        <span class="user-name">{{ userName }}</span>
+
+        <button class="logout-btn" @click="showLogoutModal = true">
+          <span>退出</span>
+        </button>
+      </div>
+    </nav>
+
+    <!-- 页面主体内容区 -->
+    <main class="layout-main">
+      <keep-alive include="KnowledgeGraph">
+        <router-view />
+      </keep-alive>
+    </main>
+
+    <!-- 退出登录确认弹框 -->
+    <div v-if="showLogoutModal" class="lo-overlay" @click="showLogoutModal = false">
+      <div class="lo-dialog" @click.stop>
+        <div class="lo-icon-wrap">
+          <span class="lo-icon">👋</span>
+        </div>
+        <h3 class="lo-title">退出登录</h3>
+        <p class="lo-desc">确定要退出当前账号吗？</p>
+        <div class="lo-actions">
+          <button class="lo-btn lo-btn--cancel" @click="showLogoutModal = false">取消</button>
+          <button class="lo-btn lo-btn--confirm" @click="confirmLogout">确定退出</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { computed, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 
-// 检查用户是否登录（通过localStorage中的token判断）
 const token = ref(localStorage.getItem('token'))
-const isLogin = computed(() => {
-  return !!token.value
-}) 
+const showLogoutModal = ref(false)
+const isLogin = computed(() => !!token.value)
 
-// 获取用户名（从localStorage中获取）
 const userName = computed(() => {
   return localStorage.getItem('userName') || '用户'
 })
- 
- // 通知状态（模拟有新消息）
- const hasNotification = ref(true) 
- 
- // 跳转到学长学姐答疑专区
- const toSeniorZone = () => {
-   router.push('/senior')
-   // 点击后清除通知
-   hasNotification.value = false
- } 
 
- // 判断是否在首页
- const isHomePage = computed(() => {
-   return route.path === '/'
- })
+const hasNotification = ref(true)
 
- // 判断导航链接是否激活
- const isActive = (path) => {
-   return route.path === path
- }
- 
- // 退出登录处理
- const handleLogout = async () => {
-   try {
-     // 显示确认对话框
-     await ElMessageBox.confirm('确定要退出登录吗？', '退出登录', {
-       confirmButtonText: '确定',
-       cancelButtonText: '取消',
-       type: 'warning'
-     })
-     
-     // 清除localStorage中的用户数据
-     localStorage.removeItem('token')
-     localStorage.removeItem('userName')
-     localStorage.removeItem('rememberedUser')
-     
-     // 更新token ref
-     token.value = null
-     
-     // 记录退出登录日志
-     console.log('用户退出登录:', new Date().toISOString())
-     
-     // 重定向到登录页面
-     router.replace('/login')
-     
-     // 显示退出成功消息
-     ElMessage.success('退出登录成功')
-   } catch (error) {
-     // 如果用户取消操作，不显示错误信息
-     if (error !== 'cancel') {
-       console.error('退出登录失败:', error)
-       ElMessage.error('退出登录失败，请重试')
-     }
-   }
- }
- </script> 
- 
- <style scoped> 
- .main-layout { 
-   min-height: 100vh; 
-   background-color: #f3f4f6; 
-   display: flex; 
-   flex-direction: column; 
- } 
- 
- /* 导航栏样式 */ 
- .navbar { 
-  display: flex; 
-  justify-content: space-between; 
-  align-items: center; 
-  padding: 0rem 2rem; 
-  background-color: white; 
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); 
-  position: sticky; 
-  top: 0; 
-  z-index: 999; 
-  flex-wrap: wrap; 
-  gap: 1rem; 
+const toSeniorZone = () => {
+  router.push('/senior')
+  hasNotification.value = false
 }
 
-/* 确保导航栏在小屏幕上也能良好显示 */
-@media (max-width: 768px) {
-  .navbar {
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 1rem;
-  }
-  
-  .nav-middle {
-    width: 100%;
-    justify-content: space-around;
-    margin: 0.5rem 0;
-  }
-  
-  .nav-right {
-    width: 100%;
-    display: flex;
-    justify-content: flex-end;
-  }
-  
-  .user-info {
-    width: 100%;
-    justify-content: flex-end;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-  
-  .logout-btn {
-    padding: 0.25rem 0.5rem;
-    font-size: 12px;
-  }
-} 
- 
- .nav-left .logo { 
-   font-size: 1.5rem; 
-   font-weight: bold; 
-   color: #2563eb; 
- } 
- 
- .nav-middle { 
-   display: flex; 
-   gap: 1.5rem; 
- } 
- 
- .nav-link { 
-   text-decoration: none; 
-   color: #374151; 
-   font-weight: 500; 
-   transition: color 0.3s; 
-   padding: 0.5rem 0; 
-   border-bottom: 2px solid transparent; 
- } 
- 
- .nav-link:hover { 
-   color: #2563eb; 
- } 
- 
- .nav-active { 
-   color: #2563eb; 
-   border-bottom: 2px solid #2563eb; 
- } 
- 
- .login-btn { 
-   padding: 0.5rem 1rem; 
-   background-color: #2563eb; 
-   color: white; 
-   border: none; 
-   border-radius: 0.375rem; 
-   cursor: pointer; 
-   font-weight: 500; 
-   transition: background-color 0.3s; 
- } 
- 
- .login-btn:hover {
-  background-color: #1d4ed8;
+const isHomePage = computed(() => route.path === '/')
+
+const isActive = (path) => route.path === path
+
+const navLinks = [
+  { path: '/qa', label: '问答中心', icon: '💬' },
+  { path: '/graph', label: '知识图谱', icon: '🌐' },
+  { path: '/bookshelf', label: '个人书架', icon: '📚' },
+  { path: '/senior', label: '学长答疑', icon: '👨‍🎓' },
+]
+
+const confirmLogout = () => {
+  showLogoutModal.value = false
+  localStorage.removeItem('token')
+  localStorage.removeItem('userName')
+  localStorage.removeItem('rememberedUser')
+  token.value = null
+  router.replace('/login')
+  ElMessage.success('退出登录成功')
+}
+</script>
+
+<style scoped>
+.main-layout {
+  min-height: 100vh;
+  background-color: #f9fafd;
+  display: flex;
+  flex-direction: column;
 }
 
-/* 用户信息样式 */
+/* ================================================
+   导航栏 - 玻璃拟态精致版
+   ================================================ */
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 32px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow:
+    0 1px 0 rgba(0, 0, 0, 0.05),
+    0 4px 16px rgba(0, 0, 0, 0.04);
+  position: sticky;
+  top: 0;
+  z-index: 999;
+}
+
+/* ---- Logo ---- */
+.nav-left { flex-shrink: 0; }
+
+.logo-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+}
+
+.logo-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1e293b;
+  letter-spacing: 0.5px;
+}
+
+.logo-accent {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- 导航链接 ---- */
+.nav-middle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  text-decoration: none;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 10px;
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.nav-link:hover {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.06);
+}
+
+.nav-active {
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.08);
+  font-weight: 600;
+}
+
+.nav-active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6);
+  border-radius: 0 0 3px 3px;
+}
+
+.nav-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+/* ---- 登录按钮 ---- */
+.nav-right { flex-shrink: 0; }
+
+.login-link { text-decoration: none; }
+
+.login-btn {
+  padding: 9px 22px;
+  background: linear-gradient(135deg, #6366f1, #4f46e5);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.25);
+}
+
+.login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(99, 102, 241, 0.4);
+}
+
+.login-btn:active {
+  transform: translateY(0) scale(0.97);
+}
+
+/* ---- 用户信息区 ---- */
 .user-info {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
-/* 通知图标 */
-.notification-icon {
+/* 通知铃铛 */
+.notification-bell {
   position: relative;
-  cursor: pointer;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  transition: background-color 0.3s ease;
+  cursor: pointer;
+  transition: all 0.25s ease;
 }
 
-.notification-icon:hover {
-  background-color: #f3f4f6;
+.notification-bell:hover {
+  background: #f1f5f9;
 }
 
 .bell-icon {
   font-size: 18px;
-  position: relative;
-  z-index: 1;
+  line-height: 1;
+  animation: bellRing 3s ease-in-out infinite;
 }
 
-.notification-badge {
+@keyframes bellRing {
+  0%, 90%, 100% { transform: rotate(0); }
+  92% { transform: rotate(10deg); }
+  94% { transform: rotate(-10deg); }
+  96% { transform: rotate(6deg); }
+  98% { transform: rotate(-6deg); }
+}
+
+.bell-dot {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  width: 8px;
-  height: 8px;
-  background-color: #ef4444;
+  top: 6px;
+  right: 6px;
+  width: 9px;
+  height: 9px;
+  background: #ef4444;
   border-radius: 50%;
-  border: 2px solid white;
-  z-index: 2;
+  border: 2px solid #fff;
+  animation: dotPulse 2s ease-in-out infinite;
 }
 
-.notification-tooltip {
+@keyframes dotPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+
+.bell-tooltip {
   position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 8px;
-  padding: 8px 12px;
-  background-color: #1f2937;
-  color: white;
+  top: calc(100% + 8px);
+  right: -20px;
+  padding: 7px 14px;
+  background: #1e293b;
+  color: #fff;
   font-size: 12px;
   border-radius: 8px;
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.3s ease;
+  transition: all 0.25s ease;
   z-index: 1000;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
 }
 
-.notification-tooltip::before {
+.bell-tooltip::before {
   content: '';
   position: absolute;
   bottom: 100%;
-  right: 12px;
-  border: 4px solid transparent;
-  border-bottom-color: #1f2937;
+  right: 26px;
+  border: 5px solid transparent;
+  border-bottom-color: #1e293b;
 }
 
-.notification-icon:hover .notification-tooltip {
+.notification-bell:hover .bell-tooltip {
   opacity: 1;
   visibility: visible;
-  transform: translateY(4px);
+  transform: translateY(2px);
 }
 
+/* 用户头像 */
 .user-avatar {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.avatar-placeholder {
   width: 36px;
   height: 36px;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
   border-radius: 50%;
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
+.avatar-text {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 用户名 */
 .user-name {
   font-size: 14px;
   font-weight: 500;
   color: #374151;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* 退出按钮 */
 .logout-btn {
-  padding: 0.375rem 0.75rem;
-  background-color: #f3f4f6;
-  color: #374151;
-  border: none;
-  border-radius: 0.375rem;
+  padding: 7px 16px;
+  background: #f1f5f9;
+  color: #64748b;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   cursor: pointer;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
-  transition: all 0.3s;
+  transition: all 0.25s ease;
 }
 
 .logout-btn:hover {
-  background-color: #e5e7eb;
-  color: #111827;
+  background: #fee2e2;
+  color: #dc2626;
+  border-color: #fecaca;
 }
 
-/* 主体内容区 */
+/* ================================================
+   内容区
+   ================================================ */
 .layout-main {
   flex: 1;
   width: 100%;
+}
+
+/* ================================================
+   退出登录弹框
+   ================================================ */
+.lo-overlay {
+  position: fixed; inset: 0; z-index: 3000;
+  background: rgba(15,12,30,0.18);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex; align-items: center; justify-content: center;
+  animation: loFadeIn .2s ease-out;
+}
+@keyframes loFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.lo-dialog {
+  width: 360px; padding: 32px 28px 24px; border-radius: 20px;
+  background: rgba(255,255,255,0.9);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255,255,255,0.6);
+  box-shadow: 0 24px 64px rgba(80,60,160,0.12), 0 4px 12px rgba(0,0,0,0.04), 0 0 0 1px rgba(255,255,255,0.4) inset;
+  text-align: center;
+  animation: loScaleIn .25s cubic-bezier(.16,1,.3,1);
+}
+@keyframes loScaleIn { from { opacity: 0; transform: translateY(12px) scale(.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+
+.lo-icon-wrap {
+  width: 56px; height: 56px; border-radius: 50%;
+  background: linear-gradient(135deg, rgba(99,102,241,.08), rgba(139,92,246,.06));
+  border: 1px solid rgba(167,139,250,.15);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 16px;
+}
+.lo-icon { font-size: 24px; }
+
+.lo-title {
+  margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #1e293b; letter-spacing: -0.2px;
+}
+
+.lo-desc {
+  margin: 0 0 24px; font-size: 13px; color: #64748b; font-weight: 500;
+}
+
+.lo-actions { display: flex; gap: 10px; }
+
+.lo-btn {
+  flex: 1; padding: 10px 0; border-radius: 12px; border: none;
+  font-size: 14px; font-weight: 600; font-family: inherit; cursor: pointer;
+  transition: all .2s ease;
+}
+
+.lo-btn--cancel {
+  background: rgba(241,245,249,.8); color: #64748b;
+  border: 1px solid rgba(226,232,240,.6);
+}
+.lo-btn--cancel:hover { background: #e2e8f0; }
+
+.lo-btn--confirm {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: #fff; box-shadow: 0 4px 14px rgba(239,68,68,.25);
+}
+.lo-btn--confirm:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(239,68,68,.4); }
+.lo-btn--confirm:active { transform: translateY(0) scale(.97); }
+
+/* ================================================
+   响应式
+   ================================================ */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0 16px;
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .nav-middle {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+    overflow-x: auto;
+  }
+
+  .nav-link {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+
+  .user-info {
+    gap: 8px;
+  }
+
+  .user-name {
+    display: none;
+  }
 }
 </style>

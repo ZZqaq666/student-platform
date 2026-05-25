@@ -9,11 +9,11 @@ export default defineConfig({
       '@': path.resolve(__dirname, 'src')
     }
   },
-  port: 5173,
   server: {
+    port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:8080',
+        target: 'http://42.194.198.252:8081',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, '')
       }

@@ -1,2976 +1,1012 @@
 <template>
   <div class="qa-page">
-    <!-- 页面标题 -->
-    <div class="page-header">
-      <div class="header-left">
-        <button v-if="from === 'study'" class="back-home-btn" @click="goBackToStudy" style="margin-right: 10px;">
-          <span class="back-icon">←</span>
-          返回学习
-        </button>
-        <button class="back-home-btn" @click="goHome">
-          <span class="back-icon">←</span>
-          返回首页
-        </button>
-      </div>
-      <h1 class="page-title">问答中心</h1>
-      <div class="subtitle">核心功能模块</div>
-    </div>
+    <div class="qp-bg"></div>
 
-    <!-- 导航标签 -->
-    <div class="tab-navigation">
-      <div class="tab" :class="{ active: activeTab === '智能答疑' }" @click="activeTab = '智能答疑'">
-        智能答疑
-      </div>
-      <div class="tab" :class="{ active: activeTab === '考研/考证问答' }" @click="activeTab = '考研/考证问答'">
-        考研/考证问答
-      </div>
-    </div>
-
-    <!-- 智能答疑内容（合并了作业答疑和专业课问答） -->
-    <div v-if="activeTab === '智能答疑'" class="professional-qa">
-      <div class="qa-container">
-        <!-- 左侧：教材选择器 -->
-        <div class="left-panel">
-          <div class="panel-title">教材选择器</div>
-          <!-- 搜索框 -->
-          <div class="search-box">
-            <input 
-              type="text" 
-              v-model="searchQuery"
-              placeholder="搜索教材..."
-              class="search-input"
-            >
-            <span class="search-icon">🔍</span>
-          </div>
-          <div class="book-selector">
-            <div v-if="loading.books" class="loading-message">加载书籍中...</div>
-            <div v-else-if="error.books" class="error-message">{{ error.books }}</div>
-            <div 
-              v-for="(book, index) in books" 
-              :key="book.id || index"
-              class="book-item"
-              :class="{ active: selectedBook?.id === book.id }"
-              @click="selectBook(book)"
-            >
-              <div class="book-icon">
-                <div class="book-cover"></div>
-              </div>
-              <div class="book-info">
-                <div class="book-name">{{ book.name }}</div>
-                <div class="book-list">{{ book.author }}</div>
-              </div>
-            </div>
-          </div>
+    <!-- ===== 顶部栏 ===== -->
+    <header class="qa-header">
+      <button class="qah-back" @click="goHome">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5m7-7-7 7 7 7"/></svg>
+      </button>
+      <div class="qah-info">
+        <span class="qahi-icon">{{ currentMode === 'exam' ? '🎓' : '📚' }}</span>
+        <div class="qahi-text">
+          <span class="qahi-title">{{ currentMode === 'exam' ? '考研考证' : '教材学习' }}</span>
+          <span class="qahi-sub">{{ currentMode === 'exam' ? '按考点真题应试回答' : '按教材知识体系回答' }}</span>
         </div>
+        <span class="qahi-badge" v-if="selectedResource">学习中</span>
+      </div>
+      <div class="qah-stats">
+        <span>🔥 {{ streak }} 天</span>
+        <span>📖 {{ todayMinutes }}min</span>
+        <span>⭐ {{ masteredCount }} 知识点</span>
+      </div>
+    </header>
 
-        <!-- 中间：章节导航 -->
-        <div class="middle-panel">
-          <div class="panel-title">章节导航</div>
-          <div class="chapter-nav">
-            <template v-for="chapter in chapters" :key="chapter?.id || Math.random()">
-              <div 
-                v-if="chapter"
-                class="nav-item"
-                :class="{ active: chapter.id === 2, expanded: expandedChapters.includes(chapter.id) }"
-                @click="toggleChapter(chapter.id)"
-              >
-                <span class="nav-title">{{ chapter.title }}</span>
-                <span class="nav-arrow">{{ chapter.id && expandedChapters.includes(chapter.id) ? '▼' : (chapter.children && chapter.children.length > 0 ? '>>' : '>') }}</span>
-              </div>
-            </template>
-            <!-- 子章节 -->
-            <template v-for="chapter in chapters" :key="`sub-${chapter?.id || Math.random()}`">
-              <div v-if="chapter && expandedChapters.includes(chapter.id) && chapter.children && chapter.children.length > 0">
-                <div 
-                  v-for="subChapter in chapter.children" 
-                  :key="subChapter.id"
-                  class="sub-nav-item"
-                >
-                  <span class="sub-nav-title">{{ subChapter.title }}</span>
-                  <span class="sub-nav-arrow">></span>
-                </div>
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- 右侧：答疑区域（支持文字和图片） -->
-        <div class="right-panel">
-          <div class="panel-title">答疑区域</div>
-          
-          <!-- 问题类型切换 -->
-          <div class="question-type-tabs">
-            <div 
-              class="type-tab" 
-              :class="{ active: questionType === 'text' }" 
-              @click="questionType = 'text'"
-            >
-              文字提问
-            </div>
-            <div 
-              class="type-tab" 
-              :class="{ active: questionType === 'image' }" 
-              @click="questionType = 'image'"
-            >
-              图片上传
-            </div>
-          </div>
-
-          <!-- 文字提问区域 -->
-          <div v-if="questionType === 'text'" class="question-area">
-            <textarea 
-              v-model="question"
-              placeholder="请输入您的问题..."
-              class="question-input"
-              rows="3"
-            ></textarea>
-            <button class="submit-btn" @click="submitQuestion">
-              提交问题
+    <div class="qa-body">
+      <!-- 左侧栏 -->
+      <aside class="qa-sidebar" :class="{ collapsed: sidebarCollapsed }">
+        <div class="qas-scroll">
+          <!-- 模式切换 -->
+          <div class="qas-mode">
+            <button class="qasm-btn" :class="{ active: currentMode === 'textbook' }" @click="switchMode('textbook')">
+              <span class="qasm-icon">📚</span>
+              <div class="qasm-text"><span class="qasm-label">教材学习</span><span class="qasm-desc">按课本知识体系</span></div>
+            </button>
+            <button class="qasm-btn" :class="{ active: currentMode === 'exam' }" @click="switchMode('exam')">
+              <span class="qasm-icon">🎓</span>
+              <div class="qasm-text"><span class="qasm-label">考研考证</span><span class="qasm-desc">按考点真题应试</span></div>
             </button>
           </div>
 
-          <!-- 图片上传区域 -->
-          <div v-else class="image-upload-area">
-            <div class="upload-box" @click="triggerFileUpload">
-              <input 
-                type="file" 
-                ref="fileInput" 
-                style="display: none;" 
-                accept="image/*"
-                @change="handleFileChange"
-              >
-              <div class="upload-placeholder">
-                <span class="upload-icon">📷</span>
-                <span class="upload-text">点击上传作业/教材图片</span>
+          <!-- 当前资源 -->
+          <div class="qas-resource" v-if="selectedResource">
+            <div class="qasr-head">当前学习</div>
+            <div class="qasr-body">
+              <span class="qasr-emoji">{{ currentMode === 'exam' ? '🎓' : '📚' }}</span>
+              <div class="qasr-info">
+                <div class="qasr-name">{{ selectedResource.name }}</div>
+                <div class="qasr-extra" v-if="selectedResource.author">{{ selectedResource.author }}</div>
+                <div class="qasr-extra" v-if="currentMode === 'exam'">备考中</div>
               </div>
             </div>
-            <div v-if="uploadedImage" class="uploaded-preview">
-              <div class="preview-container">
-                <img :src="uploadedImage" alt="上传的图片" class="preview-image">
-                <button class="delete-btn" @click="deleteImage">
-                  ×
+          </div>
+
+          <!-- 教材模式 -->
+          <template v-if="currentMode === 'textbook'">
+            <!-- 教材上下文栏 -->
+            <div v-if="selectedBook" class="qas-ctx">
+              <div class="qas-ctx-left">
+                <span class="qas-ctx-icon">📘</span>
+                <div class="qas-ctx-info">
+                  <span class="qas-ctx-name">{{ selectedBook.name }}</span>
+                  <span class="qas-ctx-pub">{{ selectedBook.author || '未知作者' }}{{ selectedBook.publisher ? ' · ' + selectedBook.publisher : '' }}</span>
+                </div>
+              </div>
+              <div class="qas-ctx-actions">
+                <button class="qas-ctx-switch" @click="bookPanelOpen = true">切换</button>
+                <button class="qas-ctx-clear" @click="clearBookContext">清除</button>
+              </div>
+            </div>
+
+            <!-- 搜索框 -->
+            <div class="qas-search-wrap">
+              <div class="qas-search" @click="bookPanelOpen = true">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                <span class="qas-search-placeholder">{{ selectedBook ? '切换教材...' : '搜索教材 / 专业 / 作者 / 考研方向...' }}</span>
+              </div>
+            </div>
+
+            <!-- 章节列表 -->
+            <div v-if="selectedBook && chapters.length" class="qas-chapters">
+              <div class="qas-label">章节列表</div>
+              <div v-for="ch in chapters" :key="ch.id">
+                <div class="qasch-head" @click="toggleChapter(ch.id)">
+                  <svg class="qasch-arrow" :class="{open:expandedChapters.includes(ch.id)}" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+                  <span>{{ ch.title }}</span>
+                  <span class="qasch-num" v-if="ch.children?.length">{{ ch.children.length }} 节</span>
+                </div>
+                <div v-if="expandedChapters.includes(ch.id) && ch.children" class="qasch-sub">
+                  <div v-for="sub in ch.children" :key="sub.id" class="qasch-sub-item" @click="askChapterQuestion(ch, sub)">{{ sub.title }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 相关教材推荐 -->
+            <div v-if="selectedBook && relatedBooks.length" class="qas-related">
+              <div class="qas-label">📖 相关教材</div>
+              <div v-for="b in relatedBooks.slice(0, 4)" :key="'rel'+b.id" class="qasb-card" @click="selectBook(b)">
+                <div class="qasb-cover">{{ getBookEmoji(b.name) }}</div>
+                <div class="qasb-info">
+                  <div class="qasb-name">{{ b.name }}</div>
+                  <div class="qasb-author">{{ b.author || '未知作者' }}</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 浮层 -->
+            <div v-if="bookPanelOpen" class="qas-panel-overlay" @click="bookPanelOpen = false">
+              <div class="qas-panel" @click.stop>
+                <div class="qas-panel-bar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+                  <input v-model="bookSearchText" placeholder="搜索教材 / 专业 / 作者 / 考研方向..." class="qas-panel-input" @keydown.esc="bookPanelOpen = false" />
+                  <span class="qas-panel-esc">ESC</span>
+                </div>
+                <div class="qas-panel-body">
+                  <template v-if="!bookSearchText.trim()">
+                    <div class="qas-panel-sec" v-if="recentBooks.length">
+                      <div class="qas-panel-sec-head">📚 书架教材</div>
+                      <div v-for="b in recentBooks.slice(0, 4)" :key="b.id" class="qas-panel-item" :class="{ on: selectedBook?.id === b.id }" @click="selectBook(b); bookPanelOpen = false">
+                        <span class="qas-panel-item-cover">{{ getBookEmoji(b.name) }}</span>
+                        <div class="qas-panel-item-info">
+                          <span class="qas-panel-item-name">{{ b.name }}</span>
+                          <span class="qas-panel-item-meta">{{ b.author || '未知作者' }}</span>
+                        </div>
+                        <span v-if="selectedBook?.id === b.id" class="qas-panel-item-ctx">上下文</span>
+                      </div>
+                    </div>
+                    <div class="qas-panel-sec" v-if="hotDirections.length">
+                      <div class="qas-panel-sec-head">🔥 热门方向</div>
+                      <div class="qas-panel-chips">
+                        <button v-for="d in hotDirections" :key="d" class="qas-panel-chip" @click="bookSearchText = d">{{ d }}</button>
+                      </div>
+                    </div>
+                    <div class="qas-panel-sec" v-if="aiBooks.length">
+                      <div class="qas-panel-sec-head">✨ AI 推荐</div>
+                      <div v-for="b in aiBooks.slice(0, 3)" :key="'a'+b.id" class="qas-panel-item" @click="selectBook(b); bookPanelOpen = false">
+                        <span class="qas-panel-item-cover">{{ getBookEmoji(b.name) }}</span>
+                        <div class="qas-panel-item-info">
+                          <span class="qas-panel-item-name">{{ b.name }}</span>
+                          <span class="qas-panel-item-meta">{{ b.author || '未知作者' }} · {{ b.direction || '通用' }}</span>
+                        </div>
+                        <span class="qas-panel-item-pct">{{ b.matchRate || 90 }}%</span>
+                      </div>
+                    </div>
+                  </template>
+                  <template v-else-if="panelSearchResults.length">
+                    <div class="qas-panel-sec-head">搜索结果 <span class="qas-panel-count">{{ panelSearchResults.length }}</span></div>
+                    <div v-for="(b, i) in panelSearchResults" :key="'r'+i" class="qas-panel-item" :style="{ animationDelay: i * 0.04 + 's' }" :class="{ on: selectedBook?.id === b.id }" @click="selectBook(b); bookPanelOpen = false">
+                      <span class="qas-panel-item-cover">{{ getBookEmoji(b.name) }}</span>
+                      <div class="qas-panel-item-info">
+                        <span class="qas-panel-item-name">{{ b.name }}</span>
+                        <span class="qas-panel-item-meta">{{ b.author || '未知作者' }} · {{ b.publisher || '' }}</span>
+                      </div>
+                      <span v-if="selectedBook?.id === b.id" class="qas-panel-item-ctx">上下文</span>
+                      <span v-else class="qas-panel-item-pct">{{ b.matchRate || 80 }}%</span>
+                    </div>
+                  </template>
+                  <div v-else class="qas-panel-empty">📡 未找到相关教材</div>
+                </div>
+              </div>
+            </div>
+          </template>
+
+          <!-- 考研模式 -->
+          <template v-if="currentMode === 'exam'">
+            <div class="qas-search">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+              <input v-model="subjectSearchQuery" placeholder="搜索科目..." @focus="showSubjectDropdown = true" @blur="showSubjectDropdown = false" />
+            </div>
+            <div class="qas-drop" v-if="showSubjectDropdown && filteredSubjects.length">
+              <div v-for="s in filteredSubjects" :key="s.id" class="qasd-opt" :class="{active:selectedExamSubject===s.id}" @mousedown.prevent="selectSubject(s)">{{ s.name }}</div>
+            </div>
+            <div class="qas-label" v-if="keyPoints.length">🔥 高频考点</div>
+            <div class="qas-kp" v-if="keyPoints.length">
+              <div v-for="(kp,i) in keyPoints.slice(0,6)" :key="i" class="qask-item" :class="{active:selectedKeyPoint===kp}" @click="selectKeyPoint(kp)">
+                <span class="qask-rank">{{ i+1 }}</span><span>{{ kp.name }}</span>
+              </div>
+            </div>
+            <div class="qas-label" v-if="selectedPapers.length">📝 真题推荐</div>
+            <div class="qas-papers" v-if="selectedPapers.length">
+              <div v-for="(p,i) in selectedPapers.slice(0,4)" :key="i" class="qasp-item">
+                <span class="qasp-year">{{ p.year }}</span><span>{{ p.subject }}</span>
+              </div>
+            </div>
+            <div class="qas-predict" @click="askAiPredict">
+              <span class="qaspd-icon">🎯</span>
+              <div class="qaspd-info"><div>AI 智能押题</div><div>基于历年真题趋势预测</div></div>
+              <span>→</span>
+            </div>
+          </template>
+
+          <!-- ====== 历史对话 ====== -->
+          <div class="qas-history" v-if="sessions.length > 0">
+            <div class="qash-head">
+              <span class="qas-label">📋 历史对话</span>
+              <button class="qash-new-btn" @click="startNewSession" title="新对话">+ 新对话</button>
+            </div>
+            <div class="qash-list">
+              <div
+                v-for="s in sessions"
+                :key="s.id"
+                class="qash-item"
+                :class="{ active: activeSessionId === s.id }"
+                @click="loadSession(s)"
+              >
+                <div class="qashi-icon">{{ s.mode === 'exam' ? '🎓' : '📚' }}</div>
+                <div class="qashi-info">
+                  <div class="qashi-title">{{ s.title }}</div>
+                  <div class="qashi-meta">{{ s.msgCount }} 条对话 · {{ formatSessionTime(s.createdAt) }}</div>
+                </div>
+                <button class="qashi-del" @click.stop="deleteSession(s.id)" title="删除">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
                 </button>
               </div>
-              <div class="image-question-input">
-                <textarea 
-                  v-model="imageQuestion"
-                  placeholder="请描述您的问题..."
-                  class="question-input"
-                  rows="2"
-                ></textarea>
-              </div>
-              <button class="submit-btn" @click="submitImageQuestion">
-                提交问题
-              </button>
             </div>
           </div>
 
-          <!-- AI回答区域 -->
-          <div v-if="showAnswer" class="answer-area">
-
-            <div class="answer-content">
-              <div class="ai-avatar">
-                <div class="avatar-placeholder">
-                  <span class="avatar-text">AI</span>
-                </div>
-              </div>
-              <div class="answer-text">
-                <div v-if="isLoading" class="loading-indicator">
-                  <div class="loading-spinner"></div>
-                  <span class="loading-text">AI正在思考</span>
-                </div>
-                <div v-else-if="errorMessage" class="error-message">
-                  {{ errorMessage }}
-                  <button class="retry-btn" @click="submitQuestion">重试</button>
-                </div>
-                <div v-else>
-                  <div v-if="isTyping" class="typing-content">
-                    <div v-html="processMathText(typedAnswer)" class="processed-content"></div>
-                    <span class="typing-cursor">|</span>
-                  </div>
-                  <div v-else v-html="processedAnswer" class="processed-content"></div>
-                </div>
-              </div>
-            </div>
-            <div class="answer-controls" v-if="showAnswer">
-              <button class="control-btn" @click="cancelGeneration">
-                取消
-              </button>
-              <button class="control-btn" @click="submitQuestion">
-                重新生成
-              </button>
-            </div>
-          </div>
-
-          <!-- 历史回答 -->
-          <div class="history-section">
-            <div class="history-title">历史答疑记录</div>
-            <div 
-              v-for="(item, index) in historyQuestions" 
-              :key="index"
-              class="history-item"
-              @click="selectHistory(item)"
-            >
-              <div class="history-question">{{ item.question }}</div>
-              <div class="history-answer">{{ item.answer ? item.answer.replace(/\n/g, ' ').substring(0, 100) : '' }}...</div>
-            </div>
-          </div>
+          <!-- 新对话按钮（无历史时显示） -->
+          <button v-if="messages.length > 0 && sessions.length === 0" class="qas-new-session-btn" @click="startNewSession">
+            + 新对话
+          </button>
         </div>
-      </div>
 
-      <!-- 底部：网课推荐 -->
-      <div class="course-recommendation">
-        <div class="recommendation-title">网课推荐</div>
-        <div class="course-grid">
-          <div 
-            v-for="course in courses" 
-            :key="course.id"
-            class="course-item" 
-            @click="openCourseLink(course.videoLink)"
-          >
-            <div class="course-avatar">
-              <div class="avatar-placeholder">
-                <span class="avatar-text">讲</span>
+        <button class="qas-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
+          <svg :class="{ rotated: !sidebarCollapsed }" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+        </button>
+      </aside>
+
+      <!-- ===== 主聊天区 ===== -->
+      <main class="qa-main">
+        <div class="qam-messages" ref="chatBody">
+          <div v-if="messages.length === 0" class="qam-empty">
+            <div class="qame-hero">
+              <div class="qame-avatar"><span>🤖</span></div>
+              <h2>{{ welcomeTitle }}</h2>
+              <p>{{ welcomeSub }}</p>
+            </div>
+            <div class="qame-label">✨ AI 为你推荐</div>
+            <div class="qame-cards">
+              <div v-for="rec in modeRecommendations" :key="rec.text" class="qamec-card" @click="sendQuestion(rec.text)">
+                <span class="qamec-icon">{{ rec.icon }}</span>
+                <span class="qamec-text">{{ rec.text }}</span>
+                <span class="qamec-tag">{{ rec.tag }}</span>
               </div>
             </div>
-            <div class="course-info">
-              <div class="course-name">{{ course.name }}</div>
-              <div class="course-desc">{{ course.desc }}</div>
-              <div class="course-code">{{ course.code }}</div>
+            <div class="qame-label">💡 试试这些问题</div>
+            <div class="qame-chips">
+              <span v-for="q in modeQuickQuestions" :key="q" class="qamec-chip" @click="sendQuestion(q)">{{ q }}</span>
             </div>
-            <div class="course-link-icon">🔗</div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- 考研/考证问答内容 -->
-    <div v-else-if="activeTab === '考研/考证问答'" class="exam-qa-page">
-      <div class="exam-qa-container">
-        <!-- 左侧栏 -->
-        <div class="exam-left-column">
-          <!-- 考试科目选择 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">考试科目选择</div>
-            <div class="exam-subject-select">
-              <div class="searchable-select">
-                <input 
-                  type="text" 
-                  v-model="subjectSearchQuery"
-                  placeholder="搜索考试科目..."
-                  class="select-search-input"
-                >
-                <div class="select-dropdown" v-show="showSubjectDropdown">
-                  <div 
-                    v-for="subject in filteredSubjects" 
-                    :key="subject.id"
-                    class="select-option"
-                    :class="{ active: selectedExamSubject === subject.id }"
-                    @click="selectSubject(subject)"
-                  >
-                    {{ subject.name }}
+          <div v-for="msg in messages" :key="msg.id" class="qam-row" :class="msg.role">
+            <div v-if="msg.role === 'user'" class="qam-bubble user">{{ msg.question }}</div>
+            <template v-else>
+              <div class="qam-avatar">AI</div>
+              <div class="qam-ai-wrap">
+                <div class="qam-bubble ai">
+                  <div v-if="msg.status === 'loading'" class="qam-loading">
+                    <span></span><span></span><span></span>
+                    <em>AI 正在思考...</em>
                   </div>
-                </div>
-                <div class="select-display" @click="toggleSubjectDropdown">
-                  {{ getSelectedSubjectName() }}
-                  <span class="select-arrow">▼</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 高频考点总结区 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">高频考点总结区</div>
-            <div class="exam-keypoints-list">
-              <div 
-                v-for="(point, index) in keyPoints" 
-                :key="index"
-                class="exam-keypoint-item"
-                :class="{ highlight: selectedKeyPoint === point }"
-                @click="selectKeyPoint(point)"
-              >
-                <span class="keypoint-label">考点{{ index + 1 }}:</span>
-                <span class="keypoint-name">{{ point.name }}</span>
-              </div>
-            </div>
-          </div>
-
-          <!-- 真题推荐 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">真题推荐</div>
-            <div class="exam-papers-container">
-              <div 
-                v-for="(paper, index) in selectedPapers" 
-                :key="index"
-                class="exam-paper-item"
-              >
-                <div class="paper-title">{{ paper.year }}年真题</div>
-                <div class="paper-content">
-                  <div class="paper-image">
-                    <img src="https://images.unsplash.com/photo-1551836022-d5d88e9218df?w=100&h=100&fit=crop" alt="真题">
-                  </div>
-                  <div class="paper-info">
-                    <div class="paper-name">{{ paper.year }}年真题推荐</div>
-                    <div class="paper-tags">
-                      <span class="paper-tag">{{ paper.subject }}</span>
-                      <span class="paper-tag">{{ paper.difficulty }}</span>
+                  <div v-else-if="msg.status === 'error'" class="qam-err">
+                    <div class="qame-head">
+                      <span class="qameh-icon">⚠️</span>
+                      <span class="qameh-title">服务暂时异常</span>
+                    </div>
+                    <p class="qame-desc">请稍后重试，或重新编辑问题再发送</p>
+                    <div class="qame-btns">
+                      <button class="qameb-retry" @click="retry(msg)" :disabled="isSending">重试</button>
+                      <button class="qameb-reask" @click="reAsk(msg.question)">重新提问</button>
                     </div>
                   </div>
+                  <div v-else-if="msg.status === 'typing'" class="qam-typing">
+                    <span v-html="msg.displayContent"></span><span class="qam-cursor">|</span>
+                  </div>
+                  <div v-else-if="msg.status === 'success'">
+                    <div v-if="msg.displayContent" v-html="msg.displayContent" class="qam-html"></div>
+                    <div v-else class="qam-empty-content">暂无回答内容，请重试</div>
+                  </div>
+                </div>
+                <div class="qam-actions" v-if="msg.status === 'success'">
+                  <button @click="regenerate(msg)" :disabled="isSending">🔄 重新生成</button>
+                  <button @click="copyContent(msg)">📋 复制</button>
                 </div>
               </div>
-            </div>
+            </template>
           </div>
         </div>
 
-        <!-- 中间栏 -->
-        <div class="exam-middle-column">
-          <!-- 考点提问区 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">考点提问区</div>
-            <div class="exam-question-area">
-              <input 
-                v-model="examQuestion"
-                type="text"
-                placeholder="问题问传"
-                class="exam-question-input"
-              >
-              <button class="exam-submit-btn" @click="submitExamQuestion">
-                提交问题
-              </button>
-            </div>
-            <!-- 回答区域 -->
-            <div class="exam-question-display">
-              <div class="exam-question-label">回答区域</div>
-              <div class="exam-answer-content">
-                <div class="ai-answer-box">
-                  <div class="ai-answer-header">
-                    <span class="ai-avatar">AI</span>
-                    <span class="ai-label">智能回答</span>
-                  </div>
-                  <div class="ai-answer-text" v-if="examAnswer">
-                    <p>根据您的问题，我为您提供以下解答：</p>
-                    <div v-html="formatAnswer(examAnswer)"></div>
-                  </div>
-                  <div class="ai-answer-text" v-else>
-                    <p>请在上方输入问题并点击提交，AI将为您生成详细解答。</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 网课推荐 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">网课推荐</div>
-            <div class="exam-courses-list">
-              <div 
-                v-for="(course, index) in examCourses" 
-                :key="index"
-                class="exam-course-item"
-                @click="openCourseLink(course.videoLink)"
-              >
-                <div class="course-avatar">
-                  <div class="avatar-placeholder">
-                    <span class="avatar-text">讲</span>
-                  </div>
-                </div>
-                <div class="course-info">
-                  <div class="course-name">{{ course.name }}</div>
-                  <div class="course-desc">{{ course.desc }}</div>
-                  <div class="course-code">{{ course.code }}</div>
-                </div>
-                <div class="course-link-icon">🔗</div>
-              </div>
-            </div>
-          </div>
+        <div v-if="lastSuccessMsg" class="qam-followup">
+          <span>继续问：</span>
+          <span v-for="c in currentQuickChips" :key="c" @click="sendQuestion(c)">{{ c }}</span>
         </div>
 
-        <!-- 右侧栏 -->
-        <div class="exam-right-column">
-          <!-- 图片上传区域 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">图片上传区域</div>
-            <div class="exam-upload-area" @click="triggerExamFileUpload">
-              <input 
-                type="file" 
-                ref="examFileInput" 
-                style="display: none;" 
-                accept="image/*"
-                @change="handleExamFileChange"
-              >
-              <div class="exam-upload-placeholder">
-                <span class="exam-upload-text">拖拽或点击上传图片</span>
-              </div>
-            </div>
-            <div v-if="examUploadedImage" class="exam-uploaded-preview">
-              <div class="preview-container">
-                <img :src="examUploadedImage" alt="上传的图片" class="exam-preview-image">
-                <button class="delete-btn" @click="deleteExamImage">
-                  ×
-                </button>
-              </div>
-              <div class="exam-image-question-input">
-                <textarea 
-                  v-model="examImageQuestion"
-                  placeholder="请描述您的问题..."
-                  class="exam-question-input"
-                  rows="2"
-                ></textarea>
-              </div>
-              <button class="exam-upload-btn" @click="submitExamImageQuestion">
-                提交问题
-              </button>
-            </div>
-            <button v-else class="exam-upload-btn" @click="triggerExamFileUpload">
-              图片上传
+        <div class="qam-input">
+          <div v-if="uploadedImage" class="qami-preview">
+            <img :src="uploadedImage" />
+            <button @click="deleteImage">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M18 6 6 18M6 6l12 12"/></svg>
             </button>
           </div>
-
-          <!-- 备考答疑历史记录 -->
-          <div class="exam-panel">
-            <div class="exam-panel-title">备考答疑历史记录</div>
-            <div class="exam-history-list">
-              <div 
-                v-for="(record, index) in examHistory" 
-                :key="index"
-                class="exam-history-item"
-                @click="selectExamHistory(record)"
-              >
-                <div class="exam-history-question">Q: {{ record.question }}</div>
-                <div class="exam-history-answer">A: {{ record.answer }}</div>
-              </div>
-            </div>
+          <div class="qami-bar">
+            <button class="qamib-img" :class="{active:questionType==='image'}" @click="toggleImageMode" title="图片提问">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </button>
+            <span v-if="selectedBook && currentMode === 'textbook'" class="qami-ctx-tag" @click="bookPanelOpen = true" title="点击切换教材">📘 {{ selectedBook.name }}</span>
+            <input ref="inputRef" v-model="inputText" :placeholder="inputPlaceholder" class="qamib-input" @keydown.enter.prevent="sendQuestion()" />
+            <input type="file" ref="fileInput" style="display:none" accept="image/*" @change="handleFileChange" />
+            <button class="qamib-send" :class="{ready:canSend, loading:isSending}" @click="sendQuestion()" :disabled="!canSend || isSending">
+              <svg v-if="!isSending" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              <span v-else class="qamib-spin"></span>
+            </button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/store/auth.js'
 import { streamingApiService } from '../../api/streaming.js'
 import { apiService } from '../../api/api.js'
 import { processAiResponse } from '../../utils/markdownUtils'
 
-const router = useRouter()
-const route = useRoute()
+const router = useRouter(); const route = useRoute()
 
-// 来源信息
-const from = ref('')
+/* ========== 核心状态 ========== */
+const currentMode = ref('textbook')
+const messages = ref([])
+const inputText = ref('')
+const isSending = ref(false)
+const sidebarCollapsed = ref(false)
+const selectedResource = ref(null)
 
-// 加载状态
-const loading = ref({
-  books: false,
-  chapters: false,
-  courses: false,
-  history: false,
-  examSubjects: false,
-  keyPoints: false,
-  examPapers: false,
-  examCourses: false,
-  examHistory: false
-})
+/* ========== 会话历史 ========== */
+const sessions = ref([])
+const activeSessionId = ref(null)
 
-// 错误信息
-const error = ref({
-  books: '',
-  chapters: '',
-  courses: '',
-  history: '',
-  examSubjects: '',
-  keyPoints: '',
-  examPapers: '',
-  examCourses: '',
-  examHistory: ''
-})
-
-// 从URL参数中获取来源信息
-onMounted(async () => {
-  from.value = route.query.from || ''
-  
-  // 如果是从学习页面跳转过来的，自动填充问题和选中的文本
-  if (route.query.question) {
-    question.value = route.query.question
+const saveCurrentSession = () => {
+  const msgs = messages.value
+  if (msgs.length === 0) return
+  // 找第一条用户消息作为标题
+  const firstUser = msgs.find(m => m.role === 'user')
+  const title = firstUser ? (firstUser.question.slice(0, 40) + (firstUser.question.length > 40 ? '...' : '')) : '对话记录'
+  const session = {
+    id: Date.now(),
+    title,
+    mode: currentMode.value,
+    resource: selectedResource.value ? { ...selectedResource.value } : null,
+    messages: msgs.map(m => ({ ...m })), // 深拷贝
+    msgCount: msgs.length,
+    createdAt: new Date().toISOString()
   }
-  if (route.query.bookId) {
-    // 这里可以根据bookId设置选中的书籍
-    // 示例：selectedBook.value = books.value.find(book => book.id === route.query.bookId)
-  }
-  
-  // 初始化数据
-  await fetchBooks()
-  await fetchCourses()
-  await fetchHistoryQuestions()
-  await fetchExamSubjects()
-  await fetchExamHistory()
-})
+  sessions.value.unshift(session)
+  activeSessionId.value = session.id
 
-// 页面卸载时清理资源
-onUnmounted(() => {
-  // 关闭SSE连接
-  if (sseConnection.value) {
-    sseConnection.value.close()
-  }
-  // 清除打字定时器
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value)
-  }
-})
-
-// 返回学习页面
-const goBackToStudy = () => {
-  router.back()
+  // 最多保留 20 条
+  if (sessions.value.length > 20) sessions.value = sessions.value.slice(0, 20)
 }
 
-// 激活的标签页
-const activeTab = ref('智能答疑')
+const loadSession = (s) => {
+  // 保存当前对话
+  if (messages.value.length > 0 && activeSessionId.value !== s.id) {
+    saveCurrentSilent()
+  }
+  activeSessionId.value = s.id
+  currentMode.value = s.mode
+  messages.value = s.messages.map(m => ({ ...m }))
+  inputText.value = ''
+  isSending.value = false
+  selectedResource.value = s.resource
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+}
 
-// 问题类型（text: 文字提问, image: 图片上传）
-const questionType = ref('text')
+const saveCurrentSilent = () => {
+  const msgs = messages.value
+  if (msgs.length === 0) return
+  // 更新已有 session 还是新建
+  const existing = sessions.value.find(s => s.id === activeSessionId.value)
+  if (existing) {
+    existing.messages = msgs.map(m => ({ ...m }))
+    existing.msgCount = msgs.length
+    return
+  }
+  // 新建
+  const firstUser = msgs.find(m => m.role === 'user')
+  const title = firstUser ? (firstUser.question.slice(0, 40) + (firstUser.question.length > 40 ? '...' : '')) : '对话记录'
+  const session = {
+    id: Date.now(),
+    title,
+    mode: currentMode.value,
+    resource: selectedResource.value ? { ...selectedResource.value } : null,
+    messages: msgs.map(m => ({ ...m })),
+    msgCount: msgs.length,
+    createdAt: new Date().toISOString()
+  }
+  sessions.value.unshift(session)
+  activeSessionId.value = session.id
+  if (sessions.value.length > 20) sessions.value = sessions.value.slice(0, 20)
+}
 
-// 文件输入引用
-const fileInput = ref(null)
+const startNewSession = () => {
+  saveCurrentSilent()
+  messages.value = []
+  inputText.value = ''
+  isSending.value = false
+  activeSessionId.value = null
+  uploadedImage.value = null
+  questionType.value = 'text'
+}
 
-// 上传的图片
-const uploadedImage = ref(null)
-// 图片问题描述
-const imageQuestion = ref('')
-// 搜索查询
-const searchQuery = ref('')
-// 当前选中的书籍
-const selectedBook = ref(null)
-// 书籍数据
-const books = ref([])
-// 章节数据
-const chapters = ref([])
+const deleteSession = (id) => {
+  sessions.value = sessions.value.filter(s => s.id !== id)
+  if (activeSessionId.value === id) {
+    activeSessionId.value = null
+    messages.value = []
+    inputText.value = ''
+  }
+}
 
-// 展开的章节
-const expandedChapters = ref([])
+const formatSessionTime = (ts) => {
+  if (!ts) return ''
+  const d = new Date(ts)
+  const now = new Date()
+  const diff = now - d
+  if (diff < 3600000) return `${Math.floor(diff/60000)} 分钟前`
+  if (diff < 86400000) return `${Math.floor(diff/3600000)} 小时前`
+  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours()}:${String(d.getMinutes()).padStart(2,'0')}`
+}
 
-// 获取书籍列表
+/* ========== switchMode — 保存当前对话后切换 ========== */
+const switchMode = (mode) => {
+  if (currentMode.value === mode) return
+  saveCurrentSilent()
+  closeSSE(); stopTyping()
+  currentMode.value = mode
+  messages.value = []
+  inputText.value = ''
+  isSending.value = false
+  uploadedImage.value = null
+  questionType.value = 'text'
+  selectedBook.value = null; chapters.value = []; expandedChapters.value = []
+  selectedExamSubject.value = ''; subjectSearchQuery.value = ''
+  keyPoints.value = []; selectedKeyPoint.value = null; selectedPapers.value = []
+  selectedResource.value = null
+  activeSessionId.value = null
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+}
+
+/* ========== 选择教材/科目 — 保存后切换 ========== */
+const selectBook = (book) => {
+  if (selectedBook.value?.id === book.id) return
+  saveCurrentSilent()
+  closeSSE(); stopTyping()
+  selectedBook.value = book
+  selectedResource.value = { name: book.name, author: book.author }
+  expandedChapters.value = []
+  messages.value = []
+  inputText.value = ''
+  isSending.value = false
+  uploadedImage.value = null
+  questionType.value = 'text'
+  activeSessionId.value = null
+  if (book.id) fetchChapters(book.id); else chapters.value = []
+}
+
+const selectSubject = async (s) => {
+  if (selectedExamSubject.value === s.id) return
+  saveCurrentSilent()
+  closeSSE(); stopTyping()
+  selectedExamSubject.value = s.id; subjectSearchQuery.value = ''; showSubjectDropdown.value = false
+  selectedResource.value = { name: s.name }
+  selectedKeyPoint.value = null
+  messages.value = []
+  inputText.value = ''
+  isSending.value = false
+  uploadedImage.value = null
+  questionType.value = 'text'
+  activeSessionId.value = null
+  await fetchKeyPoints(s.id); await fetchExamPapers(s.id)
+}
+
+const lastSuccessMsg = computed(() => {
+  for (let i = messages.value.length - 1; i >= 0; i--) {
+    if (messages.value[i].role === 'assistant' && messages.value[i].status === 'success') return messages.value[i]
+  }
+  return null
+})
+
+/* ========== 展示数据 ========== */
+const streak = ref(7); const todayMinutes = ref(30); const masteredCount = ref(5)
+const welcomeTitle = computed(() => currentMode.value === 'exam' ? '今天想备考什么？' : '今天想学什么？')
+const welcomeSub = computed(() => currentMode.value === 'exam' ? '选择科目后，我会按考点和真题思路回答' : '选择教材后，我会按教材知识体系回答')
+const inputPlaceholder = computed(() => {
+  if (currentMode.value === 'exam') return '输入问题，AI 按考点和真题思路回答...'
+  if (selectedBook.value) return `输入问题，AI 将基于《${selectedBook.value.name}》知识体系回答...`
+  return '输入问题，AI 将自由回答...'
+})
+const modeRecommendations = computed(() => {
+  if (currentMode.value === 'exam') {
+    return [{ icon:'🎯',text:'这个科目的高频考点有哪些？',tag:'考点分析'},{ icon:'📝',text:'给我一道典型真题',tag:'真题演练'},{ icon:'💡',text:'这类题怎么快速拿分？',tag:'应试技巧'},{ icon:'⚠️',text:'帮我整理易错点',tag:'易错归纳' }]
+  }
+  if (selectedBook.value) {
+    return [{ icon:'📖',text:`《${selectedBook.value.name}》的核心知识点有哪些？`,tag:'知识梳理'},{ icon:'📝',text:`请按${selectedBook.value.name}体系总结本章重点`,tag:'章节总结'},{ icon:'🔍',text:'这个概念在书中如何应用？',tag:'概念应用'},{ icon:'✏️',text:'给我出几道练习题测试一下',tag:'练习巩固' }]
+  }
+  return [{ icon:'📖',text:'选择教材后，AI 将按教材体系回答',tag:'提示'},{ icon:'📝',text:'请先在左侧选择一本教材',tag:'开始学习'},{ icon:'🔍',text:'也可以直接提问，AI 自由回答',tag:'自由模式'},{ icon:'✏️',text:'试试问：导数是什么？',tag:'试试看' }]
+})
+const modeQuickQuestions = computed(() => {
+  if (currentMode.value === 'exam') return ['高频考点有哪些？','讲解一道真题','推荐备考计划','这个知识点容易出错的地方']
+  if (selectedBook.value) return [`${selectedBook.value.name}的核心知识点有哪些？`,'请帮我总结本章重点','这个概念如何应用到实际中？','给我出几道练习题']
+  return ['导数是什么？','栈和队列有什么区别？','什么是微积分？','给我讲一下线性代数基础']
+})
+const quickChips = computed(() => selectedBook.value ? ['帮我总结本章要点','解释一下这个概念','出几道练习题'] : ['选择教材后提问','或直接自由提问'])
+const examQuickChips = ['解析这道题的考点','推荐备考计划','对比这几个概念的异同']
+const currentQuickChips = computed(() => currentMode.value === 'exam' ? examQuickChips : quickChips.value)
+
+/* ========== 教材 ========== */
+const searchQuery = ref(''); const selectedBook = ref(null); const books = ref([]); const chapters = ref([]); const expandedChapters = ref([])
+const loading = ref({ books: false, chapters: false }); const error = ref({ books: '', chapters: '' })
+const getBookEmoji = (n) => { const m={'高':'📐','数':'🔢','线':'📏','概':'🎲','物':'⚡','化':'🧪','英':'🌍','计':'💻','大':'📘'}; return m[n?.charAt(0)||'']||'📘' }
+const filteredBooks = computed(() => { const q=searchQuery.value.trim().toLowerCase(); return q ? books.value.filter(b=>b.name?.toLowerCase().includes(q)) : books.value })
+const MOCK_BOOKS = [
+  { id: 1, name: '高等数学（同济第七版）', author: '同济大学数学系', publisher: '高等教育出版社', direction: '考研数学一' },
+  { id: 2, name: '线性代数（同济第六版）', author: '同济大学数学系', publisher: '高等教育出版社', direction: '考研数学一' },
+  { id: 3, name: '概率论与数理统计', author: '盛骤', publisher: '高等教育出版社', direction: '考研数学一' },
+  { id: 4, name: '数据结构（C语言版）', author: '严蔚敏', publisher: '清华大学出版社', direction: '计算机基础' },
+  { id: 5, name: '计算机网络', author: '谢希仁', publisher: '电子工业出版社', direction: '计算机基础' },
+  { id: 6, name: '大学物理（上）', author: '张三慧', publisher: '清华大学出版社', direction: '理工科通识' },
+  { id: 7, name: '新概念英语3', author: '亚历山大', publisher: '外语教学与研究出版社', direction: '考研英语' },
+  { id: 8, name: '数学分析', author: '华东师范大学数学系', publisher: '高等教育出版社', direction: '大学必修' },
+]
+
 const fetchBooks = async () => {
   loading.value.books = true
-  error.value.books = ''
   try {
-    console.log('开始获取书籍列表...')
-    // 获取认证token
-    const authStore = useAuthStore()
-    const token = authStore.token
-    console.log('Token:', token)
-    
-    // 使用相对路径发送请求
-    const response = await fetch('/api/qa/books', {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      }
-    })
-    console.log('Response status:', response.status)
-    console.log('Response headers:', response.headers)
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Response error:', errorText)
-      throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`)
-    }
-    const data = await response.json()
-    console.log('获取书籍列表成功:', data)
-    if (data) {
-      books.value = data
-    }
-  } catch (err) {
-    console.error('获取书籍列表失败:', err)
-    error.value.books = err.errorMessage || '获取书籍列表失败'
-  } finally {
-    loading.value.books = false
-  }
+    const t = useAuthStore().token
+    const r = await fetch('/api/qa/books', { headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) } })
+    if (r.ok) { const d = await r.json(); if (d && d.length) { books.value = d; loading.value.books = false; return } }
+  } catch (e) {}
+  books.value = MOCK_BOOKS
+  loading.value.books = false
 }
-
-// 获取章节列表
-const fetchChapters = async (bookId) => {
+const fetchChapters = async (id) => {
   loading.value.chapters = true
-  error.value.chapters = ''
-  try {
-    const response = await apiService.qa.getChapters(bookId)
-    if (response) {
-      chapters.value = response
-    }
-  } catch (err) {
-    error.value.chapters = err.errorMessage || '获取章节列表失败'
-  } finally {
-    loading.value.chapters = false
-  }
+  try { const r = await apiService.qa.getChapters(id); if (r && r.length) { chapters.value = r; loading.value.chapters = false; return } } catch (e) {}
+  chapters.value = [
+    { id: 1, title: '第一章', children: [{ id: 11, title: '基本概念' }, { id: 12, title: '核心定理' }, { id: 13, title: '典型例题' }] },
+    { id: 2, title: '第二章', children: [{ id: 21, title: '基础知识' }, { id: 22, title: '进阶内容' }] },
+    { id: 3, title: '第三章', children: [{ id: 31, title: '应用方法' }, { id: 32, title: '综合练习' }] },
+  ]
+  loading.value.chapters = false
 }
+const toggleChapter = (id) => { const i=expandedChapters.value.indexOf(id); i>-1?expandedChapters.value.splice(i,1):expandedChapters.value.push(id) }
+const askChapterQuestion = (ch,sub) => sendQuestion(`请讲解「${ch.title} > ${sub.title}」的内容`)
 
-// 返回首页
-const goHome = () => {
-  router.push('/')
-}
+/* ========== 教材选择浮层 ========== */
+const bookPanelOpen = ref(false)
+const bookSearchText = ref('')
+const clearBookContext = () => { selectedBook.value = null; chapters.value = []; expandedChapters.value = []; selectedResource.value = null }
 
-// 选择书籍
-const selectBook = (book) => {
-  selectedBook.value = book
-  // 重置展开状态
-  expandedChapters.value = []
-  // 根据选中的书籍更新章节数据
-  if (book.id) {
-    fetchChapters(book.id)
-  } else {
-    chapters.value = []
-  }
-}
+const recentBooks = computed(() => books.value.slice(0, 6))
+const hotDirections = ['计算机考研', '人工智能', '数学分析', '英语四级', '高等数学', '数据科学']
 
-// 切换章节展开/折叠
-const toggleChapter = (chapterId) => {
-  const index = expandedChapters.value.indexOf(chapterId)
-  if (index > -1) {
-    // 折叠章节
-    expandedChapters.value.splice(index, 1)
-  } else {
-    // 展开章节
-    expandedChapters.value.push(chapterId)
-  }
-}
-
-// 问答相关
-const question = ref('')
-const aiAnswer = ref('')
-const showAnswer = ref(false)
-const historyQuestions = ref([])
-
-// 获取历史问题
-const fetchHistoryQuestions = async () => {
-  loading.value.history = true
-  error.value.history = ''
-  try {
-    const response = await apiService.qa.getHistory()
-    if (response) {
-      historyQuestions.value = response
-    }
-  } catch (err) {
-    error.value.history = err.errorMessage || '获取历史问题失败'
-  } finally {
-    loading.value.history = false
-  }
-}
-
-// SSE 连接管理
-const sseConnection = ref(null)
-const isLoading = ref(false)
-const errorMessage = ref('')
-const connectionStatus = ref('idle') // idle, connecting, connected, error
-const currentQuestion = ref('') // 保存当前问题，用于重新生成
-
-// 打字机效果
-const typedAnswer = ref('')
-const typingSpeed = ref(30) // 打字速度（毫秒/字符），30ms实现快速打字效果
-const typingTimeout = ref(null)
-const fullAnswer = ref('')
-const processedAnswer = ref('')
-const isTyping = ref(false)
-const isPaused = ref(false)
-
-// 打字机效果函数
-const startTyping = (text) => {
-  typedAnswer.value = ''
-  fullAnswer.value = text
-  isTyping.value = true
-  let index = 0
-  
-  const typeNext = () => {
-    if (index < fullAnswer.value.length) {
-      // 逐字添加文本
-      typedAnswer.value += fullAnswer.value.charAt(index)
-      index++
-      // 自动滚动到最新内容
-      scrollToBottom()
-      typingTimeout.value = setTimeout(typeNext, typingSpeed.value)
-    } else {
-      isTyping.value = false
-      // 处理完整回答，包括Markdown和数学公式，使用processMathText处理数学文本
-      processedAnswer.value = processMathText(fullAnswer.value)
-    }
-  }
-  
-  typeNext()
-}
-
-// 取消生成
-const cancelGeneration = () => {
-  // 停止打字机效果
-  if (typingTimeout.value) {
-    clearTimeout(typingTimeout.value)
-    typingTimeout.value = null
-  }
-  isTyping.value = false
-  
-  // 关闭SSE连接
-  if (sseConnection.value) {
-    try {
-      if (typeof sseConnection.value.close === 'function') {
-        sseConnection.value.close()
-      } else if (sseConnection.value.eventSource) {
-        sseConnection.value.eventSource.close()
-      }
-    } catch (error) {
-      console.error('Error closing SSE connection:', error)
-    }
-    sseConnection.value = null
-  }
-  
-  isLoading.value = false
-  connectionStatus.value = 'disconnected'
-  
-  // 如果有内容，处理已生成的部分
-  if (fullAnswer.value) {
-    processedAnswer.value = processMathText(fullAnswer.value)
-  }
-}
-
-// 自动滚动到最新内容
-const scrollToBottom = () => {
-  const answerElement = document.querySelector('.answer-text')
-  if (answerElement) {
-    answerElement.scrollTop = answerElement.scrollHeight
-  }
-}
-
-// 提交问题
-const submitQuestion = () => {
-  // 使用当前问题（如果有）或输入框中的问题
-  const questionText = currentQuestion.value || question.value.trim()
-  if (!questionText) return
-  
-  // 保存当前问题用于重新生成
-  currentQuestion.value = questionText
-  
-  // 重置状态
-  showAnswer.value = true
-  isLoading.value = true
-  errorMessage.value = ''
-  connectionStatus.value = 'connecting'
-  typedAnswer.value = ''
-  fullAnswer.value = ''
-  processedAnswer.value = ''
-  
-  // 取消之前的连接
-  if (sseConnection.value) {
-    try {
-      if (typeof sseConnection.value.close === 'function') {
-        sseConnection.value.close()
-      } else if (sseConnection.value.eventSource) {
-        sseConnection.value.eventSource.close()
-      }
-    } catch (error) {
-      console.error('Error closing SSE connection:', error)
-    }
-  }
-  
-  // 构建请求数据
-  const requestData = {
-    question: questionText,
-    subject: selectedBook.value || ''
-  }
-  
-  // 使用流式POST请求
-  streamingApiService.stream.askQuestionStream(
-    requestData,
-    (message) => {
-      if (message.error) {
-        errorMessage.value = message.error
-        connectionStatus.value = 'error'
-        isLoading.value = false
-      } else {
-        // 先处理content，再处理completed
-        if (message.content) {
-          // 累积数据
-          fullAnswer.value += message.content
-          // 开始打字效果
-          if (!isTyping.value) {
-            isLoading.value = false
-            startTyping(fullAnswer.value)
-          }
-        }
-        if (message.completed) {
-          connectionStatus.value = 'connected'
-          isLoading.value = false
-        }
-      }
-    },
-    () => {
-      // 完成回调
-      console.log('Stream completed')
-      isLoading.value = false
-      connectionStatus.value = 'connected'
-      // 确保有内容时处理完整回答，使用processMathText处理数学文本
-      if (fullAnswer.value && !isTyping.value) {
-        processedAnswer.value = processMathText(fullAnswer.value)
-      }
-    },
-    (error) => {
-      // 错误回调
-      console.error('Stream error:', error)
-      errorMessage.value = error.message || '连接失败，请重试'
-      connectionStatus.value = 'error'
-      isLoading.value = false
-    }
-  )
-  
-  // 清空输入框
-  question.value = ''
-}
-
-// 选择历史问题
-const selectHistory = (item) => {
-  question.value = item.question
-  fullAnswer.value = item.answer
-  showAnswer.value = true
-  // 开始打字效果
-  startTyping(item.answer)
-}
-
-// 课程数据
-const courses = ref([])
-
-// 获取课程列表
-const fetchCourses = async () => {
-  loading.value.courses = true
-  error.value.courses = ''
-  try {
-    const response = await apiService.qa.getCourses()
-    if (response) {
-      courses.value = response
-    }
-  } catch (err) {
-    error.value.courses = err.errorMessage || '获取课程列表失败'
-  } finally {
-    loading.value.courses = false
-  }
-}
-
-// 打开课程链接
-const openCourseLink = (link) => {
-  if (link) {
-    window.open(link, '_blank')
-  }
-}
-
-// 触发文件上传
-const triggerFileUpload = () => {
-  fileInput.value?.click()
-}
-
-// 处理文件选择
-const handleFileChange = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    // 创建图片预览
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      uploadedImage.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-// 提交图片问题
-const submitImageQuestion = async () => {
-  if (!uploadedImage.value) return
-  
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // 准备表单数据
-    const formData = new FormData()
-    // 注意：这里需要将 base64 图片转换为 Blob 对象
-    // 实际应用中，应该直接使用 file 对象
-    formData.append('question', imageQuestion.value || '基于上传的图片')
-    // 假设 uploadedImage 是 base64 格式，需要转换为 Blob
-    if (uploadedImage.value) {
-      const blob = await fetch(uploadedImage.value).then(r => r.blob())
-      formData.append('image', blob, 'question.jpg')
-    }
-    
-    // 调用API
-    const response = await apiService.qa.askImageQuestion(formData)
-    if (response.code === 200 && response.data) {
-      const answer = response.data.answer
-      aiAnswer.value = processMathText(answer)
-      
-      // 添加到历史记录
-      historyQuestions.value.unshift({ 
-        question: `[图片提问] ${imageQuestion.value || '基于上传的图片'}`, 
-        answer: answer 
-      })
-      if (historyQuestions.value.length > 5) {
-        historyQuestions.value.pop()
-      }
-      
-      // 显示回答
-      showAnswer.value = true
-    }
-  } catch (err) {
-    errorMessage.value = err.errorMessage || '提交图片问题失败'
-  } finally {
-    isLoading.value = false
-    // 清空上传的图片和问题
-    uploadedImage.value = null
-    imageQuestion.value = ''
-  }
-}
-
-// 删除上传的图片
-const deleteImage = () => {
-  uploadedImage.value = null
-  imageQuestion.value = ''
-}
-
-// ==================== 考研/考证问答相关 ====================
-// 考试科目
-const examSubjects = ref([])
-
-// 选中的考试科目
-const selectedExamSubject = ref('builder')
-
-// 科目搜索
-const subjectSearchQuery = ref('')
-
-// 显示科目下拉菜单
-const showSubjectDropdown = ref(false)
-
-// 过滤后的科目
-const filteredSubjects = computed(() => {
-  if (!subjectSearchQuery.value) {
-    return examSubjects.value
-  }
-  const query = subjectSearchQuery.value.toLowerCase()
-  return examSubjects.value.filter(subject => 
-    subject.name.toLowerCase().includes(query)
-  )
+const aiBooks = computed(() => {
+  const pool = [...books.value]
+  if (pool.length <= 3) return pool.map(b => ({ ...b, matchRate: 85 + Math.floor(Math.random() * 13), direction: '通用' }))
+  return pool.sort(() => Math.random() - 0.5).slice(0, 5).map(b => ({ ...b, matchRate: 85 + Math.floor(Math.random() * 13), direction: ['考研数学一', '大学必修', '计算机基础', '理工科通识'][Math.floor(Math.random() * 4)] }))
 })
 
-// 获取考试科目
-const fetchExamSubjects = async () => {
-  loading.value.examSubjects = true
-  error.value.examSubjects = ''
-  try {
-    const response = await apiService.qa.getExamSubjects()
-    if (response) {
-      examSubjects.value = response
-      // 如果有数据，设置默认选中的科目
-      if (response.length > 0) {
-        selectedExamSubject.value = response[0].id
-        // 获取默认科目的高频考点
-        await fetchKeyPoints(response[0].id)
-      }
-    }
-  } catch (err) {
-    error.value.examSubjects = err.errorMessage || '获取考试科目失败'
-  } finally {
-    loading.value.examSubjects = false
-  }
+const panelSearchResults = computed(() => {
+  const q = bookSearchText.value.trim().toLowerCase()
+  if (!q) return []
+  return books.value.filter(b => b.name?.toLowerCase().includes(q) || (b.author && b.author.toLowerCase().includes(q))).slice(0, 8).map(b => ({ ...b, matchRate: 80 + Math.floor(Math.random() * 16) }))
+})
+
+const relatedBooks = computed(() => {
+  if (!selectedBook.value) return []
+  return books.value.filter(b => b.id !== selectedBook.value.id).slice(0, 5)
+})
+
+/* ========== sendQuestion ========== */
+let sseConnection = null; let typingTimer = null
+const inputRef = ref(null)
+const canSend = computed(() => (questionType.value==='image'&&uploadedImage.value)?true:inputText.value.trim().length>0)
+
+const buildContext = () => {
+  if (currentMode.value==='textbook'&&selectedBook.value) return selectedBook.value.name||''
+  if (currentMode.value==='exam') return getSelectedSubjectName()!=='选择科目'?getSelectedSubjectName():''
+  return ''
 }
 
-// 选择科目
-const selectSubject = async (subject) => {
-  selectedExamSubject.value = subject.id
-  subjectSearchQuery.value = ''
-  showSubjectDropdown.value = false
-  // 更新高频考点
-  await fetchKeyPoints(subject.id)
-  // 重置选中的考点
-  selectedKeyPoint.value = null
-  // 获取相关的真题和课程
-  await fetchExamPapers(subject.id)
-  await fetchExamCourses(subject.id)
+const sendQuestion = async (text) => {
+  const raw = typeof text === 'string' ? text : inputText.value
+  const t = raw.trim()
+  if (!t) return
+  if (isSending.value) return
+  if (questionType.value==='image'&&uploadedImage.value) { submitImageQuestion(); return }
+
+  isSending.value = true
+  inputText.value = ''
+
+  const mode = currentMode.value; const ctx = buildContext()
+  const aiMsg = { id: Date.now()+1, role: 'assistant', question: t, content: '', displayContent: '', status: 'loading', errorMessage: '', mode, context: ctx }
+  messages.value.push({ id: Date.now(), role: 'user', question: t }, aiMsg)
+  await scrollToBottom()
+
+  closeSSE(); stopTyping()
+  let fullContent = ''; let hasError = false
+
+  streamingApiService.stream.askQuestionStream(
+    { question: t, subject: ctx },
+    (msg) => {
+      if (msg.error) { hasError=true; aiMsg.status='error'; aiMsg.errorMessage=msg.error||'服务暂时异常，请稍后重试'; isSending.value=false; return }
+      if (msg.content) { fullContent+=msg.content; if (aiMsg.status==='loading') { aiMsg.status='typing'; startTypingEffect(aiMsg, fullContent) } }
+    },
+    () => { if (!hasError) { stopTyping(); aiMsg.content=fullContent; aiMsg.displayContent=processMathText(fullContent); aiMsg.status='success' } isSending.value=false },
+    (e) => { stopTyping(); aiMsg.status='error'; const em=e?.message||''; aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em.includes('超时')||em.includes('timeout'))?'请求超时，请检查网络后重试':(em||'服务暂时异常，请稍后重试'); isSending.value=false }
+  )
 }
 
-// 切换科目下拉菜单
-const toggleSubjectDropdown = () => {
-  showSubjectDropdown.value = !showSubjectDropdown.value
+const regenerate = async (aiMsg) => {
+  if (aiMsg.role!=='assistant'||isSending.value) return
+  const idx=messages.value.indexOf(aiMsg); let um=null
+  for(let i=idx-1;i>=0;i--){if(messages.value[i].role==='user'){um=messages.value[i];break}}
+  if(!um)return
+  isSending.value=true; closeSSE(); stopTyping()
+  aiMsg.status='loading'; aiMsg.content=''; aiMsg.displayContent=''; aiMsg.errorMessage=''
+  const t=um.question; const ctx=aiMsg.context||''; let full=''; let err=false
+  streamingApiService.stream.askQuestionStream(
+    {question:t,subject:ctx},
+    (m)=>{if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}if(m.content){full+=m.content;if(aiMsg.status==='loading'){aiMsg.status='typing';startTypingEffect(aiMsg,full)}}},
+    ()=>{if(!err){stopTyping();aiMsg.content=full;aiMsg.displayContent=processMathText(full);aiMsg.status='success'}isSending.value=false},
+    (e)=>{stopTyping();aiMsg.status='error';const em=e?.message||'';aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em||'服务暂时异常，请稍后重试');isSending.value=false}
+  )
 }
 
-// 获取选中的科目名称
-const getSelectedSubjectName = () => {
-  const subject = examSubjects.value.find(s => s.id === selectedExamSubject.value)
-  return subject ? subject.name : '请选择科目'
+const retry = async (aiMsg) => {
+  if (aiMsg.role!=='assistant'||aiMsg.status!=='error'||isSending.value) return
+  isSending.value=true; closeSSE(); stopTyping()
+  aiMsg.status='loading'; aiMsg.errorMessage=''
+  const t=aiMsg.question; const ctx=aiMsg.context||''; let full=''; let err=false
+  streamingApiService.stream.askQuestionStream(
+    {question:t,subject:ctx},
+    (m)=>{if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}if(m.content){full+=m.content;if(aiMsg.status==='loading'){aiMsg.status='typing';startTypingEffect(aiMsg,full)}}},
+    ()=>{if(!err){stopTyping();aiMsg.content=full;aiMsg.displayContent=processMathText(full);aiMsg.status='success'}isSending.value=false},
+    (e)=>{stopTyping();aiMsg.status='error';const em=e?.message||'';aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em||'服务暂时异常，请稍后重试');isSending.value=false}
+  )
 }
 
-// 高频考点
-const keyPoints = ref([])
+const reAsk = (text) => { inputText.value = text || ''; nextTick(() => inputRef.value?.focus()) }
 
-// 选中的考点
-const selectedKeyPoint = ref(null)
+const startTypingEffect = (aiMsg, full) => {
+  aiMsg.displayContent=''; let i=0
+  const tick=()=>{if(i<full.length){aiMsg.displayContent+=full.charAt(i);i++;typingTimer=setTimeout(tick,28)}else{aiMsg.displayContent=processMathText(full);aiMsg.status='success'}}
+  tick()
+}
+const stopTyping = () => { if(typingTimer){clearTimeout(typingTimer);typingTimer=null} }
+const closeSSE = () => { if(sseConnection){try{sseConnection.close?.()}catch(e){};sseConnection=null} }
+const copyContent = async (m) => { try{await navigator.clipboard.writeText(m.content||'')}catch(e){} }
 
-// 考点提问
-const examQuestion = ref('')
+const chatBody = ref(null)
+const scrollToBottom = async () => { await nextTick(); if(chatBody.value) chatBody.value.scrollTop = chatBody.value.scrollHeight }
 
-// AI回答
-const examAnswer = ref('')
-
-// 选中的真题
-const selectedPapers = ref([])
-
-// 网课推荐数据
-const examCourses = ref([])
-
-// 备考历史记录
-const examHistory = ref([])
-
-// 获取高频考点
-const fetchKeyPoints = async (subjectId) => {
-  loading.value.keyPoints = true
-  error.value.keyPoints = ''
-  try {
-    const response = await apiService.qa.getKeyPoints(subjectId)
-    if (response) {
-      keyPoints.value = response
-    }
-  } catch (err) {
-    error.value.keyPoints = err.errorMessage || '获取高频考点失败'
-  } finally {
-    loading.value.keyPoints = false
-  }
+/* ========== 图片 ========== */
+const questionType = ref('text'); const fileInput = ref(null); const uploadedImage = ref(null)
+const toggleImageMode = () => { questionType.value=questionType.value==='text'?'image':'text'; if(questionType.value==='image')setTimeout(()=>fileInput.value?.click(),100) }
+const handleFileChange = (e) => { const f=e.target.files[0]; if(f){const r=new FileReader();r.onload=(ev)=>uploadedImage.value=ev.target.result;r.readAsDataURL(f)} }
+const deleteImage = () => { uploadedImage.value=null; questionType.value='text' }
+const submitImageQuestion = async () => {
+  if(!uploadedImage.value||isSending.value)return; isSending.value=true
+  const t=inputText.value||'基于上传的图片'
+  const aiMsg={id:Date.now()+1,role:'assistant',question:t,content:'',displayContent:'',status:'loading',errorMessage:'',mode:currentMode.value,context:buildContext()}
+  messages.value.push({id:Date.now(),role:'user',question:'[图片提问]'},aiMsg); inputText.value=''
+  try{const fd=new FormData();fd.append('question',t);const blob=await fetch(uploadedImage.value).then(r=>r.blob());fd.append('image',blob,'question.jpg');const r=await apiService.qa.askImageQuestion(fd);if(r.code===200&&r.data){aiMsg.content=r.data.answer;aiMsg.displayContent=processMathText(r.data.answer);aiMsg.status='success'}else{aiMsg.status='error';aiMsg.errorMessage='图片识别失败，请重试'}}catch(e){aiMsg.status='error';aiMsg.errorMessage=e?.errorMessage||'图片上传失败，请重试'}finally{isSending.value=false;uploadedImage.value=null;questionType.value='text'}
 }
 
-// 获取真题
-const fetchExamPapers = async (subjectId) => {
-  loading.value.examPapers = true
-  error.value.examPapers = ''
-  try {
-    const response = await apiService.qa.getExamPapers(subjectId)
-    if (response) {
-      selectedPapers.value = response
-    }
-  } catch (err) {
-    error.value.examPapers = err.errorMessage || '获取真题失败'
-  } finally {
-    loading.value.examPapers = false
-  }
-}
+/* ========== 考研 ========== */
+const examSubjects=ref([]);const selectedExamSubject=ref('');const subjectSearchQuery=ref('');const showSubjectDropdown=ref(false)
+const keyPoints=ref([]);const selectedKeyPoint=ref(null);const selectedPapers=ref([])
+const filteredSubjects=computed(()=>{const q=subjectSearchQuery.value.toLowerCase();return q?examSubjects.value.filter(s=>s.name.toLowerCase().includes(q)):examSubjects.value})
+const fetchExamSubjects=async()=>{try{const r=await apiService.qa.getExamSubjects();if(r){examSubjects.value=r;if(r.length){selectedExamSubject.value=r[0].id;await fetchKeyPoints(r[0].id);await fetchExamPapers(r[0].id)}}}catch(e){}}
+const getSelectedSubjectName=()=>{const s=examSubjects.value.find(x=>x.id===selectedExamSubject.value);return s?s.name:'选择科目'}
+const fetchKeyPoints=async(sid)=>{try{const r=await apiService.qa.getKeyPoints(sid);if(r)keyPoints.value=r}catch(e){}}
+const fetchExamPapers=async(sid)=>{try{const r=await apiService.qa.getExamPapers(sid);if(r)selectedPapers.value=r}catch(e){}}
+const selectKeyPoint=(p)=>{selectedKeyPoint.value=p;sendQuestion('请详细讲解：'+p.name)}
+const askAiPredict=()=>sendQuestion(`请基于${getSelectedSubjectName()}的历年真题趋势，分析今年的高频考点和预测方向`)
 
-// 获取考试课程
-const fetchExamCourses = async (subjectId) => {
-  loading.value.examCourses = true
-  error.value.examCourses = ''
-  try {
-    const response = await apiService.qa.getExamCourses(subjectId)
-    if (response) {
-      examCourses.value = response
-    }
-  } catch (err) {
-    error.value.examCourses = err.errorMessage || '获取考试课程失败'
-  } finally {
-    loading.value.examCourses = false
-  }
-}
+const goHome = () => router.push('/')
 
-// 获取考试历史记录
-const fetchExamHistory = async () => {
-  loading.value.examHistory = true
-  error.value.examHistory = ''
-  try {
-    const response = await apiService.qa.getExamHistory()
-    if (response) {
-      examHistory.value = response
-    }
-  } catch (err) {
-    error.value.examHistory = err.errorMessage || '获取考试历史记录失败'
-  } finally {
-    loading.value.examHistory = false
-  }
-}
+onMounted(async () => { if(route.query.question) inputText.value=route.query.question; await fetchBooks(); await fetchExamSubjects() })
+onUnmounted(() => { closeSSE(); stopTyping() })
 
-// 考试文件上传相关
-const examFileInput = ref(null)
-// 考试上传的图片
-const examUploadedImage = ref(null)
-// 考试图片问题描述
-const examImageQuestion = ref('')
-
-// 触发考试文件上传
-const triggerExamFileUpload = () => {
-  examFileInput.value?.click()
-}
-
-// 处理考试文件选择
-const handleExamFileChange = (event) => {
-  const file = event.target.files[0]
-  if (file) {
-    // 创建图片预览
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      examUploadedImage.value = e.target.result
-    }
-    reader.readAsDataURL(file)
-  }
-}
-
-// 提交考试图片问题
-const submitExamImageQuestion = async () => {
-  if (!examUploadedImage.value) return
-  
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // 准备表单数据
-    const formData = new FormData()
-    formData.append('question', examImageQuestion.value || '基于上传的图片')
-    formData.append('subjectId', selectedExamSubject.value)
-    // 假设 examUploadedImage 是 base64 格式，需要转换为 Blob
-    if (examUploadedImage.value) {
-      const blob = await fetch(examUploadedImage.value).then(r => r.blob())
-      formData.append('image', blob, 'exam-question.jpg')
-    }
-    
-    // 调用API
-    const response = await apiService.qa.askImageQuestion(formData)
-    if (response.code === 200 && response.data) {
-      const answer = response.data.answer
-      examAnswer.value = processMathText(answer)
-      
-      // 添加到历史记录
-      examHistory.value.unshift({ 
-        question: `[图片提问] ${examImageQuestion.value || '基于上传的图片'}`, 
-        answer: answer 
-      })
-      if (examHistory.value.length > 5) {
-        examHistory.value.pop()
-      }
-    }
-  } catch (err) {
-    errorMessage.value = err.errorMessage || '提交图片问题失败'
-  } finally {
-    isLoading.value = false
-    // 清空上传的图片和问题
-    examUploadedImage.value = null
-    examImageQuestion.value = ''
-  }
-}
-
-// 删除考试上传的图片
-const deleteExamImage = () => {
-  examUploadedImage.value = null
-  examImageQuestion.value = ''
-}
-
-// 提交考点问题
-const submitExamQuestion = async () => {
-  if (!examQuestion.value.trim()) return
-  
-  isLoading.value = true
-  errorMessage.value = ''
-  
-  try {
-    // 调用API
-    const response = await apiService.qa.askQuestion({
-      question: examQuestion.value,
-      subject: selectedExamSubject.value
-    })
-    
-    if (response.code === 200 && response.data) {
-      const answer = response.data.answer
-      // 显示AI回答，使用processMathText处理数学文本
-      examAnswer.value = processMathText(answer)
-      
-      // 添加到历史记录
-      examHistory.value.unshift({ 
-        question: examQuestion.value, 
-        answer: answer 
-      })
-      if (examHistory.value.length > 10) {
-        examHistory.value.pop()
-      }
-    }
-  } catch (err) {
-    errorMessage.value = err.errorMessage || '提交问题失败'
-  } finally {
-    isLoading.value = false
-    // 清空输入
-    examQuestion.value = ''
-  }
-}
-
-// 选择考点
-const selectKeyPoint = (point) => {
-  selectedKeyPoint.value = point
-  examQuestion.value = '请详细讲解：' + point.name
-}
-
-// 选择历史记录
-const selectExamHistory = (record) => {
-  examQuestion.value = record.question
-}
-
-// 处理数学文本的函数
-const processMathText = (text) => {
-  // 去除所有空行，只保留单个换行
-  let processedText = text.replace(/\n{2,}/g, '\n')
-  
-  // 使用processAiResponse处理Markdown和数学公式
-  return processAiResponse(processedText)
-}
-
-// 格式化回答内容
-const formatAnswer = (answer) => {
-  if (!answer) return ''
-  
-  // 使用processMathText处理数学文本
-  return processMathText(answer)
-}
+const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n'))
 </script>
 
 <style scoped>
 .qa-page {
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: calc(100vh - 64px);
-}
-
-/* 页面标题 */
-.page-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin-bottom: 32px;
-  position: relative;
-}
-
-.header-left {
-  position: absolute;
-  left: 0;
-  top: 50%;
-  transform: translateY(-50%);
-}
-
-.back-home-btn {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  border: none;
-  border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
-  color: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.back-home-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-}
-
-.back-icon {
-  font-size: 16px;
-  font-weight: 600;
-}
-
-.page-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #1f2937;
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  font-size: 16px;
-  color: #6b7280;
-  margin: 0;
-  text-align: center;
-}
-
-/* 搜索框样式 */
-.search-box {
-  position: relative;
-  margin-bottom: 16px;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 40px 12px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.search-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 16px;
-  color: #9ca3af;
-  pointer-events: none;
-}
-
-/* 导航标签 */
-.tab-navigation {
-  display: flex;
-  background: white;
-  border-radius: 12px;
-  padding: 8px;
-  margin-bottom: 32px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.tab {
-  flex: 1;
-  padding: 12px 0;
-  text-align: center;
-  font-size: 16px;
-  font-weight: 500;
-  color: #6b7280;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.tab:hover {
-  color: #3b82f6;
-  background-color: #eff6ff;
-}
-
-.tab.active {
-  color: white;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* 专业课问答容器 */
-.qa-container {
-  display: grid;
-  grid-template-columns: 280px 320px 1fr;
-  gap: 20px;
-  margin-bottom: 40px;
-}
-
-/* 面板通用样式 */
-.left-panel,
-.middle-panel,
-.right-panel {
-  background: white;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.panel-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #3b82f6;
-}
-
-/* 左侧：教材选择器 */
-.book-selector {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.book-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-}
-
-.book-item:hover {
-  background-color: #f3f4f6;
-}
-
-.book-item.active {
-  background-color: #dbeafe;
-  border-left: 4px solid #3b82f6;
-  font-weight: 500;
-  color: #2563eb;
-}
-
-.book-icon {
-  flex-shrink: 0;
-}
-
-.book-cover {
-  width: 40px;
-  height: 56px;
-  background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-  border-radius: 4px;
-}
-
-.book-info {
-  flex: 1;
-}
-
-.book-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.book-list {
-  font-size: 12px;
-  color: #6b7280;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 中间：章节导航 */
-.chapter-nav {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 20px;
-}
-
-.nav-item {
-  display: flex;
-  align-items: center;
-  padding: 12px 16px;
-  border-radius: 8px;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  gap: 8px;
-}
-
-.nav-item:hover {
-  background-color: #f3f4f6;
-}
-
-.nav-item.active {
-  background-color: #dbeafe;
-  color: #2563eb;
-  font-weight: 500;
-}
-
-.nav-title {
-  font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  margin-right: 8px;
-}
-
-.nav-arrow {
-  font-size: 12px;
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-/* 子章节样式 */
-.sub-nav-item {
-  display: flex;
-  align-items: center;
-  padding: 8px 16px 8px 32px;
-  background: #f9fafb;
-  border-radius: 0 0 8px 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid #e5e7eb;
-  border-top: none;
-  margin-bottom: 4px;
-}
-
-.sub-nav-item:hover {
-  background: #f3f4f6;
-}
-
-.sub-nav-title {
-  font-size: 13px;
-  color: #374151;
-  flex: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-right: 8px;
-}
-
-.sub-nav-arrow {
-  font-size: 12px;
-  opacity: 0.7;
-  flex-shrink: 0;
-}
-
-/* 右侧：答疑区域 */
-/* 问题类型切换标签 */
-.question-type-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-}
-
-.type-tab {
-  flex: 1;
-  padding: 10px 16px;
-  text-align: center;
-  background: #f3f4f6;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #6b7280;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.type-tab:hover {
-  background: #e5e7eb;
-}
-
-.type-tab.active {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-}
-
-/* 提问区域 */
-.question-area {
-  margin-bottom: 20px;
-}
-
-/* 图片上传区域 */
-.image-upload-area {
-  margin-bottom: 20px;
-}
-
-.upload-box {
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: #f9fafb;
-}
-
-.upload-box:hover {
-  border-color: #3b82f6;
-  background: #f0f7ff;
-}
-
-.upload-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-}
-
-.upload-icon {
-  font-size: 48px;
-}
-
-.upload-text {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.uploaded-preview {
-  margin-top: 16px;
-  text-align: center;
-}
-
-.preview-container {
-  position: relative;
-  display: inline-block;
-  margin-bottom: 16px;
-}
-
-.preview-image {
-  max-width: 100%;
-  max-height: 200px;
-  border-radius: 8px;
-  display: block;
-}
-
-.delete-btn {
-  position: absolute;
-  top: -10px;
-  right: -10px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: rgba(255, 0, 0, 0.8);
-  color: white;
-  border: none;
-  font-size: 16px;
-  font-weight: bold;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-  transition: all 0.2s ease;
-}
-
-.delete-btn:hover {
-  background: rgba(255, 0, 0, 1);
-  transform: scale(1.1);
-}
-
-.exam-preview-image {
-  max-width: 100%;
-  max-height: 150px;
-  border-radius: 6px;
-  display: block;
-  margin-bottom: 12px;
-}
-
-.image-question-input {
-  margin-bottom: 16px;
-  width: 100%;
-}
-
-.exam-uploaded-preview {
-  margin-top: 16px;
-  text-align: center;
-}
-
-.exam-preview-image {
-  max-width: 100%;
-  max-height: 150px;
-  border-radius: 6px;
-  margin-bottom: 12px;
-}
-
-.exam-image-question-input {
-  margin-bottom: 12px;
-  width: 100%;
-}
-
-.question-input {
-  width: 100%;
-  padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  resize: none;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  margin-bottom: 12px;
-}
-
-.question-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.submit-btn {
-  width: 100%;
-  padding: 10px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* AI回答区域 */
-.answer-area {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  margin-bottom: 20px;
-  max-height: 300px;
-  overflow-y: auto;
-}
-
-/* Markdown渲染样式 */
-.processed-content {
-  line-height: 1.15;
-}
-
-.processed-content h1,
-.processed-content h2,
-.processed-content h3,
-.processed-content h4,
-.processed-content h5,
-.processed-content h6 {
-  margin: 0.3em 0 0.1em 0;
-  font-weight: 600;
-  line-height: 1.1;
-}
-
-.processed-content h1 {
-  font-size: 1.6em;
-  border-bottom: 2px solid #e5e7eb;
-  padding-bottom: 0.2em;
-}
-
-.processed-content h2 {
-  font-size: 1.4em;
-  border-bottom: 1px solid #e5e7eb;
-  padding-bottom: 0.1em;
-}
-
-.processed-content h3 {
-  font-size: 1.2em;
-}
-
-.processed-content h4 {
-  font-size: 1.1em;
-}
-
-.processed-content h5,
-.processed-content h6 {
-  font-size: 1em;
-}
-
-.processed-content p {
-  margin: 0.1em 0;
-}
-
-.processed-content ul,
-.processed-content ol {
-  margin: 0.1em 0;
-  padding-left: 2em;
-}
-
-.processed-content li {
-  margin: 0.05em 0;
-}
-
-.processed-content a {
-  color: #3b82f6;
-  text-decoration: none;
-}
-
-.processed-content a:hover {
-  text-decoration: underline;
-}
-
-.processed-content blockquote {
-  border-left: 4px solid #e5e7eb;
-  padding-left: 1em;
-  margin: 0.1em 0;
-  color: #6b7280;
-  font-style: italic;
-}
-
-/* 代码块样式 */
-.processed-content pre {
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 1em;
-  overflow-x: auto;
-  margin: 0.1em 0;
-}
-
-.processed-content code {
-  font-family: 'Courier New', Courier, monospace;
-  font-size: 0.9em;
-}
-
-.processed-content pre code {
-  background: none;
-  padding: 0;
-}
-
-/* 数学公式样式 */
-.processed-content .katex {
-  font-size: 1.1em;
-}
-
-.processed-content .katex-display {
-  margin: 0.3em 0;
-  text-align: center;
-}
-
-.answer-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
-  background: #f9fafb;
-  z-index: 1;
-}
-
-.answer-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.connection-status {
-  font-size: 12px;
-  padding: 4px 8px;
-  border-radius: 12px;
-  font-weight: 500;
-}
-
-.connection-status.connecting {
-  background: #fef3c7;
-  color: #d97706;
-}
-
-.connection-status.connected {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.connection-status.error {
-  background: #fee2e2;
-  color: #b91c1c;
-}
-
-.connection-status.idle {
-  background: #e5e7eb;
-  color: #6b7280;
-}
-
-.knowledge-graph {
-  font-size: 14px;
-  color: #3b82f6;
-  font-weight: 500;
-  cursor: pointer;
-}
-
-.answer-content {
-  display: flex;
-  gap: 12px;
-}
-
-.ai-avatar {
-  flex-shrink: 0;
-}
-
-.answer-content .avatar-placeholder {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.answer-text {
-  flex: 1;
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.15;
-  white-space: pre-wrap;
-}
-
-.loading-indicator {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 40px;
-  color: #6b7280;
-  font-size: 16px;
-}
-
-.loading-spinner {
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(59, 130, 246, 0.2);
-  border-radius: 50%;
-  border-top-color: #3b82f6;
-  animation: spin 1.5s linear infinite;
-}
-
-.loading-text {
-  font-weight: 500;
-  color: #4b5563;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-/* 增强视觉设计 */
-.answer-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.answer-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
-}
-
-.answer-content {
-  display: flex;
-  gap: 16px;
-  padding: 24px;
-  background-color: #f9fafb;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-}
-
-.answer-content:hover {
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-.ai-avatar {
-  flex-shrink: 0;
-}
-
-.avatar-placeholder {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 18px;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-}
-
-.answer-text {
-  flex: 1;
-  min-height: 120px;
-  font-size: 16px;
-  line-height: 1.15;
-  color: #374151;
-}
-
-.error-message {
-  color: #b91c1c;
-  background: #fee2e2;
-  padding: 16px;
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-left: 4px solid #ef4444;
-}
-
-.retry-btn {
-  padding: 8px 16px;
-  background-color: #ef4444;
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: background-color 0.3s ease;
-}
-
-.retry-btn:hover {
-  background-color: #dc2626;
-}
-
-.typing-content {
-  position: relative;
-  min-height: 80px;
-}
-
-.typing-cursor {
-  display: inline-block;
-  width: 2px;
-  height: 1.2em;
-  background-color: #374151;
-  animation: blink 1s infinite;
-  margin-left: 2px;
-  vertical-align: text-bottom;
-}
-
-@keyframes blink {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0;
-  }
-}
-
-.answer-controls {
-  display: flex;
-  gap: 8px;
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.control-btn {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
-  color: #374151;
-}
-
-.control-btn:hover:not(:disabled) {
-  background: #f3f4f6;
-  border-color: #d1d5db;
-}
-
-.control-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.control-btn:nth-child(2) {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-.control-btn:nth-child(2):hover:not(:disabled) {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
-
-/* 历史问题 */
-.history-section {
-  background: #f3f4f6;
-  border-radius: 12px;
-  padding: 16px;
-  max-height: 200px;
-  overflow-y: auto;
-  height: 200px;
-}
-
-.history-title {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 12px;
-}
-
-.history-item {
-  padding: 12px;
-  background: white;
-  border-radius: 8px;
-  margin-bottom: 12px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid #e5e7eb;
-}
-
-.history-item:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-}
-
-.history-question {
-  font-size: 13px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 6px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: block;
-  width: 100%;
-}
-
-.history-answer {
-  font-size: 12px;
-  color: #6b7280;
-  line-height: 1.2;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 底部：网课推荐 */
-.course-recommendation {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.recommendation-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 20px;
-  text-align: center;
-}
-
-.course-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.course-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-  background: #f9fafb;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-}
-
-.course-item:hover {
-  background: #f3f4f6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.course-link-icon {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-size: 16px;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
-}
-
-.course-item:hover .course-link-icon {
-  opacity: 1;
-}
-
-.course-avatar {
-  flex-shrink: 0;
-}
-
-.avatar-placeholder {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 18px;
-  font-weight: 600;
-}
-
-.course-info {
-  flex: 1;
-}
-
-.course-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 4px;
-}
-
-.course-desc {
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 8px;
-}
-
-.course-code {
-  font-size: 12px;
-  color: #3b82f6;
-  font-weight: 500;
-}
-
-/* 其他标签页占位 */
-.tab-content {
-  background: white;
-  border-radius: 16px;
-  padding: 100px 20px;
-  text-align: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.placeholder {
-  font-size: 18px;
-  color: #6b7280;
-  font-weight: 500;
-}
-
-/* ==================== 考研/考证问答页面样式 ==================== */
-.exam-qa-page {
-  padding: 20px;
-}
-
-.exam-qa-container {
-  display: grid;
-  grid-template-columns: 300px 1fr 280px;
-  gap: 24px;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 20px;
-}
-
-/* 面板通用样式 */
-.exam-panel {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  margin-bottom: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.exam-panel-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 16px;
-}
-
-/* 左侧栏 - 考试科目选择 */
-.exam-subject-select {
-  margin-bottom: 12px;
-}
-
-.subject-dropdown {
-  width: 100%;
-  padding: 10px 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  background: white;
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 12px center;
-  padding-right: 32px;
-}
-
-.subject-dropdown:focus {
-  outline: none;
-  border-color: #3b82f6;
-}
-
-.exam-subject-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.exam-subject-item {
-  padding: 12px 16px;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #374151;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-.exam-subject-item:hover {
-  background: #f3f4f6;
-}
-
-.exam-subject-item.active {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border-color: #3b82f6;
-}
-
-/* 搜索able下拉框样式 */
-.searchable-select {
-  position: relative;
-  width: 100%;
-  z-index: 100;
-}
-
-.select-search-input {
-  width: 100%;
-  padding: 10px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  margin-bottom: 8px;
-}
-
-.select-search-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.select-dropdown {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  width: 100%;
-  max-height: 200px;
-  overflow-y: auto;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  margin-top: 4px;
-}
-
-.select-option {
-  padding: 10px 16px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  color: #374151;
-}
-
-.select-option:hover {
-  background-color: #f3f4f6;
-  color: #3b82f6;
-}
-
-.select-option.active {
-  background-color: #3b82f6;
-  color: white;
-  font-weight: 500;
-}
-
-.select-display {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: white;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  color: #374151;
-}
-
-.select-display:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
-}
-
-.select-arrow {
-  font-size: 12px;
-  color: #6b7280;
-  transition: all 0.3s ease;
-}
-
-.select-display:hover .select-arrow {
-  color: #3b82f6;
-  transform: rotate(180deg);
-}
-
-/* 自定义滚动条 */
-.select-dropdown::-webkit-scrollbar,
-.history-section::-webkit-scrollbar,
-.exam-history-list::-webkit-scrollbar,
-.answer-area::-webkit-scrollbar,
-.exam-answer-content::-webkit-scrollbar,
-.exam-papers-container::-webkit-scrollbar,
-.exam-courses-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.select-dropdown::-webkit-scrollbar-track,
-.history-section::-webkit-scrollbar-track,
-.exam-history-list::-webkit-scrollbar-track,
-.answer-area::-webkit-scrollbar-track,
-.exam-answer-content::-webkit-scrollbar-track,
-.exam-papers-container::-webkit-scrollbar-track,
-.exam-courses-list::-webkit-scrollbar-track {
-  background: #f8fafc;
-  border-radius: 10px;
-}
-
-.select-dropdown::-webkit-scrollbar-thumb,
-.history-section::-webkit-scrollbar-thumb,
-.exam-history-list::-webkit-scrollbar-thumb,
-.answer-area::-webkit-scrollbar-thumb,
-.exam-answer-content::-webkit-scrollbar-thumb,
-.exam-papers-container::-webkit-scrollbar-thumb,
-.exam-courses-list::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 10px;
-  transition: all 0.3s ease;
-}
-
-.select-dropdown::-webkit-scrollbar-thumb:hover,
-.history-section::-webkit-scrollbar-thumb:hover,
-.exam-history-list::-webkit-scrollbar-thumb:hover,
-.answer-area::-webkit-scrollbar-thumb:hover,
-.exam-answer-content::-webkit-scrollbar-thumb:hover,
-.exam-papers-container::-webkit-scrollbar-thumb:hover,
-.exam-courses-list::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
-  transform: scaleX(1.1);
-}
-
-/* 隐藏滚动条但保留滚动功能 */
-.select-dropdown,
-.history-section,
-.exam-history-list,
-.answer-area,
-.exam-answer-content,
-.exam-papers-container,
-.exam-courses-list {
-  scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 #f8fafc;
-}
-
-/* 高频考点 */
-.exam-keypoints-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.exam-keypoint-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-}
-
-.exam-keypoint-item:hover {
-  background: #f3f4f6;
-}
-
-.exam-keypoint-item.highlight {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: 1px solid #3b82f6;
-}
-
-.exam-keypoint-item.highlight .keypoint-name {
-  color: white;
-  font-weight: 600;
-}
-
-.exam-keypoint-item.highlight .keypoint-label {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.keypoint-label {
-  color: #6b7280;
-  font-size: 13px;
-}
-
-.keypoint-name {
-  color: #374151;
-}
-
-/* 中间栏 - 考点提问区 */
-.exam-question-area {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 16px;
-}
-
-.exam-question-input {
-  flex: 1;
-  padding: 12px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  min-width: 400px;
-}
-
-.exam-question-input:focus {
-  outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-.exam-submit-btn {
-  padding: 12px 24px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  white-space: nowrap;
-}
-
-.exam-submit-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.exam-question-display {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  margin-top: 16px;
-}
-
-.exam-question-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 12px;
-}
-
-.exam-answer-content {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  height: 300px;
-  overflow-y: auto;
-}
-
-.ai-answer-box {
-  background: white;
-  border-radius: 8px;
-  padding: 16px;
-  border: 1px solid #e5e7eb;
-}
-
-.ai-answer-header {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 16px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.ai-avatar {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 14px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.ai-label {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.ai-answer-text {
-  font-size: 14px;
-  color: #374151;
-  line-height: 1.15;
-}
-
-.ai-answer-text p {
-  margin-bottom: 4px;
-}
-
-.ai-answer-text ul {
-  padding-left: 20px;
-  margin: 0;
-}
-
-.ai-answer-text li {
-  margin-bottom: 2px;
-}
-
-.ai-answer-text li:last-child {
-  margin-bottom: 0;
-}
-
-/* AI真题解析区 */
-.exam-paper-item {
-  background: #f9fafb;
-  border-radius: 12px;
-  padding: 16px;
-  transition: all 0.3s ease;
-}
-
-.exam-paper-item:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
-
-.paper-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 12px;
-}
-
-.paper-content {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.paper-image {
-  width: 80px;
-  height: 80px;
-  border-radius: 8px;
-  overflow: hidden;
-  flex-shrink: 0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.paper-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.3s ease;
-}
-
-.paper-image:hover img {
-  transform: scale(1.05);
-}
-
-.paper-info {
-  flex: 1;
-}
-
-.paper-name {
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 8px;
-}
-
-.paper-tags {
-  display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.paper-tag {
-  padding: 4px 12px;
-  background: white;
-  border-radius: 20px;
-  font-size: 12px;
-  color: #6b7280;
-  border: 1px solid #e5e7eb;
-  transition: all 0.3s ease;
-}
-
-.paper-tag:hover {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
-}
-
-/* 真题推荐容器 */
-.exam-papers-container {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 400px;
-  overflow-y: auto;
-}
-
-/* 网课推荐 */
-.exam-courses-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  height: 350px;
-  overflow-y: auto;
-}
-
-.exam-course-item {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  padding: 16px;
-  border-radius: 12px;
-  background: #f9fafb;
-  transition: all 0.3s ease;
-  cursor: pointer;
-  position: relative;
-  border: 1px solid #e5e7eb;
-}
-
-.exam-course-item:hover {
-  background: #f3f4f6;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-color: #d1d5db;
-}
-
-.exam-course-item .course-link-icon {
-  position: absolute;
-  top: 12px;
-  right: 12px;
-  font-size: 16px;
-  opacity: 0.6;
-  transition: opacity 0.3s ease;
-}
-
-.exam-course-item:hover .course-link-icon {
-  opacity: 1;
-}
-
-.exam-course-item .course-avatar {
-  flex-shrink: 0;
-}
-
-.exam-course-item .avatar-placeholder {
-  width: 48px;
-  height: 48px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-size: 18px;
-  font-weight: 600;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
-}
-
-.exam-course-item .course-info {
-  flex: 1;
-}
-
-.exam-course-item .course-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.exam-course-item .course-desc {
-  font-size: 14px;
-  color: #6b7280;
-  margin-bottom: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.exam-course-item .course-code {
-  font-size: 12px;
-  color: #3b82f6;
-  font-weight: 500;
-}
-
-/* 右侧栏 - 图片上传 */
-.exam-upload-area {
-  border: 2px dashed #d1d5db;
-  border-radius: 12px;
-  padding: 40px 20px;
-  text-align: center;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  background: #f9fafb;
-  margin-bottom: 12px;
-}
-
-.exam-upload-area:hover {
-  border-color: #3b82f6;
-  background: #f0f7ff;
-}
-
-.exam-upload-text {
-  font-size: 14px;
-  color: #6b7280;
-}
-
-.exam-upload-btn {
-  width: 100%;
-  padding: 12px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.exam-upload-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-/* 备考答疑历史记录 */
-.exam-history-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  height: 600px;
-  overflow-y: auto;
-}
-
-.exam-history-item {
-  padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  border: 1px solid transparent;
-}
-
-.exam-history-item:hover {
-  background: #f3f4f6;
-  border-color: #e5e7eb;
-}
-
-.exam-history-question {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
-  margin-bottom: 6px;
-}
-
-.exam-history-answer {
-  font-size: 13px;
-  color: #6b7280;
-  line-height: 1.2;
-}
-
-/* 响应式设计 - 考研考证页面 */
-@media (max-width: 1200px) {
-  .exam-qa-container {
-    grid-template-columns: 260px 1fr;
-  }
-  
-  .exam-right-column {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 20px;
-  }
-  
-  .exam-right-column .exam-panel {
-    margin-bottom: 0;
-  }
-}
-
-@media (max-width: 768px) {
-  .exam-qa-container {
-    grid-template-columns: 1fr;
-  }
-  
-  .exam-right-column {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* 响应式设计 */
-@media (max-width: 1200px) {
-  .qa-container {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "left middle"
-      "right right";
-  }
-  
-  .left-panel {
-    grid-area: left;
-  }
-  
-  .middle-panel {
-    grid-area: middle;
-  }
-  
-  .right-panel {
-    grid-area: right;
-  }
-}
-
-@media (max-width: 768px) {
-  .qa-container {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "left"
-      "middle"
-      "right";
-  }
-  
-  .tab-navigation {
-    flex-direction: column;
-    gap: 4px;
-  }
-  
-  .tab {
-    padding: 10px 0;
-  }
-  
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 16px;
-  }
-  
-  .header-left {
-    position: relative;
-    top: 0;
-    left: 0;
-    transform: none;
-  }
-  
-  .page-title {
-    font-size: 24px;
-  }
-  
-  .subtitle {
-    text-align: left;
-  }
+  --c: #7c5cfc; --c2: #a78bfa; --c3: #c4b5fd;
+  --border: rgba(220,210,245,.5); --border2: rgba(200,185,240,.4);
+  --text: #2d2438; --text2: #5b4a8a; --text3: #9088a0;
+  height: calc(100vh - 60px);
+  display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(175deg, #fffdfd 0%, #f9f6ff 34%, #f8fafd 64%, #fdfaff 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
+  color: var(--text); position: relative;
+}
+.qp-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  background-image: radial-gradient(circle at 8% 12%, rgba(167,139,250,.10), transparent 26%), radial-gradient(circle at 92% 75%, rgba(124,92,252,.06), transparent 28%);
+}
+
+/* ===== 顶部栏 ===== */
+.qa-header { display: flex; align-items: center; gap: 14px; padding: 0 20px; height: 52px; flex-shrink: 0; background: rgba(255,255,255,.82); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); position: relative; z-index: 10; }
+.qah-back { width: 32px; height: 32px; border-radius: 8px; border: 1.5px solid var(--border2); background: rgba(255,255,255,.5); color: var(--text2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .2s; flex-shrink: 0; }
+.qah-back:hover { background: #f5f0ff; border-color: var(--c2); color: var(--c); }
+.qah-info { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; }
+.qahi-icon { font-size: 18px; flex-shrink: 0; }
+.qahi-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.qahi-title { font-size: 14px; font-weight: 700; color: var(--text); }
+.qahi-sub { font-size: 11px; color: var(--text3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qahi-badge { font-size: 10px; padding: 2px 8px; border-radius: 8px; background: #ede4fe; color: var(--c); font-weight: 600; flex-shrink: 0; margin-left: auto; }
+.qah-stats { display: flex; align-items: center; gap: 12px; flex-shrink: 0; font-size: 11px; color: var(--text3); }
+
+.qa-body { flex: 1; display: flex; min-height: 0; overflow: hidden; position: relative; z-index: 1; }
+
+/* ===== 左侧栏 ===== */
+.qa-sidebar { width: 320px; min-width: 320px; max-width: 320px; flex: 0 0 320px; position: relative; border-right: 1px solid var(--border); transition: width .35s cubic-bezier(.4,0,.2,1), min-width .35s, max-width .35s; z-index: 2; overflow: visible; }
+.qa-sidebar.collapsed { width: 0; min-width: 0; max-width: 0; flex: 0 0 0; border-right-color: transparent; }
+.qas-scroll { width: 320px; min-width: 320px; height: 100%; overflow-y: auto; overflow-x: hidden; padding: 12px 14px 16px; background: rgba(255,255,255,.65); backdrop-filter: blur(14px); transition: transform .35s cubic-bezier(.4,0,.2,1), opacity .35s; }
+.qa-sidebar.collapsed .qas-scroll { transform: translateX(-320px); opacity: 0; pointer-events: none; }
+
+.qas-toggle { position: absolute; right: -18px; top: 50%; transform: translateY(-50%); width: 22px; height: 44px; border-radius: 7px; border: 1px solid var(--border); background: rgba(255,255,255,.95); color: var(--text3); cursor: pointer; display: flex; align-items: center; justify-content: center; z-index: 10; padding: 0; transition: background .2s, color .2s; box-shadow: 0 2px 8px rgba(120,100,180,.08); }
+.qas-toggle:hover { color: var(--c); background: #fff; }
+.qas-toggle svg { transition: transform .35s cubic-bezier(.4,0,.2,1); }
+.qas-toggle svg.rotated { transform: rotate(180deg); }
+
+.qas-mode { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.qasm-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid transparent; cursor: pointer; background: rgba(248,246,255,.6); font-family: inherit; transition: all .2s; text-align: left; }
+.qasm-btn:hover { background: #f5f0ff; border-color: var(--c3); }
+.qasm-btn.active { background: #ede4fe; border-color: var(--c); box-shadow: 0 0 0 2px rgba(124,92,252,.06); }
+.qasm-icon { font-size: 20px; flex-shrink: 0; }
+.qasm-text { display: flex; flex-direction: column; gap: 1px; }
+.qasm-label { font-size: 13px; font-weight: 700; color: var(--text); }
+.qasm-btn.active .qasm-label { color: var(--c); }
+.qasm-desc { font-size: 10px; color: var(--text3); }
+
+.qas-resource { background: linear-gradient(135deg,#f8f4ff,#fdfaff); border:1.5px solid var(--border); border-radius:10px; padding:12px 14px; margin-bottom:14px; }
+.qasr-head { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);margin-bottom:8px; }
+.qasr-body { display:flex;align-items:center;gap:10px; }
+.qasr-emoji { font-size:28px;flex-shrink:0; }
+.qasr-info { flex:1;min-width:0; }
+.qasr-name { font-size:13px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.qasr-extra { font-size:11px;color:var(--text3);margin-top:2px; }
+
+.qas-search { display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;margin-bottom:10px;background:rgba(248,246,255,.7);border:1.5px solid var(--border2);transition:all .2s; }
+.qas-search:focus-within { border-color:var(--c);background:#fff;box-shadow:0 0 0 3px rgba(124,92,252,.05); }
+.qas-search svg { color:var(--text3);flex-shrink:0; }
+.qas-search input { flex:1;border:none;outline:none;background:transparent;font-size:12px;color:var(--text);font-family:inherit; }
+.qas-search input::placeholder { color:#b0a8c0; }
+
+/* 搜索入口 */
+.qas-search-wrap { margin-bottom: 10px; }
+.qas-search-wrap .qas-search { cursor: pointer; }
+.qas-search-placeholder { font-size: 12px; color: #b0a8c0; flex: 1; }
+
+/* 上下文栏 */
+.qas-ctx { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;margin-bottom:8px;background:linear-gradient(135deg,rgba(124,92,252,.08),rgba(167,139,250,.04));border:1.5px solid rgba(167,139,250,.18);animation:ctxIn .3s ease-out; }
+@keyframes ctxIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
+.qas-ctx-left { display:flex;align-items:center;gap:9px;flex:1;min-width:0; }
+.qas-ctx-icon { font-size:20px; }
+.qas-ctx-info { display:flex;flex-direction:column;gap:0;min-width:0; }
+.qas-ctx-name { font-size:12px;font-weight:700;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.qas-ctx-pub { font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.qas-ctx-actions { display:flex;gap:6px;flex-shrink:0; }
+.qas-ctx-switch { font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(167,139,250,.2);background:rgba(255,255,255,.6);color:var(--c);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit; }
+.qas-ctx-switch:hover { background:rgba(124,92,252,.08);border-color:var(--c2); }
+.qas-ctx-clear { font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(200,185,240,.25);background:rgba(255,255,255,.4);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit; }
+.qas-ctx-clear:hover { background:rgba(255,200,200,.25);border-color:#f87171;color:#ef4444; }
+
+/* 教材选择浮层 */
+.qas-panel-overlay { position:fixed;inset:0;z-index:2000;background:rgba(20,16,40,.08);display:flex;align-items:flex-start;justify-content:flex-start;padding:172px 0 0 24px;animation:qaspoIn .15s ease-out; }
+@keyframes qaspoIn { from{opacity:0} to{opacity:1} }
+
+.qas-panel { width:420px;max-height:440px;border-radius:20px;background:rgba(255,255,255,.86);backdrop-filter:blur(22px);-webkit-backdrop-filter:blur(22px);border:1px solid rgba(255,255,255,.55);box-shadow:0 20px 60px rgba(90,60,180,.18),0 4px 12px rgba(0,0,0,.05),0 0 0 1px rgba(255,255,255,.4) inset;display:flex;flex-direction:column;overflow:hidden;animation:qaspIn .2s cubic-bezier(.16,1,.3,1); }
+@keyframes qaspIn { from{opacity:0;transform:translateY(-8px) scale(.97)} to{opacity:1;transform:translateY(0) scale(1)} }
+
+.qas-panel-bar { display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(200,185,240,.12); }
+.qas-panel-bar svg { color:var(--c2);flex-shrink:0; }
+.qas-panel-input { flex:1;border:none;outline:none;background:none;font-size:14px;font-family:inherit;color:var(--text); }
+.qas-panel-input::placeholder { color:#b0a8c0; }
+.qas-panel-esc { font-size:9px;font-weight:600;color:#b0a8c0;padding:2px 7px;border-radius:4px;border:1px solid rgba(200,185,240,.2); }
+
+.qas-panel-body { flex:1;overflow-y:auto;padding:6px 12px 14px; }
+.qas-panel-body::-webkit-scrollbar { width:3px; }
+.qas-panel-body::-webkit-scrollbar-thumb { background:rgba(180,165,220,.2);border-radius:3px; }
+
+.qas-panel-sec { padding:4px 2px; }
+.qas-panel-sec + .qas-panel-sec { border-top:1px solid rgba(200,190,230,.08);margin-top:4px;padding-top:10px; }
+
+.qas-panel-sec-head { font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;padding:4px 6px 6px; }
+.qas-panel-count { font-size:9px;padding:1px 6px;border-radius:5px;background:rgba(124,92,252,.07);color:var(--c); }
+
+.qas-panel-chips { display:flex;gap:6px;flex-wrap:wrap;padding:0 4px; }
+.qas-panel-chip { padding:5px 12px;border-radius:8px;border:1px solid rgba(200,185,240,.2);background:rgba(255,255,255,.5);font-size:11px;font-family:inherit;color:var(--text2);cursor:pointer;transition:all .15s; }
+.qas-panel-chip:hover { border-color:var(--c2);background:rgba(255,255,255,.8);transform:translateY(-1px); }
+
+.qas-panel-item { display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:9px;border:none;background:transparent;cursor:pointer;font-family:inherit;transition:all .15s;text-align:left;animation:qaspiIn .25s ease-out both; }
+@keyframes qaspiIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
+.qas-panel-item:hover { background:rgba(245,240,255,.6); }
+.qas-panel-item.on { background:rgba(124,92,252,.05);border:1px solid rgba(167,139,250,.2); }
+
+.qas-panel-item-cover { width:30px;height:40px;border-radius:4px;flex-shrink:0;background:linear-gradient(140deg,#ede4fe,#ddd2f8);display:flex;align-items:center;justify-content:center;font-size:16px; }
+
+.qas-panel-item-info { flex:1;min-width:0;display:flex;flex-direction:column;gap:1px; }
+.qas-panel-item-name { font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+.qas-panel-item-meta { font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+
+.qas-panel-item-ctx { font-size:9px;font-weight:700;color:var(--c);padding:2px 7px;border-radius:6px;background:rgba(124,92,252,.07);flex-shrink:0; }
+.qas-panel-item-pct { font-size:10px;font-weight:700;color:#7c3aed;padding:2px 6px;border-radius:6px;background:rgba(167,139,250,.07);flex-shrink:0; }
+
+.qas-panel-empty { text-align:center;padding:20px;font-size:12px;color:var(--text3); }
+
+.qas-label { font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--text3);padding:6px 2px; }
+.qas-skel { display:flex;flex-direction:column;gap:8px; }
+.qass-item { height:60px;border-radius:10px;background:rgba(200,185,240,.12);animation:shimmer 1.6s ease-in-out infinite; }
+@keyframes shimmer { 0%,100%{opacity:.4} 50%{opacity:.8} }
+.qas-empty { font-size:12px;color:var(--text3);text-align:center;padding:20px; }
+.qas-books { display:flex;flex-direction:column;gap:5px; }
+.qasb-card { display:flex;gap:10px;padding:9px 10px;border-radius:10px;cursor:pointer;transition:all .2s;border:1.5px solid transparent; }
+.qasb-card:hover { background:#faf8ff;border-color:var(--c3);transform:translateY(-1px);box-shadow:0 2px 16px rgba(120,100,180,.05); }
+.qasb-card.active { background:#f3edfc;border-color:var(--c); }
+.qasb-cover { width:36px;height:48px;border-radius:4px;flex-shrink:0;background:linear-gradient(140deg,#ede4fe,#ddd2f8);display:flex;align-items:center;justify-content:center;font-size:18px; }
+.qasb-info { flex:1;min-width:0;display:flex;flex-direction:column;gap:2px; }
+.qasb-name { font-size:12px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis; }
+.qasb-author { font-size:10px;color:var(--text3); }
+.qasb-bar { height:2px;background:#f0ecf8;border-radius:10px;overflow:hidden;margin-top:2px; }
+.qasb-fill { height:100%;border-radius:10px;background:linear-gradient(90deg,var(--c2),var(--c));transition:width .6s; }
+.qas-chapters { margin-top:4px; }
+.qasch-head { display:flex;align-items:center;gap:6px;padding:4px;border-radius:6px;cursor:pointer;font-size:11px;color:var(--text2);transition:all .15s; }
+.qasch-head:hover { background:#f5f0ff; }
+.qasch-arrow { color:var(--text3);transition:transform .2s;flex-shrink:0; }
+.qasch-arrow.open { transform:rotate(90deg); }
+.qasch-num { font-size:9px;color:var(--text3);margin-left:auto;background:#f5f0ff;padding:1px 6px;border-radius:6px; }
+.qasch-sub { margin-left:16px; }
+.qasch-sub-item { padding:3px 6px;font-size:11px;color:var(--text3);cursor:pointer;border-radius:5px;transition:all .12s; }
+.qasch-sub-item:hover { background:#f5f0ff;color:var(--c); }
+
+.qas-related { margin-top:8px; }
+.qas-related .qasb-card { padding:6px 8px;border-radius:8px; }
+.qas-drop { position:absolute;z-index:50;background:#fff;border:1.5px solid var(--border2);border-radius:10px;max-height:150px;overflow-y:auto;margin-top:-6px;box-shadow:0 8px 32px rgba(120,100,180,.08);left:14px;right:14px; }
+.qasd-opt { padding:8px 12px;font-size:12px;cursor:pointer;transition:background .12s; }
+.qasd-opt:hover { background:#f5f0ff; }
+.qasd-opt.active { background:#ede4fe;color:var(--c);font-weight:600; }
+.qas-kp { display:flex;flex-direction:column;gap:3px; }
+.qask-item { display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:7px;cursor:pointer;transition:all .15s;font-size:11px;color:var(--text2); }
+.qask-item:hover { background:#f5f0ff; }
+.qask-item.active { background:#ede4fe;color:var(--c);font-weight:600; }
+.qask-rank { width:18px;height:18px;border-radius:50%;background:#ede4fe;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:var(--c);flex-shrink:0; }
+.qas-papers { display:flex;flex-direction:column;gap:3px; }
+.qasp-item { display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;font-size:11px;color:var(--text2); }
+.qasp-year { padding:2px 7px;border-radius:4px;background:#ede4fe;font-size:10px;font-weight:700;color:var(--c); }
+.qas-predict { display:flex;align-items:center;gap:10px;padding:11px 12px;margin-top:8px;border-radius:10px;cursor:pointer;transition:all .25s;background:linear-gradient(135deg,#f8f4ff,#fdfaff);border:1.5px solid var(--c3); }
+.qas-predict:hover { transform:translateY(-1px);box-shadow:0 8px 32px rgba(120,100,180,.08);border-color:var(--c); }
+.qaspd-icon { font-size:22px;flex-shrink:0; }
+.qaspd-info { flex:1;font-size:12px;font-weight:600;color:var(--text); }
+.qaspd-info div:last-child { font-size:10px;color:var(--text3);margin-top:1px;font-weight:400; }
+
+/* ===== 历史对话 ===== */
+.qas-history { margin-top: 16px; }
+.qash-head { display: flex; align-items: center; justify-content: space-between; }
+.qash-new-btn { padding: 4px 10px; border-radius: 14px; border: 1.5px solid var(--c3); background: #fff; color: var(--c); font-size: 11px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s; }
+.qash-new-btn:hover { background: #ede4fe; }
+.qash-list { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.qash-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 8px; cursor: pointer; transition: all .15s; border: 1.5px solid transparent; }
+.qash-item:hover { background: #f5f0ff; }
+.qash-item.active { background: #ede4fe; border-color: var(--c); }
+.qashi-icon { font-size: 16px; flex-shrink: 0; }
+.qashi-info { flex: 1; min-width: 0; }
+.qashi-title { font-size: 12px; font-weight: 600; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.qashi-meta { font-size: 10px; color: var(--text3); margin-top: 2px; }
+.qashi-del { width: 22px; height: 22px; border-radius: 50%; border: none; background: transparent; color: var(--text3); cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0; transition: all .15s; }
+.qash-item:hover .qashi-del { opacity: 1; }
+.qashi-del:hover { background: #fee2e2; color: #ef4444; }
+
+.qas-new-session-btn { width: 100%; margin-top: 12px; padding: 8px; border-radius: 10px; border: 1.5px dashed var(--border2); background: transparent; color: var(--c); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s; }
+.qas-new-session-btn:hover { background: #f5f0ff; border-color: var(--c); }
+
+/* ===== 主聊天区 ===== */
+.qa-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; }
+.qam-messages { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 32px 48px 24px; display: flex; flex-direction: column; gap: 20px; }
+
+.qam-empty { max-width: 640px; margin: 0 auto; width: 100%; padding: 24px 0 40px; }
+.qame-hero { text-align: center; padding: 24px 0; }
+.qame-avatar { width: 64px; height: 64px; margin: 0 auto 14px; display: flex; align-items: center; justify-content: center; }
+.qame-avatar > span { font-size: 40px; animation: float 3s ease-in-out infinite; }
+@keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+.qame-hero h2 { font-size: 22px; font-weight: 800; color: var(--text); margin: 0; letter-spacing: -.3px; }
+.qame-hero p { font-size: 13px; color: var(--text3); margin: 6px 0 0; }
+.qame-label { font-size: 12px; font-weight: 700; color: var(--text2); margin: 16px 0 8px; }
+.qame-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.qamec-card { padding: 15px 17px; border-radius: 14px; cursor: pointer; background: rgba(255,255,255,.72); border: 1.5px solid rgba(220,210,245,.35); transition: all .25s; }
+.qamec-card:hover { border-color: var(--c3); background: #fcfaff; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(124,92,252,.08); }
+.qamec-icon { font-size: 18px; margin-bottom: 6px; display: block; }
+.qamec-text { font-size: 13px; font-weight: 600; color: var(--text); }
+.qamec-tag { margin-top: 6px; font-size: 10px; color: var(--c); background: #ede4fe; padding: 2px 8px; border-radius: 8px; display: inline-block; }
+.qame-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.qamec-chip { padding: 7px 14px; border-radius: 16px; font-size: 12px; background: rgba(248,246,255,.8); border: 1.5px solid rgba(200,185,240,.3); color: var(--text2); cursor: pointer; transition: all .2s; }
+.qamec-chip:hover { border-color: var(--c2); background: #f5f0ff; color: var(--c); }
+
+/* ── 消息 ── */
+.qam-row { display: flex; width: 100%; min-width: 0; }
+.qam-row.user { justify-content: flex-end; }
+.qam-row.assistant { justify-content: flex-start; align-items: flex-start; gap: 12px; }
+.qam-bubble { max-width: min(680px, 72%); min-width: 80px; padding: 14px 18px; border-radius: 18px; line-height: 1.7; word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 14px; }
+.qam-bubble.user { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; border-radius: 18px 18px 4px 18px; }
+.qam-bubble.ai { background: #fff; color: #1f2937; border: 1px solid #ebe4ff; border-radius: 18px 18px 18px 4px; box-shadow: 0 8px 24px rgba(124,92,252,.08); }
+.qam-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #7c5cfc, #a78bfa); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.qam-ai-wrap { display: flex; flex-direction: column; gap: 8px; max-width: min(680px, 72%); min-width: 0; }
+
+.qam-loading { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); }
+.qam-loading span { width: 7px; height: 7px; border-radius: 50%; background: var(--c2); animation: bounce 1.2s ease-in-out infinite; }
+.qam-loading span:nth-child(2) { animation-delay: .15s; }
+.qam-loading span:nth-child(3) { animation-delay: .3s; }
+@keyframes bounce { 0%,100%{opacity:.3;transform:scale(.7)} 50%{opacity:1;transform:scale(1.2)} }
+
+.qam-err { min-width: 280px; max-width: 520px; padding: 18px 20px; }
+.qame-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.qameh-icon { font-size: 20px; }
+.qameh-title { font-size: 14px; font-weight: 700; color: #b91c1c; }
+.qame-desc { font-size: 13px; color: var(--text3); margin: 0 0 14px; }
+.qame-btns { display: flex; align-items: center; gap: 10px; }
+.qame-btns button { height: 36px; padding: 0 16px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; transition: all .2s; border: none; }
+.qameb-retry { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; }
+.qameb-retry:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,92,252,.35); }
+.qameb-reask { background: #f5f0ff; color: var(--c); border: 1.5px solid rgba(200,185,240,.4) !important; }
+.qameb-reask:hover { background: #ede4fe; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+.qam-typing { position: relative; }
+.qam-cursor { display: inline-block; animation: blink 1s infinite; color: var(--c); font-weight: 100; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+.qam-html { line-height: 1.7; }
+.qam-html :deep(p) { margin: .2em 0; }
+.qam-html :deep(h1),.qam-html :deep(h2),.qam-html :deep(h3) { margin: .3em 0 .1em; font-weight: 700; }
+.qam-html :deep(pre) { background: #f5f0fc; border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; max-width: 100%; }
+.qam-html :deep(code) { font-family: monospace; font-size: .9em; word-break: break-all; }
+.qam-html :deep(ul),.qam-html :deep(ol) { padding-left: 1.5em; }
+.qam-html :deep(blockquote) { border-left: 3px solid var(--c3); padding-left: 1em; color: var(--text3); }
+.qam-empty-content { color: var(--text3); font-style: italic; }
+
+.qam-actions { display: flex; gap: 6px; }
+.qam-actions button { padding: 4px 12px; border-radius: 7px; border: 1.5px solid rgba(200,185,240,.4); background: #fff; font-size: 11px; cursor: pointer; color: var(--text3); font-family: inherit; }
+.qam-actions button:hover:not(:disabled) { background: #f5f0ff; color: var(--c); }
+
+.qam-followup { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 48px; flex-shrink: 0; font-size: 11px; color: var(--text3); }
+.qam-followup span:first-child { font-weight: 600; }
+.qam-followup span+span { padding: 4px 12px; border-radius: 14px; font-size: 11px; background: #f5f0ff; color: var(--c); cursor: pointer; border: 1.5px solid transparent; transition: all .2s; }
+.qam-followup span+span:hover { border-color: var(--c); background: #ede4fe; }
+
+/* ===== 输入栏 ===== */
+.qam-input { flex-shrink: 0; padding: 14px 32px 18px; background: linear-gradient(to top, rgba(255,255,255,.96), rgba(255,255,255,.65)); border-top: 1px solid rgba(220,210,245,.3); }
+.qami-preview { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 6px 10px; background: #faf9fd; border-radius: 10px; border: 1.5px solid rgba(200,185,240,.3); }
+.qami-preview img { max-height: 48px; border-radius: 6px; }
+.qami-preview button { width: 22px; height: 22px; border-radius: 50%; border: none; background: #ef4444; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.qami-bar { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 16px; border-radius: 22px; background: rgba(255,255,255,.88); backdrop-filter: blur(20px); border: 1.5px solid rgba(200,185,240,.35); box-shadow: 0 2px 24px rgba(120,100,180,.06); transition: all .35s; }
+.qami-bar:focus-within { border-color: var(--c); box-shadow: 0 2px 32px rgba(124,92,252,.1), 0 0 0 4px rgba(124,92,252,.04); }
+.qamib-img { width: 34px; height: 34px; border-radius: 9px; border: none; background: transparent; color: var(--text3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
+.qamib-img:hover { color: var(--c); background: #f5f0ff; }
+.qamib-img.active { color: var(--c); background: #ede4fe; }
+.qamib-input { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; color: var(--text); padding: 9px 4px; font-family: inherit; }
+.qamib-input::placeholder { color: #c0b8d0; }
+
+.qami-ctx-tag {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 8px;
+  font-size: 11px; font-weight: 700; color: var(--c);
+  background: rgba(124,92,252,.06); border: 1px solid rgba(167,139,250,.18);
+  cursor: pointer; white-space: nowrap; flex-shrink: 0;
+  transition: all .2s; animation: ctxTagIn .3s ease-out;
+}
+@keyframes ctxTagIn { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
+.qami-ctx-tag:hover { background: rgba(124,92,252,.1); border-color: var(--c2); transform: translateY(-1px); }
+.qamib-send { width: 38px; height: 38px; border-radius: 50%; border: none; background: #f0ecf8; color: #c0b8d0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .25s; flex-shrink: 0; }
+.qamib-send.ready { background: linear-gradient(135deg, #7c5cfc, #a78bfa); color: #fff; }
+.qamib-send.ready:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 4px 16px rgba(124,92,252,.3); }
+.qamib-send:disabled { cursor: not-allowed; opacity: .5; }
+.qamib-send.loading { background: var(--c); }
+.qamib-spin { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.qas-scroll::-webkit-scrollbar, .qam-messages::-webkit-scrollbar { width: 4px; }
+.qas-scroll::-webkit-scrollbar-track, .qam-messages::-webkit-scrollbar-track { background: transparent; }
+.qas-scroll::-webkit-scrollbar-thumb, .qam-messages::-webkit-scrollbar-thumb { background: rgba(200,185,240,.3); border-radius: 4px; }
+
+@media (max-width: 900px) {
+  .qa-sidebar { width: 280px; min-width: 280px; max-width: 280px; flex: 0 0 280px; }
+  .qa-sidebar.collapsed { width: 0; min-width: 0; max-width: 0; flex: 0 0 0; }
+  .qas-scroll { width: 280px; min-width: 280px; }
+  .qa-sidebar.collapsed .qas-scroll { transform: translateX(-280px); }
+  .qah-stats { display: none; }
+  .qam-messages { padding: 20px 24px 16px; }
+  .qam-input { padding: 12px 20px 14px; }
+  .qame-cards { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .qa-sidebar { display: none; }
+  .qas-toggle { display: none; }
+  .qam-messages { padding: 16px; }
+  .qam-input { padding: 10px 12px 14px; }
 }
 </style>
