@@ -1,5 +1,5 @@
 ﻿<script setup>
-import { computed } from 'vue'
+import { computed, ref, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import SeniorHeader from './components/SeniorHeader.vue'
@@ -47,6 +47,36 @@ const {
   acceptAnswer,
   submitFollowUp
 } = useSeniorQA()
+
+/* ===== 页面入场动画 & 背景装饰 ===== */
+const pageReady = ref(false)
+onMounted(async () => {
+  await nextTick()
+  setTimeout(() => { pageReady.value = true }, 60)
+})
+
+const decoStyle = (i, type) => {
+  const seed = i * 7 + type.length * 13
+  const pseudo = ((seed * 31) % 100) / 100
+  if (type === 'star') {
+    return {
+      left: `${(i * 37 + 11) % 100}%`,
+      top: `${(i * 23 + 7) % 100}%`,
+      fontSize: `${pseudo * 10 + 8}px`,
+      opacity: pseudo * 0.12 + 0.03,
+      animationDelay: `${pseudo * 4}s`,
+      animationDuration: `${pseudo * 3 + 3}s`,
+    }
+  }
+  return {
+    left: `${(i * 53 + 3) % 100}%`,
+    top: `${(i * 47 + 5) % 100}%`,
+    width: `${pseudo * 6 + 3}px`,
+    height: `${pseudo * 6 + 3}px`,
+    opacity: pseudo * 0.10 + 0.03,
+    animationDelay: `${pseudo * 3}s`,
+  }
+}
 
 const isSubmittingQuestion = computed(() => askState.value === UI_STATES.LOADING)
 
@@ -99,7 +129,13 @@ function handleSubmitFollowUp(content) {
 </script>
 
 <template>
-  <div class="senior-page-shell">
+  <div class="senior-page-shell" :class="{ ready: pageReady }">
+    <!-- 背景装饰层 -->
+    <div class="bg-decor">
+      <span v-for="s in 6" :key="'star' + s" class="deco-star" :style="decoStyle(s, 'star')">✦</span>
+      <span v-for="d in 5" :key="'dot' + d" class="deco-dot" :style="decoStyle(d, 'dot')" />
+    </div>
+
     <div class="senior-page-container">
       <SeniorHeader :stats="stats" @ask="openAskDialog" @back-home="goHome" />
 
@@ -152,20 +188,32 @@ function handleSubmitFollowUp(content) {
 
 <style scoped>
 .senior-page-shell {
-  min-height: 100%;
+  position: relative;
+  min-height: calc(100vh - 60px);
   background:
-    radial-gradient(circle at 90% 0%, rgba(255, 173, 96, 0.16) 0%, transparent 40%),
-    radial-gradient(circle at 0% 100%, rgba(52, 160, 164, 0.12) 0%, transparent 45%),
-    #f3f7fb;
+    radial-gradient(circle at 8% 12%, rgba(167, 139, 250, .14), transparent 26%),
+    radial-gradient(circle at 92% 20%, rgba(91, 157, 252, .10), transparent 28%),
+    radial-gradient(circle at 70% 88%, rgba(252, 123, 171, .08), transparent 30%),
+    linear-gradient(175deg, #fffdfd 0%, #f9f6ff 34%, #f8fafd 64%, #fff8fb 100%);
   padding: 24px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  overflow: hidden;
 }
 
-.senior-page-container {
-  margin: 0 auto;
-  width: min(1200px, 100%);
-  display: grid;
-  gap: 16px;
-}
+/* ---- 背景装饰 ---- */
+.bg-decor { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.deco-star { position: absolute; color: #fbbf24; animation: starTwinkle 3s ease-in-out infinite; }
+@keyframes starTwinkle { 0%,100%{opacity:.03;transform:scale(1)} 50%{opacity:.14;transform:scale(1.3)} }
+.deco-dot { position: absolute; border-radius: 50%; background: #c4b5fd; animation: dotPulse 4s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{opacity:.04;transform:scale(1)} 50%{opacity:.15;transform:scale(1.8)} }
+
+/* ---- 入场动画 ---- */
+.senior-page-container { position: relative; z-index: 1; margin: 0 auto; width: min(1200px, 100%); display: grid; gap: 16px; }
+.senior-page-container > * { opacity: 0; transform: translateY(24px); }
+.senior-page-shell.ready .senior-page-container > * { animation: sectionIn .7s ease-out forwards; }
+.senior-page-shell.ready .senior-page-container > *:nth-child(1) { animation-delay: .05s; }
+.senior-page-shell.ready .senior-page-container > *:nth-child(2) { animation-delay: .18s; }
+@keyframes sectionIn { to { opacity: 1; transform: translateY(0); } }
 
 .content-grid {
   display: grid;

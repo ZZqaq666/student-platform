@@ -168,10 +168,12 @@ function getDisplayImages(images) {
 
 <style scoped>
 .question-panel {
-  border: 1px solid #e5ebf5;
-  border-radius: 20px;
-  background: #ffffff;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(230,224,244,.6);
+  border-radius: 18px;
   padding: 18px;
+  box-shadow: 0 2px 20px rgba(120,100,180,.04);
 }
 
 .panel-header {
@@ -184,14 +186,16 @@ function getDisplayImages(images) {
 
 .panel-title {
   margin: 0;
-  color: #15233c;
-  font-size: 19px;
+  color: #1a1528;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .panel-subtitle {
   margin: 4px 0 0;
-  color: #607388;
-  font-size: 13px;
+  color: #9088a0;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .panel-filters {
@@ -204,43 +208,81 @@ function getDisplayImages(images) {
 }
 
 .status-card {
-  border: 1px dashed #d5e0ef;
+  border: 1.5px dashed rgba(200,185,240,.4);
   border-radius: 14px;
   padding: 16px;
+  background: rgba(248,246,255,.5);
 }
 
 .status-card.empty {
   text-align: center;
-  background: #fbfdff;
 }
 
 .status-title {
   margin: 0;
-  color: #1c3558;
-  font-size: 16px;
+  color: #2d2438;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .status-text {
   margin: 6px 0 0;
-  color: #627790;
+  color: #9088a0;
+  font-size: 13px;
 }
 
 .question-list {
   display: grid;
-  gap: 12px;
+  gap: 10px;
 }
 
 .question-card {
-  border: 1px solid #e5edf8;
+  background: rgba(255,255,255,.5);
+  border: 1.5px solid rgba(220,210,245,.3);
   border-radius: 14px;
   padding: 14px;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all .35s cubic-bezier(.34,1.56,.64,1);
+  position: relative;
+  overflow: hidden;
+}
+
+.question-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 30% 20%, rgba(167,139,250,.06), transparent 70%);
+  opacity: 0;
+  transition: opacity .4s;
+}
+
+.question-card::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, #7c5cfc, #a78bfa, transparent);
+  border-radius: 3px 0 0 3px;
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform .4s cubic-bezier(.34,1.56,.64,1);
 }
 
 .question-card:hover {
-  border-color: #9bb3d4;
-  background: #fbfdff;
+  border-color: #c4b5fd;
+  background: rgba(248,246,255,.75);
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(124,92,252,.1);
+}
+
+.question-card:hover::before {
+  opacity: 1;
+}
+
+.question-card:hover::after {
+  transform: scaleY(1);
 }
 
 .question-top {
@@ -253,46 +295,48 @@ function getDisplayImages(images) {
 .category-chip {
   padding: 3px 10px;
   border-radius: 999px;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 11px;
+  font-weight: 700;
 }
 
 .category-chip.cat-math {
-  background: #e6f0ff;
-  color: #2559a9;
+  background: #f0ecfc;
+  color: #7c5cfc;
 }
 
 .category-chip.cat-physics {
-  background: #e8fbf5;
-  color: #1d7a5e;
+  background: #ecfdf3;
+  color: #5cc9a0;
 }
 
 .category-chip.cat-cs {
-  background: #fff3e4;
-  color: #a35a00;
+  background: #fff7ed;
+  color: #ffb84d;
 }
 
 .category-chip.cat-english,
 .category-chip.cat-other {
-  background: #f0ebff;
-  color: #6848a0;
+  background: #fdf2f8;
+  color: #fc7bab;
 }
 
 .time {
   font-size: 12px;
-  color: #74879c;
+  color: #b0a8c0;
 }
 
 .title {
   margin: 10px 0 6px;
-  color: #132a45;
-  font-size: 17px;
+  color: #2d2438;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .preview {
   margin: 0;
-  color: #4c6078;
+  color: #807a90;
   line-height: 1.65;
+  font-size: 13px;
 }
 
 .question-image-list {
@@ -307,7 +351,7 @@ function getDisplayImages(images) {
   height: 88px;
   border-radius: 10px;
   object-fit: cover;
-  border: 1px solid #e2eaf6;
+  border: 1px solid rgba(230,224,244,.5);
 }
 
 .tag-list {
@@ -318,11 +362,12 @@ function getDisplayImages(images) {
 }
 
 .tag-chip {
-  font-size: 12px;
-  color: #2e5d80;
-  background: #edf7ff;
-  border-radius: 8px;
+  font-size: 11px;
+  color: #7c5cfc;
+  background: #f5f0ff;
+  border-radius: 6px;
   padding: 2px 8px;
+  font-weight: 500;
 }
 
 .card-footer {
@@ -334,8 +379,9 @@ function getDisplayImages(images) {
 }
 
 .author {
-  color: #345377;
-  font-size: 13px;
+  color: #5b4a8a;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .stats {
@@ -344,16 +390,16 @@ function getDisplayImages(images) {
   justify-content: flex-end;
   gap: 10px;
   font-size: 12px;
-  color: #647990;
+  color: #b0a8c0;
 }
 
 .status {
   font-weight: 700;
-  color: #b96a00;
+  color: #ffb84d;
 }
 
 .status.solved {
-  color: #0f766e;
+  color: #5cc9a0;
 }
 
 .pagination-wrap {
