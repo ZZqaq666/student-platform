@@ -1,5 +1,13 @@
 <template>
-  <div class="bookshelf-page">
+  <div class="bookshelf-page" :class="{ ready: pageReady }">
+    <!-- 背景装饰层 -->
+    <div class="bg-decor">
+      <span v-for="s in 8" :key="'star' + s" class="deco-star" :style="decoStyle(s, 'star')">✦</span>
+      <span v-for="d in 6" :key="'dot' + d" class="deco-dot" :style="decoStyle(d, 'dot')" />
+      <span v-for="b in 3" :key="'book' + b" class="deco-book" :style="decoStyle(b, 'book')">📖</span>
+    </div>
+
+    <div class="bookshelf-content">
     <!-- 页面头部 -->
     <div class="bookshelf-header">
       <div class="header-content">
@@ -188,7 +196,7 @@
 
   <!-- 确认删除对话框 -->
   <transition name="modal">
-    <div class="modal-overlay" v-if="showDeleteConfirm" @click="showDeleteConfirm = false">
+    <div class="modal-overlay confirm-overlay" v-if="showDeleteConfirm" @click="showDeleteConfirm = false">
       <div class="confirm-modal" @click.stop>
         <div class="confirm-header">
           <h3 class="confirm-title">确认删除</h3>
@@ -450,15 +458,55 @@
         </div>
       </div>
     </div>
+    </div><!-- .bookshelf-content -->
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import api from '@/api/api.js'
 
 const router = useRouter()
+
+/* ===== 页面入场动画 & 背景装饰 ===== */
+const pageReady = ref(false)
+onMounted(async () => {
+  await nextTick()
+  setTimeout(() => { pageReady.value = true }, 60)
+})
+
+const decoStyle = (i, type) => {
+  const seed = i * 7 + type.length * 13
+  const pseudo = ((seed * 31) % 100) / 100
+  if (type === 'star') {
+    return {
+      left: `${(i * 37 + 11) % 100}%`,
+      top: `${(i * 23 + 7) % 100}%`,
+      fontSize: `${pseudo * 10 + 8}px`,
+      opacity: pseudo * 0.12 + 0.03,
+      animationDelay: `${pseudo * 4}s`,
+      animationDuration: `${pseudo * 3 + 3}s`,
+    }
+  }
+  if (type === 'dot') {
+    return {
+      left: `${(i * 53 + 3) % 100}%`,
+      top: `${(i * 47 + 5) % 100}%`,
+      width: `${pseudo * 6 + 3}px`,
+      height: `${pseudo * 6 + 3}px`,
+      opacity: pseudo * 0.10 + 0.03,
+      animationDelay: `${pseudo * 3}s`,
+    }
+  }
+  return {
+    left: `${(i * 59 + 17) % 100}%`,
+    top: `${(i * 31 + 23) % 100}%`,
+    fontSize: `${pseudo * 10 + 12}px`,
+    opacity: pseudo * 0.07 + 0.03,
+    animationDelay: `${pseudo * 5}s`,
+  }
+}
 
 // 在组件挂载时检查是否有保存的学习状态
 onMounted(() => {
@@ -960,10 +1008,42 @@ const addTextbook = async () => {
 
 <style scoped>
 .bookshelf-page {
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: calc(100vh - 64px);
+  --c1: #7c5cfc;
+  --c2: #a78bfa;
+  --c3: #5b9dfc;
+  --c4: #5cc9a0;
+  --c5: #ffb84d;
+  --c6: #fc7bab;
+
+  position: relative;
+  padding: 28px 32px 52px;
+  min-height: calc(100vh - 60px);
+  background:
+    radial-gradient(circle at 8% 12%, rgba(167, 139, 250, .12), transparent 26%),
+    radial-gradient(circle at 92% 20%, rgba(91, 157, 252, .10), transparent 28%),
+    radial-gradient(circle at 70% 88%, rgba(252, 123, 171, .08), transparent 30%),
+    linear-gradient(175deg, #fffdfd 0%, #f9f6ff 34%, #f8fafd 64%, #fff8fb 100%);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', sans-serif;
+  overflow: hidden;
 }
+
+/* ---- 背景装饰 ---- */
+.bg-decor { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+.deco-star { position: absolute; color: #fbbf24; animation: starTwinkle 3s ease-in-out infinite; }
+@keyframes starTwinkle { 0%,100%{opacity:.03;transform:scale(1)} 50%{opacity:.15;transform:scale(1.3)} }
+.deco-dot { position: absolute; border-radius: 50%; background: #c4b5fd; animation: dotPulse 4s ease-in-out infinite; }
+@keyframes dotPulse { 0%,100%{opacity:.04;transform:scale(1)} 50%{opacity:.16;transform:scale(1.8)} }
+.deco-book { position: absolute; animation: bookFloat 6s ease-in-out infinite; }
+@keyframes bookFloat { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-10px) rotate(4deg)} }
+
+/* ---- 内容区域入场动画 ---- */
+.bookshelf-content { position: relative; z-index: 1; max-width: 1140px; margin: 0 auto; }
+.bookshelf-content > * { opacity: 0; transform: translateY(24px); }
+.bookshelf-page.ready .bookshelf-content > * { animation: sectionIn .7s ease-out forwards; }
+.bookshelf-page.ready .bookshelf-content > *:nth-child(1) { animation-delay: .05s; }
+.bookshelf-page.ready .bookshelf-content > *:nth-child(2) { animation-delay: .15s; }
+.bookshelf-page.ready .bookshelf-content > *:nth-child(3) { animation-delay: .25s; }
+@keyframes sectionIn { to { opacity: 1; transform: translateY(0); } }
 
 /* 页面头部 */
 .bookshelf-header {
@@ -971,190 +1051,170 @@ const addTextbook = async () => {
   flex-direction: column;
   align-items: center;
   gap: 20px;
-  margin-bottom: 32px;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: center;
+  margin-bottom: 24px;
+  padding: 28px 32px 24px;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(14px);
+  border-radius: 20px;
+  border: 1px solid rgba(230,224,244,.6);
+  box-shadow: 0 2px 20px rgba(120,100,180,.05);
   width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.bookshelf-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #7c5cfc, #a78bfa, #fbbf24, #5cc9a0, #7c5cfc);
+  background-size: 200% 100%;
+  animation: gradientFlow 6s ease infinite;
+}
+
+@keyframes gradientFlow {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 .header-content {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 20px;
   width: 100%;
   max-width: 1200px;
-  padding: 0 20px;
   position: relative;
 }
 
 .back-home-btn {
   position: absolute;
-  left: -100px;
+  left: 0;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 20px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  gap: 6px;
+  padding: 8px 16px;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(10px);
+  color: #5b4a8a;
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  font-family: inherit;
   z-index: 10;
 }
 
 .back-home-btn:hover {
-  transform: translateY(-50%) translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
-}
-
-.back-home-btn:active {
-  transform: translateY(-50%) translateY(0);
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  transform: translateY(-50%) translateY(-1px);
+  background: #f5f0ff;
+  border-color: #c4b5fd;
+  box-shadow: 0 4px 14px rgba(124,92,252,.08);
 }
 
 .page-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #111827;
+  font-size: 28px;
+  font-weight: 900;
+  color: #1a1528;
   margin: 0;
-  background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%);
+  letter-spacing: -.5px;
+  background: linear-gradient(135deg, #1a1528 20%, #7c5cfc);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
-  letter-spacing: 1px;
-  font-family: 'Microsoft YaHei', sans-serif;
-  text-align: center;
-  width: 100%;
 }
 
 .back-icon {
-  font-size: 16px;
-  font-weight: bold;
-  margin-right: 4px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .search-wrapper {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
+  gap: 16px;
   width: 100%;
-  max-width: 1200px;
-  padding: 0 20px;
-  margin-top: 20px;
+  max-width: 600px;
+  margin: 0 auto;
 }
 
 .search-container {
   flex: 1;
   display: flex;
   justify-content: center;
-  margin-right: -177px;
-  width: auto;
 }
 
 .search-bar {
   position: relative;
   width: 100%;
-  max-width: 600px;
   display: flex;
   align-items: center;
 }
 
 .add-textbook-btn {
-  padding: 12px 32px;
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  color: white;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
   border: none;
-  border-radius: 10px;
-  font-size: 16px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+  font-family: inherit;
   white-space: nowrap;
-  z-index: 10;
-  flex-shrink: 0;
+  box-shadow: 0 4px 14px rgba(124,92,252,.22);
 }
 
 .add-textbook-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.add-textbook-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 8px 24px rgba(124,92,252,.35);
 }
 
 .search-input {
   width: 100%;
-  padding: 12px 20px;
-  border: 2px solid #e5e7eb;
-  border-radius: 25px;
-  font-size: 16px;
-  transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', sans-serif;
+  padding: 10px 18px;
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 12px;
+  font-size: 14px;
+  transition: all .25s;
+  font-family: inherit;
   box-sizing: border-box;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(10px);
+  color: #2d2438;
 }
 
 .search-input::placeholder {
-  color: #909399;
+  color: #b0a8c0;
 }
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #7c5cfc;
+  box-shadow: 0 0 0 3px rgba(124,92,252,.08);
 }
 
-.header-actions {
-  display: flex;
-  gap: 16px;
-  align-items: center;
-}
-
-.notification-icon {
-  position: relative;
-  cursor: pointer;
-}
-
-.bell {
-  font-size: 20px;
-  color: #6b7280;
-}
-
-.badge {
-  position: absolute;
-  top: -8px;
-  right: -8px;
-  background: #ef4444;
-  color: white;
-  border-radius: 50%;
-  width: 18px;
-  height: 18px;
-  font-size: 12px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
 
 /* 筛选区域 */
 .bookshelf-filter {
   display: flex;
   align-items: center;
-  margin-bottom: 24px;
-  background: white;
-  padding: 16px 20px;
-  border-radius: 12px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  margin-bottom: 22px;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(14px);
+  padding: 14px 20px;
+  border-radius: 16px;
+  border: 1px solid rgba(230,224,244,.6);
+  box-shadow: 0 2px 16px rgba(120,100,180,.04);
 }
 
 .filter-section {
@@ -1164,9 +1224,9 @@ const addTextbook = async () => {
 }
 
 .filter-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5b4a8a;
 }
 
 .custom-select {
@@ -1310,31 +1370,32 @@ const addTextbook = async () => {
   width: 100%;
   max-height: 200px;
   overflow-y: auto;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(230,224,244,.7);
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(120,100,180,.1);
   z-index: 1000;
-  margin-top: 4px;
+  margin-top: 6px;
 }
 
 .select-option {
   padding: 10px 16px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  font-size: 14px;
-  color: #374151;
+  transition: all .2s;
+  font-size: 13px;
+  color: #5b4a8a;
 }
 
 .select-option:hover {
-  background-color: #f3f4f6;
-  color: #3b82f6;
+  background: #f5f0ff;
+  color: #7c5cfc;
 }
 
 .select-option.active {
-  background-color: #3b82f6;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
   color: white;
-  font-weight: 500;
+  font-weight: 700;
 }
 
 .select-display {
@@ -1342,18 +1403,18 @@ const addTextbook = async () => {
   align-items: center;
   justify-content: space-between;
   padding: 10px 16px;
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: white;
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 10px;
+  background: rgba(255,255,255,.7);
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-size: 14px;
-  color: #374151;
+  transition: all .25s;
+  font-size: 13px;
+  color: #5b4a8a;
 }
 
 .select-display:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  border-color: #c4b5fd;
+  box-shadow: 0 2px 8px rgba(124,92,252,.08);
 }
 
 .select-display .select-arrow {
@@ -1393,18 +1454,19 @@ const addTextbook = async () => {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(30, 20, 50, 0.4);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
   overflow: hidden;
-  backdrop-filter: blur(2px);
+  backdrop-filter: blur(4px);
 }
 
 .modal-content {
-  background: white;
-  border-radius: 16px;
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(18px);
+  border-radius: 20px;
   padding: 32px;
   width: 1000px;
   max-width: 90%;
@@ -1412,25 +1474,25 @@ const addTextbook = async () => {
   max-height: 80vh;
   overflow-y: auto;
   position: relative;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-  transition: none;
+  border: 1px solid rgba(230,224,244,.6);
+  box-shadow: 0 24px 60px rgba(120,100,180,.12);
 }
 
 .modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 32px;
+  margin-bottom: 28px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid rgba(200,185,240,.2);
 }
 
 .modal-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #111827;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1528;
   margin: 0;
-  font-family: 'Microsoft YaHei', sans-serif;
+  font-family: inherit;
 }
 
 .modal-close {
@@ -1438,20 +1500,20 @@ const addTextbook = async () => {
   border: none;
   font-size: 24px;
   cursor: pointer;
-  color: #6b7280;
+  color: #9088a0;
   padding: 0;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 8px;
-  transition: all 0.3s ease;
+  border-radius: 50%;
+  transition: all .25s;
 }
 
 .modal-close:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: #f5f0ff;
+  color: #7c5cfc;
 }
 
 /* 搜索区域 */
@@ -1489,32 +1551,34 @@ const addTextbook = async () => {
 /* 分类标签 */
 .category-section {
   display: flex;
-  gap: 12px;
-  margin-bottom: 32px;
+  gap: 8px;
+  margin-bottom: 28px;
   flex-wrap: wrap;
 }
 
 .category-btn {
-  padding: 8px 20px;
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 20px;
+  padding: 7px 16px;
+  background: rgba(255,255,255,.75);
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', sans-serif;
-  font-size: 14px;
-  color: #374151;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b4a8a;
 }
 
 .category-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #c4b5fd;
+  color: #7c5cfc;
+  transform: translateY(-1px);
 }
 
 .category-btn.active {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
+  border-color: transparent;
 }
 
 .more-btn {
@@ -1543,51 +1607,52 @@ const addTextbook = async () => {
 }
 
 .textbook-card {
-  background: white;
-  border: 2px solid #e5e7eb;
-  border-radius: 12px;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(10px);
+  border: 1.5px solid rgba(230,224,244,.6);
+  border-radius: 14px;
   padding: 16px;
   text-align: center;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all .35s cubic-bezier(.4,0,.2,1);
   position: relative;
   overflow: hidden;
 }
 
 .textbook-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  border-color: #c4b5fd;
+  box-shadow: 0 8px 24px rgba(124,92,252,.1);
   transform: translateY(-4px);
 }
 
 .textbook-card.selected {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  border-color: #7c5cfc;
+  background: rgba(124,92,252,.06);
 }
 
 .textbook-cover {
   width: 100%;
   height: 180px;
   object-fit: cover;
-  border-radius: 8px;
+  border-radius: 10px;
   margin-bottom: 12px;
 }
 
 .textbook-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b4a8a;
   margin-bottom: 8px;
-  font-family: 'Microsoft YaHei', sans-serif;
+  font-family: inherit;
 }
 
 .select-checkbox {
   position: absolute;
   top: 12px;
   right: 12px;
-  width: 24px;
-  height: 24px;
-  background: #3b82f6;
+  width: 26px;
+  height: 26px;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
   color: white;
   border-radius: 50%;
   display: flex;
@@ -1595,44 +1660,33 @@ const addTextbook = async () => {
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 10px rgba(124,92,252,.35);
 }
 
 /* 批量添加按钮 */
-.batch-add-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 20px;
-  padding: 24px;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  margin-top: 32px;
-}
-
 .batch-add-btn {
   padding: 16px 48px;
-  background: linear-gradient(90deg, #10b981 0%, #059669 100%);
-  color: white;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
   border: none;
-  border-radius: 25px;
-  font-size: 18px;
-  font-weight: 600;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+  font-family: inherit;
+  box-shadow: 0 4px 14px rgba(124,92,252,.22);
 }
 
 .batch-add-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.3);
+  box-shadow: 0 8px 24px rgba(124,92,252,.35);
 }
 
 .batch-add-text {
-  font-size: 16px;
-  color: #6b7280;
-  font-family: 'Microsoft YaHei', sans-serif;
+  font-size: 14px;
+  color: #9088a0;
+  font-family: inherit;
 }
 
 /* 响应式设计 */
@@ -1724,31 +1778,63 @@ const addTextbook = async () => {
 .books-container {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 24px;
-  margin-bottom: 40px;
+  gap: 18px;
+  margin-bottom: 32px;
 }
 
 /* 书籍卡片 */
 .book-card {
-  background: white;
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(14px);
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  transition: all 0.3s ease;
+  transition: all .4s cubic-bezier(.34,1.56,.64,1);
   position: relative;
   cursor: pointer;
-  border: 1px solid #f3f4f6;
+  border: 1px solid rgba(230,224,244,.6);
+}
+
+.book-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 3px;
+  height: 0;
+  background: linear-gradient(180deg, #7c5cfc, #a78bfa);
+  border-radius: 0 3px 3px 0;
+  z-index: 5;
+  transition: height .4s cubic-bezier(.34,1.56,.64,1);
+}
+
+.book-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,.4) 0%, transparent 50%, rgba(255,255,255,.1) 100%);
+  opacity: 0;
+  transition: opacity .35s;
+  border-radius: 16px;
 }
 
 .book-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 20px rgba(0, 0, 0, 0.12);
-  border-color: #e5e7eb;
+  transform: translateY(-6px) perspective(600px) rotateX(1deg);
+  box-shadow: 0 20px 44px rgba(120,100,180,.12), 0 0 0 1.5px rgba(160,140,220,.25);
+}
+
+.book-card:hover::before {
+  height: 60%;
+}
+
+.book-card:hover::after {
+  opacity: 1;
 }
 
 .book-card:active {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px) scale(.99);
 }
 
 /* 状态标签 */
@@ -1757,33 +1843,33 @@ const addTextbook = async () => {
   top: 12px;
   left: 12px;
   padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: 600;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
   z-index: 10;
 }
 
 /* 删除按钮 */
 .delete-btn {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 24px;
-  height: 24px;
-  background: rgba(239, 68, 68, 0.9);
+  top: 10px;
+  right: 10px;
+  width: 26px;
+  height: 26px;
+  background: rgba(239, 68, 68, 0.85);
   color: white;
   border: none;
   border-radius: 50%;
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 14px;
+  font-weight: 700;
   cursor: pointer;
   z-index: 20;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all .25s;
   opacity: 0;
-  transform: scale(0.8);
+  transform: scale(.8);
 }
 
 .book-card:hover .delete-btn {
@@ -1794,43 +1880,40 @@ const addTextbook = async () => {
 .delete-btn:hover {
   background: rgba(220, 38, 38, 1);
   box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
-}
-
-.delete-btn:active {
-  transform: scale(0.9);
+  transform: scale(1.1);
 }
 
 .book-status.not-started {
-  background: #e5e7eb;
-  color: #374151;
+  background: #f0ecfc;
+  color: #5b4a8a;
 }
 
 .book-status.learning {
-  background: #10b981;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
   color: white;
 }
 
 .book-status.completed {
-  background: #3b82f6;
+  background: linear-gradient(135deg, #5cc9a0, #3db88b);
   color: white;
 }
 
 /* 书籍封面 */
 .book-cover {
   width: 100%;
-  height: 240px;
+  height: 220px;
   overflow: hidden;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f9fafb;
+  background: linear-gradient(160deg, #faf7ff, #f3f0fc);
 }
 
 .book-cover img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.3s ease;
+  transition: transform .4s cubic-bezier(.4,0,.2,1);
 }
 
 .book-card:hover .book-cover img {
@@ -1843,10 +1926,10 @@ const addTextbook = async () => {
 }
 
 .book-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #111827;
-  margin: 0 0 8px 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d2438;
+  margin: 0 0 6px 0;
   line-height: 1.4;
   display: -webkit-box;
   -webkit-line-clamp: 2;
@@ -1855,25 +1938,44 @@ const addTextbook = async () => {
 }
 
 .book-author {
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #9088a0;
   margin: 0 0 12px 0;
 }
 
 /* 进度条 */
 .progress-bar {
   width: 100%;
-  height: 4px;
-  background: #f3f4f6;
-  border-radius: 2px;
+  height: 6px;
+  background: #f0ecf8;
+  border-radius: 99px;
   overflow: hidden;
 }
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  border-radius: 2px;
-  transition: width 0.3s ease;
+  background: linear-gradient(90deg, #a78bfa, #7c5cfc);
+  border-radius: 99px;
+  transition: width .6s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 0 8px rgba(124,92,252,.18);
+  position: relative;
+  overflow: hidden;
+}
+
+.progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.35), transparent);
+  animation: shimmer 2.5s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  0% { left: -100%; }
+  100% { left: 100%; }
 }
 
 /* 添加教材按钮 */
@@ -1903,17 +2005,15 @@ const addTextbook = async () => {
 }
 
 /* 书籍详情弹窗 */
-.modal-overlay {
-  background-color: rgba(243, 244, 246, 0.9);
-}
-
 .book-detail-modal {
   max-width: 1100px;
   max-height: 85vh;
   overflow-y: hidden;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(18px);
+  border-radius: 20px;
+  border: 1px solid rgba(230,224,244,.6);
+  box-shadow: 0 24px 60px rgba(120,100,180,.12);
 }
 
 /* 自定义滚动条样式 */
@@ -1974,21 +2074,21 @@ const addTextbook = async () => {
 }
 
 .catalog-chapter {
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
+  border: 1.5px solid rgba(200,185,240,.25);
+  border-radius: 10px;
   padding: 12px;
-  transition: all 0.2s ease;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
 }
 
 .catalog-chapter:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #c4b5fd;
+  box-shadow: 0 4px 14px rgba(124,92,252,.06);
 }
 
 .chapter-title {
   font-size: 14px;
-  font-weight: 600;
-  color: #1f2937;
+  font-weight: 700;
+  color: #2d2438;
   margin-bottom: 8px;
 }
 
@@ -2001,13 +2101,13 @@ const addTextbook = async () => {
 
 .section-item {
   font-size: 13px;
-  color: #6b7280;
+  color: #807a90;
   padding: 4px 0;
-  transition: color 0.2s ease;
+  transition: color .2s;
 }
 
 .section-item:hover {
-  color: #3b82f6;
+  color: #7c5cfc;
   cursor: pointer;
 }
 
@@ -2030,7 +2130,7 @@ const addTextbook = async () => {
 .book-detail-sidebar {
   width: 300px;
   flex-shrink: 0;
-  border-left: 1px solid #e5e7eb;
+  border-left: 1px solid rgba(200,185,240,.2);
   padding-left: 24px;
   overflow-y: auto;
   padding-right: 12px;
@@ -2053,8 +2153,8 @@ const addTextbook = async () => {
   width: 100%;
   height: 280px;
   object-fit: cover;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(120,100,180,.08);
 }
 
 .book-detail-info {
@@ -2062,10 +2162,10 @@ const addTextbook = async () => {
 }
 
 .book-detail-title {
-  font-size: 24px;
-  font-weight: 700;
-  color: #1f2937;
-  margin-bottom: 16px;
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1528;
+  margin-bottom: 14px;
 }
 
 .book-detail-meta {
@@ -2073,8 +2173,8 @@ const addTextbook = async () => {
   flex-wrap: wrap;
   gap: 16px;
   margin-bottom: 20px;
-  color: #6b7280;
-  font-size: 14px;
+  color: #9088a0;
+  font-size: 13px;
 }
 
 .meta-item {
@@ -2088,29 +2188,30 @@ const addTextbook = async () => {
 
 .book-detail-description h4,
 .book-detail-catalog h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1528;
   margin-bottom: 8px;
 }
 
 .book-detail-description p {
-  color: #4b5563;
-  line-height: 1.5;
-  font-size: 14px;
+  color: #807a90;
+  line-height: 1.6;
+  font-size: 13px;
 }
 
 .catalog-link {
-  color: #3b82f6;
-  font-size: 14px;
-  font-weight: 500;
+  color: #7c5cfc;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
   display: inline-block;
   padding: 4px 0;
+  transition: color .2s;
 }
 
 .catalog-link:hover {
-  text-decoration: underline;
+  color: #a78bfa;
 }
 
 .book-detail-progress {
@@ -2118,16 +2219,17 @@ const addTextbook = async () => {
 }
 
 .book-detail-progress h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a1528;
   margin-bottom: 12px;
 }
 
 .progress-container {
-  background: #f3f4f6;
-  border-radius: 8px;
+  background: rgba(248,246,255,.7);
+  border-radius: 10px;
   padding: 12px;
+  border: 1px solid rgba(200,185,240,.2);
 }
 
 .progress-container.small {
@@ -2137,8 +2239,8 @@ const addTextbook = async () => {
 .progress-track {
   position: relative;
   height: 8px;
-  background: #e5e7eb;
-  border-radius: 4px;
+  background: #f0ecf8;
+  border-radius: 99px;
   margin-bottom: 12px;
 }
 
@@ -2174,49 +2276,52 @@ const addTextbook = async () => {
 }
 
 .action-btn {
-  padding: 10px 20px;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
-  background: white;
-  color: #374151;
-  font-size: 14px;
-  font-weight: 500;
+  padding: 9px 18px;
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 10px;
+  background: rgba(255,255,255,.75);
+  color: #5b4a8a;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+  font-family: inherit;
 }
 
 .action-btn:hover {
-  background: #f3f4f6;
-  border-color: #d1d5db;
+  background: #f5f0ff;
+  border-color: #c4b5fd;
+  transform: translateY(-1px);
 }
 
 .action-btn.primary {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  color: white;
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(124,92,252,.22);
 }
 
 .action-btn.primary:hover {
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #2563eb;
+  box-shadow: 0 8px 24px rgba(124,92,252,.35);
+  transform: translateY(-2px);
 }
 
 /* 侧边栏样式 */
 .sidebar-section {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .sidebar-section h4 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1f2937;
-  margin-bottom: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1528;
+  margin-bottom: 14px;
 }
 
 .recommended-books {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .recommended-book {
@@ -2224,13 +2329,14 @@ const addTextbook = async () => {
   gap: 12px;
   align-items: center;
   padding: 12px;
-  background: #f9fafb;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  background: rgba(248,246,255,.7);
+  border-radius: 10px;
+  border: 1px solid rgba(230,224,244,.3);
+  transition: all .25s cubic-bezier(.4,0,.2,1);
 }
 
 .recommended-book:hover {
-  background: #f3f4f6;
+  border-color: #c4b5fd;
   transform: translateY(-2px);
 }
 
@@ -2262,13 +2368,14 @@ const addTextbook = async () => {
 .user-reviews {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .review-item {
-  padding: 16px;
-  background: #f9fafb;
-  border-radius: 8px;
+  padding: 14px;
+  background: rgba(248,246,255,.5);
+  border-radius: 10px;
+  border: 1.5px solid rgba(200,185,240,.2);
 }
 
 .review-header {
@@ -2336,7 +2443,7 @@ const addTextbook = async () => {
   .book-detail-sidebar {
     width: 100%;
     border-left: none;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid rgba(200,185,240,.2);
     padding-left: 0;
     padding-top: 24px;
   }
@@ -2347,61 +2454,70 @@ const addTextbook = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-top: 40px;
-  margin-bottom: 40px;
+  gap: 12px;
+  margin-top: 32px;
+  margin-bottom: 20px;
 }
 
 .pagination-btn {
-  padding: 10px 20px;
-  border: 1px solid #e5e7eb;
-  background: white;
-  border-radius: 8px;
+  padding: 9px 18px;
+  border: 1.5px solid rgba(200,185,240,.35);
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 14px;
-  color: #374151;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b4a8a;
+  transition: all .25s;
+  font-family: inherit;
 }
 
 .pagination-btn:hover:not(:disabled) {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #c4b5fd;
+  color: #7c5cfc;
+  transform: translateY(-1px);
 }
 
 .pagination-btn:disabled {
-  opacity: 0.5;
+  opacity: .4;
   cursor: not-allowed;
 }
 
 .pagination-numbers {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .pagination-number {
-  width: 40px;
-  height: 40px;
-  border: 1px solid #e5e7eb;
-  background: white;
-  border-radius: 8px;
+  width: 38px;
+  height: 38px;
+  border: 1.5px solid rgba(200,185,240,.35);
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(10px);
+  border-radius: 10px;
   cursor: pointer;
-  font-size: 14px;
-  color: #374151;
-  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b4a8a;
+  transition: all .25s;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-family: inherit;
 }
 
 .pagination-number:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #c4b5fd;
+  color: #7c5cfc;
+  transform: translateY(-1px);
 }
 
 .pagination-number.active {
-  background: #3b82f6;
-  color: white;
-  border-color: #3b82f6;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 2px 10px rgba(124,92,252,.22);
 }
 
 /* 成功提示样式 */
@@ -2410,19 +2526,19 @@ const addTextbook = async () => {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.85);
+  background: rgba(30, 20, 50, .88);
+  backdrop-filter: blur(18px);
   color: white;
-  padding: 20px 32px;
-  border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  padding: 22px 36px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,.1);
+  box-shadow: 0 12px 40px rgba(30, 20, 50, .3);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 12px;
   z-index: 2000;
   animation: fadeIn 0.3s ease, fadeOut 0.3s ease 2.7s;
-  transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  backdrop-filter: blur(12px);
   min-width: 200px;
   max-width: 300px;
   text-align: center;
@@ -2454,39 +2570,48 @@ const addTextbook = async () => {
 }
 
 /* 确认删除对话框样式 */
-.modal-overlay {
+.confirm-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(30, 20, 50, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 2100;
 }
 
 .confirm-modal {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(18px);
+  border-radius: 18px;
+  border: 1px solid rgba(230,224,244,.7);
+  box-shadow: 0 24px 60px rgba(120,100,180,.15);
   width: 90%;
   max-width: 400px;
   overflow: hidden;
-  animation: modalFadeIn 0.3s ease;
+  animation: confirmIn .35s cubic-bezier(.34,1.56,.64,1);
+}
+
+@keyframes confirmIn {
+  from { opacity: 0; transform: scale(.9) translateY(12px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .confirm-header {
   padding: 20px 24px;
-  border-bottom: 1px solid #f3f4f6;
-  background: #f9fafb;
+  border-bottom: 1px solid rgba(200,185,240,.2);
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .confirm-title {
-  font-size: 18px;
-  font-weight: 600;
-  color: #111827;
+  font-size: 17px;
+  font-weight: 800;
+  color: #1a1528;
   margin: 0;
 }
 
@@ -2495,8 +2620,8 @@ const addTextbook = async () => {
 }
 
 .confirm-message {
-  font-size: 16px;
-  color: #4b5563;
+  font-size: 14px;
+  color: #807a90;
   text-align: center;
   margin: 0;
 }
@@ -2509,35 +2634,37 @@ const addTextbook = async () => {
 }
 
 .confirm-btn {
-  padding: 10px 20px;
+  padding: 9px 20px;
   border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all .25s cubic-bezier(.4,0,.2,1);
   flex: 1;
   max-width: 120px;
+  font-family: inherit;
 }
 
 .confirm-btn.cancel {
-  background: #f3f4f6;
-  color: #4b5563;
-  border: 1px solid #e5e7eb;
+  background: #f0ecfc;
+  color: #5b4a8a;
+  border: 1.5px solid rgba(200,185,240,.35);
 }
 
 .confirm-btn.cancel:hover {
-  background: #e5e7eb;
+  background: #e8e0fa;
 }
 
 .confirm-btn.delete {
-  background: #ef4444;
+  background: linear-gradient(135deg, #ef4444, #dc2626);
   color: white;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, .25);
 }
 
 .confirm-btn.delete:hover {
-  background: #dc2626;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 18px rgba(239, 68, 68, .35);
 }
 
 .confirm-btn:active {
@@ -2608,22 +2735,24 @@ const addTextbook = async () => {
   width: 1400px;
   height: 800px;
   overflow: hidden;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  background: rgba(255,255,255,.96);
+  backdrop-filter: blur(18px);
+  border-radius: 20px;
+  border: 1px solid rgba(230,224,244,.6);
+  box-shadow: 0 24px 60px rgba(120,100,180,.12);
   display: flex;
   flex-direction: column;
 }
 
 /* 学习模态框头部 */
 .study-header {
-  background: white;
-  padding: 16px 24px;
+  background: rgba(255,255,255,.85);
+  backdrop-filter: blur(14px);
+  padding: 14px 24px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border-bottom: 1px solid #f3f4f6;
+  border-bottom: 1px solid rgba(200,185,240,.2);
 }
 
 .study-header .header-left {
@@ -2634,22 +2763,26 @@ const addTextbook = async () => {
 
 .study-header .back-btn, .study-header .menu-btn, .study-header .search-btn {
   padding: 8px 16px;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 8px;
-  color: #374151;
-  font-size: 14px;
+  background: rgba(248,246,255,.7);
+  border: 1.5px solid rgba(200,185,240,.25);
+  border-radius: 10px;
+  color: #5b4a8a;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all .25s;
+  font-family: inherit;
 }
 
 .study-header .back-btn:hover, .study-header .menu-btn:hover, .study-header .search-btn:hover {
-  background: #e5e7eb;
+  background: #f5f0ff;
+  border-color: #c4b5fd;
 }
 
 .study-header .menu-btn.active {
-  background: #3b82f6;
-  color: white;
+  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  color: #fff;
+  border-color: transparent;
 }
 
 .study-header .header-right {
@@ -2664,15 +2797,16 @@ const addTextbook = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f3f4f6;
-  border: none;
-  border-radius: 8px;
+  background: rgba(248,246,255,.7);
+  border: 1.5px solid rgba(200,185,240,.25);
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all .25s;
 }
 
 .study-header .icon-btn:hover {
-  background: #e5e7eb;
+  background: #f5f0ff;
+  border-color: #c4b5fd;
 }
 
 .study-header .icon {
@@ -2686,6 +2820,7 @@ const addTextbook = async () => {
   gap: 20px;
   padding: 20px;
   overflow: hidden;
+  background: linear-gradient(175deg, #fefdfc 0%, #f9f6ff 20%, #f8fafd 50%, #fff8fb 100%);
 }
 
 /* 显示提问侧边栏时的布局 */
@@ -2696,9 +2831,10 @@ const addTextbook = async () => {
 /* 提问侧边栏 */
 .question-sidebar {
   width: 300px;
-  background: #f9fafb;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(14px);
+  border-radius: 14px;
+  border: 1px solid rgba(230,224,244,.6);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -2709,15 +2845,15 @@ const addTextbook = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #e5e7eb;
-  background: white;
+  border-bottom: 1px solid rgba(200,185,240,.2);
+  background: rgba(255,255,255,.5);
 }
 
 .question-sidebar-header h3 {
   margin: 0;
-  font-size: 16px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 15px;
+  font-weight: 700;
+  color: #2d2438;
 }
 
 .question-sidebar-header .close-btn {
@@ -2726,18 +2862,18 @@ const addTextbook = async () => {
   border: none;
   background: none;
   font-size: 20px;
-  color: #6b7280;
+  color: #9088a0;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  transition: all 0.2s;
+  border-radius: 6px;
+  transition: all .2s;
 }
 
 .question-sidebar-header .close-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
+  background: #f5f0ff;
+  color: #7c5cfc;
 }
 
 .question-content {
@@ -2750,23 +2886,23 @@ const addTextbook = async () => {
 }
 
 .selected-text {
-  background: white;
+  background: rgba(255,255,255,.7);
   padding: 12px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  border: 1px solid rgba(230,224,244,.6);
 }
 
 .selected-text h4 {
   margin: 0 0 8px 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5b4a8a;
 }
 
 .selected-text p {
   margin: 0;
-  font-size: 14px;
-  color: #6b7280;
+  font-size: 13px;
+  color: #807a90;
   line-height: 1.5;
 }
 
@@ -2779,22 +2915,29 @@ const addTextbook = async () => {
 
 .question-input h4 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #374151;
+  font-size: 13px;
+  font-weight: 700;
+  color: #5b4a8a;
 }
 
 .question-input textarea {
   flex: 1;
   padding: 12px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  font-size: 14px;
-  color: #374151;
+  border: 1.5px solid rgba(200,185,240,.35);
+  border-radius: 10px;
+  font-size: 13px;
+  color: #2d2438;
   resize: none;
   min-height: 120px;
   font-family: inherit;
-  transition: all 0.3s ease;
+  transition: all .25s;
+  background: rgba(255,255,255,.7);
+}
+
+.question-input textarea:focus {
+  outline: none;
+  border-color: #7c5cfc;
+  box-shadow: 0 0 0 3px rgba(124,92,252,.08);
 }
 
 .question-input.small textarea {
@@ -2900,29 +3043,28 @@ const addTextbook = async () => {
 /* 侧边栏 */
 .study-content .sidebar {
   width: 200px;
-  background: #f9fafb;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: rgba(255,255,255,.7);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  border: 1px solid rgba(230,224,244,.6);
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
 .study-content .sidebar-header {
-  padding: 16px 20px;
   padding: 12px 16px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border-bottom: 1px solid #f3f4f6;
-  background: white;
+  border-bottom: 1px solid rgba(200,185,240,.2);
+  background: rgba(255,255,255,.5);
 }
 
 .study-content .sidebar-header h3 {
-  font-size: 16px;
   font-size: 14px;
-  font-weight: 600;
-  color: #111827;
+  font-weight: 800;
+  color: #1a1528;
   margin: 0;
 }
 
@@ -2935,14 +3077,13 @@ const addTextbook = async () => {
   background: none;
   border: none;
   cursor: pointer;
-  color: #6b7280;
+  color: #9088a0;
   font-size: 12px;
 }
 
 /* 目录树 */
 .toc-tree {
   flex: 1;
-  padding: 12px 0;
   padding: 8px 0;
   overflow-y: auto;
 }
@@ -2951,15 +3092,21 @@ const addTextbook = async () => {
   position: relative;
   padding: 6px 16px;
   cursor: pointer;
-  transition: all 0.2s;
-  border-radius: 4px;
-  margin: 0 8px;
+  transition: all .2s;
   border-radius: 6px;
   margin: 2px 8px;
+  color: #5b4a8a;
+  font-size: 13px;
 }
 
 .toc-item:hover {
-  background: #f3f4f6;
+  background: #f5f0ff;
+}
+
+.toc-item.active {
+  background: #f0ecfc;
+  color: #7c5cfc;
+  font-weight: 600;
 }
 
 .toc-item.active {
@@ -2977,7 +3124,7 @@ const addTextbook = async () => {
 .toc-children {
   margin-left: 12px;
   margin-top: 2px;
-  border-left: 1px solid #e5e7eb;
+  border-left: 1.5px solid rgba(200,185,240,.3);
   padding-left: 8px;
 }
 
@@ -2994,9 +3141,10 @@ const addTextbook = async () => {
 /* 阅读区 */
 .reading-area {
   flex: 1;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: rgba(255,255,255,.75);
+  backdrop-filter: blur(10px);
+  border-radius: 14px;
+  border: 1px solid rgba(230,224,244,.6);
   padding: 24px;
   display: flex;
   flex-direction: column;
