@@ -40,20 +40,22 @@ jwt:
 
 langchain4j:
   open-ai:
+    # 文本对话：DeepSeek-V4.1-Flash（deepseek-flash，响应快；思考模式在 AiConfig 中关闭）
     chat-model:
-      base-url: https://api.deepseek.com/v1/chat/completions
+      base-url: https://api.deepseek.com/v1
       api-key: ${DEEPSEEK_API_KEY:}
-      model-name: deepseek-v4-flash
-      log-requests: true
-      log-responses: true
+      model-name: deepseek-flash
+      log-requests: false
+      log-responses: false
     streaming-chat-model:
       base-url: https://api.deepseek.com/v1
       api-key: ${DEEPSEEK_API_KEY:}
-      model-name: deepseek-chat
+      model-name: deepseek-flash
+    # 视觉理解：deepseek-flash 原生支持图片输入（input_modalities: text+image）
     vision-chat-model:
-      base-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
-      api-key: ${GLM_API_KEY:}
-      model-name: glm-4.6v
+      base-url: https://api.deepseek.com/v1
+      api-key: ${DEEPSEEK_API_KEY:}
+      model-name: deepseek-flash
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml

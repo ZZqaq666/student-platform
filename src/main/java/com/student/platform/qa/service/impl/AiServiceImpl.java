@@ -1,14 +1,5 @@
 package com.student.platform.qa.service.impl;
 
-import ai.z.openapi.ZhipuAiClient;
-import ai.z.openapi.service.model.ChatCompletionCreateParams;
-import ai.z.openapi.service.model.ChatCompletionResponse;
-import ai.z.openapi.service.model.ChatMessage;
-import ai.z.openapi.service.model.ChatMessageRole;
-import ai.z.openapi.service.model.Delta;
-import ai.z.openapi.service.model.ImageUrl;
-import ai.z.openapi.service.model.MessageContent;
-import io.reactivex.rxjava3.disposables.Disposable;
 import com.student.platform.common.dto.BookRecommendationDTO;
 import com.student.platform.common.dto.KnowledgeGraphDTO;
 import com.student.platform.common.dto.SseMessage;
@@ -16,6 +7,7 @@ import com.student.platform.qa.service.AiService;
 import com.student.platform.qa.service.util.AiCacheManager;
 import com.student.platform.qa.service.util.ErrorHandler;
 import com.student.platform.qa.service.util.SessionManager;
+import dev.langchain4j.data.message.ImageContent;
 import dev.langchain4j.data.message.TextContent;
 import dev.langchain4j.data.message.UserMessage;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -44,9 +36,6 @@ public class AiServiceImpl implements AiService {
 
     @Value("${ai.stream.buffer-size:1024}")
     private int streamBufferSize;
-
-    @Value("${langchain4j.open-ai.vision-chat-model.api-key:}")
-    private String visionApiKey;
 
     private final StreamingChatModel streamingChatModel;
     private final StreamingChatModel visionChatModel;
@@ -216,13 +205,15 @@ public class AiServiceImpl implements AiService {
             String base64Image = Base64.getEncoder().encodeToString(imageBytes);
             log.info("图像转换为base64成功，大小: {}KB", imageBytes.length / 1024);
 
+            // 关键：图片以 ImageContent 随消息一并发送给多模态模型（此前仅发送文本，导致模型"看不到"图片）
             UserMessage userMessage = UserMessage.from(
-                    TextContent.from(question)
+                    TextContent.from(question),
+                    new ImageContent(base64Image, contentType)
             );
 
             List<dev.langchain4j.data.message.ChatMessage> chatMessages = List.of(userMessage);
 
-            log.info("发送多模态消息到GLM-4.6V模型");
+            log.info("发送多模态消息到视觉模型（含图片），问题: {}", question);
 
             StringBuilder fullResponse = new StringBuilder();
             CountDownLatch latch = new CountDownLatch(1);
@@ -236,36 +227,36 @@ public class AiServiceImpl implements AiService {
 
                 @Override
                 public void onError(Throwable error) {
-                    log.error("GLM-4.6V生成响应失败：{}", error.getMessage(), error);
+                    log.error("视觉模型生成响应失败：{}", error.getMessage(), error);
                     errorRef.set(error);
                     latch.countDown();
                 }
 
                 @Override
                 public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
-                    log.info("GLM-4.6V响应生成完成，响应ID：{}", response.id());
+                    log.info("视觉模型响应生成完成，响应ID：{}", response.id());
                     latch.countDown();
                 }
             });
 
-            boolean completed = latch.await(300, TimeUnit.SECONDS);
+            boolean completed = latch.await(180, TimeUnit.SECONDS);
             if (!completed) {
-                log.warn("GLM-4.6V生成响应超时");
+                log.warn("视觉模型生成响应超时");
                 return "AI响应超时，请稍后重试。";
             }
 
             if (errorRef.get() != null) {
-                log.error("GLM-4.6V生成响应发生错误: {}", errorRef.get().getMessage());
+                log.error("视觉模型生成响应发生错误: {}", errorRef.get().getMessage());
                 return "AI服务暂时不可用，请稍后重试。";
             }
 
             String response = fullResponse.toString().trim();
             if (response.isEmpty()) {
-                log.warn("GLM-4.6V返回空响应");
+                log.warn("视觉模型返回空响应");
                 return "AI返回空响应，请重新提问。";
             }
 
-            log.info("GLM-4.6V响应生成成功，响应长度: {}", response.length());
+            log.info("视觉模型响应生成成功，响应长度: {}", response.length());
             return response;
         } catch (Exception e) {
             log.error("生成响应异常: {}", e.getMessage(), e);
@@ -297,7 +288,7 @@ public class AiServiceImpl implements AiService {
             String base64Image = Base64.getEncoder().encodeToString(imageBytes);
             log.info("图像转换为base64成功，大小: {}KB", imageBytes.length / 1024);
 
-            return createImageStream(base64Image, question);
+            return createImageStream(base64Image, contentType, question);
         } catch (IllegalArgumentException e) {
             String errorMessage = errorHandler.handleParameterError(e.getMessage(), e);
             return Flux.just(SseMessage.error(errorMessage));
@@ -635,103 +626,78 @@ public class AiServiceImpl implements AiService {
                 .onBackpressureBuffer(streamBufferSize);
     }
 
-    private Flux<SseMessage> createImageStream(String base64Image, String question) {
+    private Flux<SseMessage> createImageStream(String base64Image, String mimeType, String question) {
         Sinks.Many<SseMessage> sink = Sinks.many().unicast().onBackpressureBuffer();
 
-        if (visionApiKey == null || visionApiKey.isEmpty()) {
-            log.error("视觉模型API Key未配置");
+        if (visionChatModel == null) {
+            log.error("视觉模型未初始化，请检查 DEEPSEEK_API_KEY 配置");
             return Flux.just(SseMessage.error("图片问答功能未启用，请联系管理员配置视觉模型。"));
         }
 
-        log.info("使用智谱GLM-4.6V SDK从图像生成响应");
+        log.info("使用视觉模型（deepseek-flash）从图像生成流式响应，问题: {}, 图片大小: {}KB",
+                question, base64Image.length() / 1024 / 4);
 
         try {
-            ZhipuAiClient client = ZhipuAiClient.builder().ofZHIPU()
-                    .apiKey(visionApiKey)
-                    .build();
+            UserMessage userMessage = UserMessage.from(
+                    TextContent.from(question),
+                    new ImageContent(base64Image, mimeType)
+            );
 
-            ChatCompletionCreateParams request = ChatCompletionCreateParams.builder()
-                    .model("glm-4.6v")
-                    .stream(true)
-                    .messages(List.of(
-                            ChatMessage.builder()
-                                    .role(ChatMessageRole.USER.value())
-                                    .content(List.of(
-                                            MessageContent.builder()
-                                                    .type("image_url")
-                                                    .imageUrl(ImageUrl.builder()
-                                                            .url(base64Image)
-                                                            .build())
-                                                    .build(),
-                                            MessageContent.builder()
-                                                    .type("text")
-                                                    .text(question)
-                                                    .build()))
-                                    .build()))
-                    .build();
+            StringBuilder fullResponse = new StringBuilder();
+            StringBuilder buffer = new StringBuilder();
 
-            log.info("发送多模态消息到GLM-4.6V模型，问题: {}, 图片大小: {}KB", 
-                    question, base64Image.length() / 1024 / 4);
+            visionChatModel.chat(List.of(userMessage), new StreamingChatResponseHandler() {
+                @Override
+                public void onPartialResponse(String partialResponse) {
+                    try {
+                        fullResponse.append(partialResponse);
+                        buffer.append(partialResponse);
 
-            ChatCompletionResponse response = client.chat().createChatCompletion(request);
-
-            log.info("GLM-4.6V响应状态: success={}, msg={}", response.isSuccess(), response.getMsg());
-
-            if (response.isSuccess()) {
-                StringBuilder fullResponse = new StringBuilder();
-                StringBuilder buffer = new StringBuilder();
-
-                final Disposable[] subscriptionHolder = new Disposable[1];
-
-                subscriptionHolder[0] = response.getFlowable().subscribe(
-                        data -> {
-                            if (data.getChoices() != null && !data.getChoices().isEmpty()) {
-                                Delta delta = data.getChoices().get(0).getDelta();
-                                if (delta != null && delta.getContent() != null) {
-                                    String partialContent = delta.getContent();
-                                    fullResponse.append(partialContent);
-                                    buffer.append(partialContent);
-
-                                    if (buffer.length() >= 10 || partialContent.contains("\n")) {
-                                        String batchContent = buffer.toString();
-                                        buffer.setLength(0);
-                                        sink.tryEmitNext(SseMessage.data(batchContent));
-                                    }
-                                }
-                            }
-                        },
-                        error -> {
-                            log.error("GLM-4.6V流式响应错误：{}", error.getMessage(), error);
-                            sink.tryEmitNext(SseMessage.error("AI服务暂时不可用，请稍后重试。"));
-                            sink.tryEmitComplete();
-                        },
-                        () -> {
-                            if (!buffer.isEmpty()) {
-                                sink.tryEmitNext(SseMessage.data(buffer.toString()));
-                            }
-                            log.info("GLM-4.6V流式生成完成，响应长度: {}", fullResponse.length());
-                            sink.tryEmitNext(SseMessage.complete());
-                            sink.tryEmitComplete();
-                            if (subscriptionHolder[0] != null) {
-                                subscriptionHolder[0].dispose();
-                            }
+                        if (buffer.length() >= 10 || partialResponse.contains("\n")) {
+                            String batchContent = buffer.toString();
+                            buffer.setLength(0);
+                            sink.tryEmitNext(SseMessage.data(batchContent));
                         }
-                );
-            } else {
-                log.error("GLM-4.6V请求失败: {}", response.getMsg());
-                sink.tryEmitNext(SseMessage.error("AI服务暂时不可用，请稍后重试。"));
-                sink.tryEmitComplete();
-            }
+                    } catch (Exception e) {
+                        log.error("发送图片问答部分响应失败：{}", e.getMessage(), e);
+                        sink.tryEmitNext(SseMessage.error("生成响应失败：" + e.getMessage()));
+                        sink.tryEmitComplete();
+                    }
+                }
+
+                @Override
+                public void onError(Throwable error) {
+                    log.error("视觉模型流式响应错误：{}", error.getMessage(), error);
+                    sink.tryEmitNext(SseMessage.error("AI服务暂时不可用，请稍后重试。"));
+                    sink.tryEmitComplete();
+                }
+
+                @Override
+                public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
+                    try {
+                        if (buffer.length() > 0) {
+                            sink.tryEmitNext(SseMessage.data(buffer.toString()));
+                        }
+                        log.info("视觉模型流式生成完成，响应长度: {}", fullResponse.length());
+                        sink.tryEmitNext(SseMessage.complete());
+                        sink.tryEmitComplete();
+                    } catch (Exception e) {
+                        log.error("完成图片流式生成失败：{}", e.getMessage(), e);
+                        sink.tryEmitNext(SseMessage.error("处理响应完成失败：" + e.getMessage()));
+                        sink.tryEmitComplete();
+                    }
+                }
+            });
 
             return sink.asFlux()
-                    .timeout(Duration.ofMinutes(5))
+                    .timeout(Duration.ofMinutes(3))
                     .onErrorResume(error -> {
-                        log.error("GLM-4.6V流式响应错误：{}", error.getMessage(), error);
+                        log.error("视觉模型流式响应错误：{}", error.getMessage(), error);
                         return Flux.just(SseMessage.error("AI服务暂时不可用，请稍后重试。"));
                     })
                     .onBackpressureBuffer();
         } catch (Exception e) {
-            log.error("调用GLM-4.6V失败：{}", e.getMessage(), e);
+            log.error("调用视觉模型失败：{}", e.getMessage(), e);
             return Flux.just(SseMessage.error("调用AI服务失败：" + e.getMessage()));
         }
     }
