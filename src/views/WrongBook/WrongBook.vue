@@ -338,19 +338,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { TrendCharts, Download } from '@element-plus/icons-vue'
-import api from '@/api/api.js'
-import {
-  filterMockWrongBookList,
-  generateMockStats,
-  updateMockWrongBookItem,
-  deleteMockWrongBookItem,
-  redoMockWrongBookItem,
-  exportMockWrongBook,
-  getMockSubjectOptions
-} from './mockWrongBook.js'
-
-// 是否使用 mock 数据
-const USE_MOCK = true
+import api from '@/api/api'
 
 const router = useRouter()
 
@@ -386,8 +374,17 @@ const filterForm = reactive({
   showDueReview: false
 })
 
-// 科目选项（动态获取）
-const subjectOptions = ref(getMockSubjectOptions())
+// 科目选项（从错题数据中动态提取）
+const subjectOptions = ref([])
+
+// 从错题列表中提取科目选项
+const extractSubjectOptions = (list) => {
+  const subjects = new Set()
+  list.forEach(item => {
+    if (item.subject) subjects.add(item.subject)
+  })
+  subjectOptions.value = [...subjects]
+}
 
 // 分页
 const pagination = reactive({
@@ -405,35 +402,27 @@ const editForm = reactive({
   notes: ''
 })
 
-// 获取错题列表
+// 获取错题列表（后端全量返回，前端本地分页）
 const fetchWrongBookList = async () => {
   loading.value = true
   try {
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      await new Promise(resolve => setTimeout(resolve, 300))
-      const requestData = {
-        ...filterForm,
-        pageNum: pagination.pageNum,
-        pageSize: pagination.pageSize
-      }
-      const result = filterMockWrongBookList(requestData)
-      wrongBookList.value = result.list
-      pagination.total = result.total
-    } else {
-      const requestData = {
-        ...filterForm,
-        pageNum: pagination.pageNum,
-        pageSize: pagination.pageSize
-      }
+    const requestData = {
+      ...filterForm,
+      pageNum: 1,
+      pageSize: 10000
+    }
 
-      const response = await api.post('/exercise/wrong-book/filter', requestData)
-      if (response.code === 200) {
-        wrongBookList.value = response.data || []
-        pagination.total = response.data?.length || 0
-      } else {
-        ElMessage.error(response.message || '获取错题列表失败')
-      }
+    const response = await api.post('/exercise/wrong-book/filter', requestData)
+    if (response.code === 200) {
+      const allList = response.data || []
+      extractSubjectOptions(allList)
+
+      // 本地分页
+      pagination.total = allList.length
+      const start = (pagination.pageNum - 1) * pagination.pageSize
+      wrongBookList.value = allList.slice(start, start + pagination.pageSize)
+    } else {
+      ElMessage.error(response.message || '获取错题列表失败')
     }
   } catch (error) {
     console.error('获取错题列表失败:', error)
@@ -446,16 +435,9 @@ const fetchWrongBookList = async () => {
 // 获取统计数据
 const fetchStats = async () => {
   try {
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      await new Promise(resolve => setTimeout(resolve, 200))
-      const mockStats = generateMockStats()
-      Object.assign(stats, mockStats)
-    } else {
-      const response = await api.get('/exercise/wrong-book/stats')
-      if (response.code === 200) {
-        Object.assign(stats, response.data)
-      }
+    const response = await api.get('/exercise/wrong-book/stats')
+    if (response.code === 200 && response.data) {
+      Object.assign(stats, response.data)
     }
   } catch (error) {
     console.error('获取统计数据失败:', error)
@@ -494,7 +476,7 @@ const handleReview = (row) => {
     path: '/practice',
     query: {
       single: 'true',
-      exerciseId: row.exerciseId,
+      exerciseId: row.exercise?.id,
       fromWrongBook: 'true',
       wrongBookId: row.id
     }
@@ -518,28 +500,20 @@ const submitRedo = async () => {
   try {
     const isCorrect = checkAnswer(currentWrongBook.value, redoAnswer.value)
 
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      await new Promise(resolve => setTimeout(resolve, 200))
-      redoMockWrongBookItem(currentWrongBook.value.id, redoAnswer.value, isCorrect)
+    const response = await api.post(`/exercise/wrong-book/${currentWrongBook.value.id}/redo`, null, {
+      params: {
+        userAnswer: redoAnswer.value,
+        isCorrect: isCorrect
+      }
+    })
+
+    if (response.code === 200) {
       ElMessage.success(isCorrect ? '回答正确！' : '回答错误，继续努力！')
       showRedoDialog.value = false
       fetchWrongBookList()
       fetchStats()
     } else {
-      const response = await api.post(`/exercise/wrong-book/${currentWrongBook.value.id}/redo`, null, {
-        params: {
-          userAnswer: redoAnswer.value,
-          isCorrect: isCorrect
-        }
-      })
-
-      if (response.code === 200) {
-        ElMessage.success(isCorrect ? '回答正确！' : '回答错误，继续努力！')
-        showRedoDialog.value = false
-        fetchWrongBookList()
-        fetchStats()
-      }
+      ElMessage.error(response.message || '提交失败')
     }
   } catch (error) {
     console.error('提交重做失败:', error)
@@ -585,22 +559,18 @@ const handleEdit = (row) => {
 // 保存编辑
 const saveEdit = async () => {
   try {
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      await new Promise(resolve => setTimeout(resolve, 200))
-      updateMockWrongBookItem(editForm.id, editForm)
+    const response = await api.put(`/exercise/wrong-book/${editForm.id}`, {
+      errorType: editForm.errorType,
+      priority: editForm.priority,
+      tags: editForm.tags,
+      notes: editForm.notes
+    })
+    if (response.code === 200) {
       ElMessage.success('保存成功')
       showEditDialog.value = false
       fetchWrongBookList()
     } else {
-      const response = await api.put(`/exercise/wrong-book/${editForm.id}`, editForm)
-      if (response.code === 200) {
-        ElMessage.success('保存成功')
-        showEditDialog.value = false
-        fetchWrongBookList()
-      } else {
-        ElMessage.error(response.message || '保存失败')
-      }
+      ElMessage.error(response.message || '保存失败')
     }
   } catch (error) {
     console.error('保存失败:', error)
@@ -615,22 +585,13 @@ const handleDelete = async (row) => {
       type: 'warning'
     })
 
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      await new Promise(resolve => setTimeout(resolve, 200))
-      deleteMockWrongBookItem(row.id)
+    const response = await api.delete(`/exercise/wrong-book/${row.id}`)
+    if (response.code === 200) {
       ElMessage.success('删除成功')
       fetchWrongBookList()
       fetchStats()
     } else {
-      const response = await api.delete(`/exercise/wrong-book/${row.id}`)
-      if (response.code === 200) {
-        ElMessage.success('删除成功')
-        fetchWrongBookList()
-        fetchStats()
-      } else {
-        ElMessage.error(response.message || '删除失败')
-      }
+      ElMessage.error(response.message || '删除失败')
     }
   } catch (error) {
     if (error !== 'cancel') {
@@ -643,24 +604,13 @@ const handleDelete = async (row) => {
 // 导出
 const exportWrongBook = async () => {
   try {
-    let blob
-    if (USE_MOCK) {
-      // 使用 mock 数据
-      const exportData = exportMockWrongBook(exportFormat.value)
-      blob = new Blob([exportData], {
-        type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
-      })
-    } else {
-      const response = await api.get(`/exercise/wrong-book/export`, {
-        params: {
-          format: exportFormat.value
-        },
-        responseType: 'blob'
-      })
-      blob = new Blob([response], {
-        type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
-      })
-    }
+    const response = await api.get('/exercise/wrong-book/export', { format: exportFormat.value }, {
+      responseType: 'blob'
+    })
+
+    const blob = new Blob([response], {
+      type: exportFormat.value === 'json' ? 'application/json' : 'text/csv'
+    })
 
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -809,7 +759,7 @@ onMounted(() => {
 .stat-card .stat-value {
   font-size: 32px;
   font-weight: 700;
-  color: #3b82f6;
+  color: #6366f1;
   margin-bottom: 8px;
 }
 

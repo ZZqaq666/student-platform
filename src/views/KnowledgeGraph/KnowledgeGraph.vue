@@ -19,15 +19,15 @@
         <svg class="kg-svg" :viewBox="`-440 -340 880 680`" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <radialGradient id="coreGlow" cx="50%" cy="50%" r="50%">
-              <stop offset="0%" stop-color="#7c5cfc" stop-opacity="0.3" />
-              <stop offset="60%" stop-color="#7c5cfc" stop-opacity="0.06" />
-              <stop offset="100%" stop-color="#7c5cfc" stop-opacity="0" />
+              <stop offset="0%" stop-color="#6366f1" stop-opacity="0.3" />
+              <stop offset="60%" stop-color="#6366f1" stop-opacity="0.06" />
+              <stop offset="100%" stop-color="#6366f1" stop-opacity="0" />
             </radialGradient>
             <filter id="nodeGlow">
-              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#7c5cfc" flood-opacity="0.35" />
+              <feDropShadow dx="0" dy="0" stdDeviation="4" flood-color="#6366f1" flood-opacity="0.35" />
             </filter>
             <filter id="nodeGlowStrong">
-              <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#7c5cfc" flood-opacity="0.5" />
+              <feDropShadow dx="0" dy="0" stdDeviation="8" flood-color="#6366f1" flood-opacity="0.5" />
             </filter>
           </defs>
 
@@ -43,7 +43,7 @@
               stroke-linecap="round"
               :style="{ animationDelay: (li * 0.03) + 's' }"
               class="kg-link-line" />
-            <circle v-if="l.active" r="3" fill="#7c5cfc" class="kg-flow-dot">
+            <circle v-if="l.active" r="3" fill="#6366f1" class="kg-flow-dot">
               <animateMotion :dur="1.5 + Math.random() + 's'" repeatCount="indefinite"
                 :path="`M${l.x1},${l.y1} L${l.x2},${l.y2}`" />
             </circle>
@@ -56,7 +56,7 @@
             :style="{ animationDelay: (ni * 0.04) + 's' }"
             @click="tapNode(n)">
             <circle v-if="n.id === activeNodeId" :r="n.r + 14" fill="url(#coreGlow)" class="kg-glow-ring" />
-            <circle v-if="n.id === activeNodeId" :r="n.r + 6" fill="none" stroke="#7c5cfc" stroke-width="2" opacity="0.5"
+            <circle v-if="n.id === activeNodeId" :r="n.r + 6" fill="none" stroke="#6366f1" stroke-width="2" opacity="0.5"
               stroke-dasharray="6 3" class="kg-select-ring" />
             <circle :r="n.r" :fill="nodeFill(n)" :stroke="n.id === activeNodeId ? '#fff' : 'rgba(255,255,255,.6)'"
               :stroke-width="n.id === activeNodeId ? 3 : 1.5"
@@ -70,7 +70,7 @@
         </svg>
 
         <div class="kg-legend">
-          <span class="leg-dot" style="background:#7c5cfc"></span>核心
+          <span class="leg-dot" style="background:#6366f1"></span>核心
           <span class="leg-dot" style="background:#a78bfa"></span>模块
           <span class="leg-dot" style="background:#c4b5fd"></span>知识点
           <span class="leg-dot" style="background:#e0d6f8"></span>细分
@@ -136,7 +136,10 @@
                 <div class="sp-sec" v-if="aiSearchBooks.length">
                   <div class="sp-sec-head">✨ AI 推荐</div>
                   <button v-for="b in aiSearchBooks.slice(0, 4)" :key="'a'+b.id" class="sp-line" @click="onSearchSelect(b)">
-                    <span class="sp-line-cover">{{ b.coverIcon || '📘' }}</span>
+                    <span class="sp-line-cover">
+                      <img v-if="b.coverImage" :src="b.coverImage" :alt="b.title" class="sp-line-cover-img" />
+                      <span v-else>{{ b.coverIcon || '📘' }}</span>
+                    </span>
                     <span class="sp-line-name">{{ b.title }}</span>
                     <span class="sp-line-extra">{{ b.direction }}</span>
                     <span class="sp-line-pct">{{ b.matchRate }}%</span>
@@ -146,7 +149,10 @@
               <div v-else-if="searchAllResults.length">
                 <div class="sp-sec-head">搜索结果 <span class="sp-count">{{ searchAllResults.length }}</span></div>
                 <button v-for="(b, i) in searchAllResults" :key="'r'+i" class="sp-line" :style="{ animationDelay: i * 0.03 + 's' }" @click="onSearchSelect(b)">
-                  <span class="sp-line-cover">{{ b.coverIcon || '📘' }}</span>
+                  <span class="sp-line-cover">
+                    <img v-if="b.coverImage" :src="b.coverImage" :alt="b.title" class="sp-line-cover-img" />
+                    <span v-else>{{ b.coverIcon || '📘' }}</span>
+                  </span>
                   <span class="sp-line-name">{{ b.title }}</span>
                   <span class="sp-line-extra">{{ b.publisher }}</span>
                   <span v-if="b.inShelf" class="sp-line-shelf">书架</span>
@@ -178,7 +184,10 @@
                 :style="{ animationDelay: (0.03 + i * 0.04) + 's' }"
                 @click="selectBook(b)">
                 <div class="sb-book-shine"></div>
-                <div class="sb-book-cover"><span>{{ b.coverIcon || '📘' }}</span></div>
+                <div class="sb-book-cover">
+  <img v-if="b.coverImage" :src="b.coverImage" :alt="b.title" class="sb-book-cover-img" />
+  <span v-else>{{ b.coverIcon || '📘' }}</span>
+</div>
                 <div class="sb-book-info">
                   <div class="sb-book-name">{{ b.title }}</div>
                   <div class="sb-book-publisher">{{ b.publisher || '高等教育出版社' }}</div>
@@ -216,7 +225,10 @@
                 :style="{ animationDelay: (0.08 + i * 0.04) + 's' }"
                 @click="selectBook(b)">
                 <div class="sb-book-shine"></div>
-                <div class="sb-book-cover sb-book-cover--thin"><span>{{ b.coverIcon || '📘' }}</span></div>
+                <div class="sb-book-cover sb-book-cover--thin">
+  <img v-if="b.coverImage" :src="b.coverImage" :alt="b.title" class="sb-book-cover-img" />
+  <span v-else>{{ b.coverIcon || '📘' }}</span>
+       </div>
                 <div class="sb-book-info">
                   <div class="sb-book-name">{{ b.title }}</div>
                   <div class="sb-book-publisher">{{ b.publisher }}</div>
@@ -250,7 +262,9 @@
                 <span class="sb-empty-sug-label">热门推荐</span>
                 <div class="sb-empty-sug-list">
                   <button v-for="s in suggestedBooks" :key="s.id" class="sb-empty-sug-item" @click="selectBook(s)">
-                    <span>{{ s.coverIcon || '📘' }}</span><span>{{ s.title }}</span>
+                    <span v-if="s.coverImage"><img :src="s.coverImage" :alt="s.title" class="sb-empty-sug-img" /></span>
+                    <span v-else>{{ s.coverIcon || '📘' }}</span>
+                    <span>{{ s.title }}</span>
                   </button>
                 </div>
               </div>
@@ -275,7 +289,7 @@
     </div>
 
     <!-- 习题推荐弹窗 -->
-    <div v-if="showExerciseModal" class="ex-modal-overlay" @click="showExerciseModal = false">
+    <div v-if="showExerciseModal" class="ex-modal-overlay" @click="closeExerciseModal()">
       <div class="ex-modal" @click.stop>
         <div class="exm-top">
           <div class="exmt-left">
@@ -291,7 +305,7 @@
             <div class="exmtr-item">📈 预计提升</div>
             <div class="exmtr-tags"><span v-for="(b, i) in benefitTags" :key="i">{{ b }}</span></div>
           </div>
-          <button class="exmt-close" @click="showExerciseModal = false">
+          <button class="exmt-close" @click="closeExerciseModal()">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
           </button>
         </div>
@@ -301,11 +315,12 @@
           </button>
         </div>
         <div class="exm-list">
-          <div v-if="filteredExercises.length === 0" class="exml-empty"><span>📭</span><p>该难度暂无推荐题目</p></div>
+          <div v-if="isGeneratingExercises" class="exml-empty"><span>🤖</span><p>AI正在为您生成题目...</p></div>
+          <div v-else-if="filteredExercises.length === 0" class="exml-empty"><span>📭</span><p>该难度暂无推荐题目</p></div>
           <div v-for="e in filteredExercises" :key="e.id" class="exml-card" :class="{ sel: e.selected }" @click="e.selected = !e.selected">
             <div class="exmlc-left"><span class="exmlc-diff" :class="e.diffKey"></span><span class="exmlc-type">{{ e.typeIcon || '📝' }}</span></div>
             <div class="exmlc-mid">
-              <div class="exmlcm-title">{{ e.title }}</div>
+              <div class="exmlcm-title">{{ getExerciseContent(e) }}</div>
               <div class="exmlcm-tags" v-if="e.tags?.length"><span v-for="t in e.tags" :key="t">{{ t }}</span></div>
               <div class="exmlcm-reason" v-if="e.aiReason"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>{{ e.aiReason }}</div>
             </div>
@@ -328,13 +343,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, reactive, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import api from '@/api/api.js'
+import { ref, computed, onMounted, reactive, nextTick, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import api, { apiService } from '@/api/api'
 
 const router = useRouter()
+const route = useRoute()
 const goToHome = () => router.push('/')
 
 const activeNodeId = ref('0')
@@ -348,6 +363,7 @@ const graphKey = ref(0)
 const showExerciseModal = ref(false)
 const exFilter = ref('all')
 const exercises = ref([])
+const isGeneratingExercises = ref(false)
 const exFilters = [
   { k: 'all', label: '全部', icon: '📋' }, { k: 'basic', label: '基础', icon: '🟢' },
   { k: 'advanced', label: '进阶', icon: '🟡' }, { k: 'exam', label: '真题', icon: '🔴' }, { k: 'competition', label: '冲刺', icon: '⚡' }
@@ -357,6 +373,26 @@ const isRefreshing = ref(false)
 const bookSearch = ref('')
 const searchFocused = ref(false)
 const searchInputRef = ref(null)
+const isLoadingGraph = ref(false)
+
+const transformGraphData = (backendData) => {
+  if (!backendData || !backendData.nodes || !backendData.relations) {
+    return null
+  }
+  
+  const nodes = backendData.nodes.map(node => ({
+    id: String(node.id),
+    name: node.name,
+    category: node.category || 0
+  }))
+  
+  const links = backendData.relations.map(relation => [
+    String(relation.sourceNodeId),
+    String(relation.targetNodeId)
+  ])
+  
+  return { nodes, links }
+}
 
 const graphData = reactive({
   nodes: [
@@ -478,6 +514,25 @@ const bookGraphPresets = {
       ['4','14'],['5','16'],['7','18'],['13','15'],
     ]
   },
+  '大学物理': {
+    nodes: [
+      { id: '0', name: '大学物理', category: 0 },
+      { id: '1', name: '力学', category: 1 }, { id: '2', name: '热学', category: 1 },
+      { id: '3', name: '电磁学', category: 1 }, { id: '4', name: '光学', category: 1 },
+      { id: '5', name: '牛顿运动定律', category: 2 }, { id: '6', name: '动量守恒', category: 2 },
+      { id: '7', name: '能量守恒', category: 2 }, { id: '8', name: '热力学定律', category: 2 },
+      { id: '9', name: '静电场', category: 2 }, { id: '10', name: '恒定电流', category: 2 },
+      { id: '11', name: '机械振动', category: 3 }, { id: '12', name: '机械波', category: 3 },
+      { id: '13', name: '理想气体', category: 3 }, { id: '14', name: '磁场', category: 3 },
+      { id: '15', name: '电磁感应', category: 3 }, { id: '16', name: '波动光学', category: 2 },
+      { id: '17', name: '几何光学', category: 3 }, { id: '18', name: '狭义相对论', category: 2 },
+    ],
+    links: [
+      ['0','1'],['0','2'],['0','3'],['0','4'],['1','5'],['1','6'],['1','7'],
+      ['2','8'],['2','13'],['3','9'],['3','10'],['3','14'],['4','16'],['4','17'],
+      ['5','11'],['11','12'],['9','15'],['15','18'],
+    ]
+  },
 }
 
 const getGraphForBook = (book) => {
@@ -530,7 +585,7 @@ const visibleLinks = computed(() => {
 
 const tapNode = (n) => { activeNodeId.value = n.id; dimmed.value = true }
 const nodeFill = (n) => {
-  const colors = ['#7c5cfc', '#a78bfa', '#c4b5fd', '#e0d6f8']
+  const colors = ['#6366f1', '#a78bfa', '#c4b5fd', '#e0d6f8']
   return n.id === activeNodeId.value ? colors[n.category] : colors[n.category] + '99'
 }
 
@@ -682,7 +737,40 @@ const applyBookSwitch = async () => {
     return
   }
 
-  // 先尝试预设图谱数据
+  isLoadingGraph.value = true
+
+  try {
+    const bookId = target.id
+    const isNumericId = /^\d+$/.test(String(bookId))
+    
+    if (isNumericId) {
+      const response = await apiService.knowledgeGraph.getKnowledgeGraphByBook(bookId)
+      
+      if (response && response.code === 200 && response.data && response.data.nodes && response.data.nodes.length > 0) {
+        const transformedData = transformGraphData(response.data)
+        
+        if (transformedData) {
+          graphData.nodes = transformedData.nodes
+          graphData.links = transformedData.links
+          activeNodeId.value = transformedData.nodes[0]?.id || '0'
+          graphKey.value++
+          currentBook.value = target
+          showBookPanel.value = false
+          console.log('成功从后端获取知识图谱数据:', transformedData)
+          return
+        }
+      }
+      
+      console.log('后端返回数据不完整，尝试使用预设数据')
+    } else {
+      console.log('非数字ID，跳过后端API请求')
+    }
+  } catch (error) {
+    console.warn('从后端获取知识图谱失败:', error.message)
+  } finally {
+    isLoadingGraph.value = false
+  }
+
   const preset = getGraphForBook(target)
   if (preset) {
     graphData.nodes = preset.nodes
@@ -691,68 +779,198 @@ const applyBookSwitch = async () => {
     graphKey.value++
     currentBook.value = target
     showBookPanel.value = false
+    console.log('使用预设mock数据')
     return
   }
 
-  // 尝试 API 加载
-  try {
-    const r = await api.get(`/books/${target.id}/chapters`)
-    if (r.code === 200 && r.data?.nodes?.length) {
-      graphData.nodes = r.data.nodes
-      graphData.links = r.data.links || []
-      activeNodeId.value = r.data.nodes[0]?.id || '0'
-      graphKey.value++
-      currentBook.value = target
-      showBookPanel.value = false
-      return
-    }
-  } catch (e) {}
-
-  // 回退：用默认数据但改中心节点名
-  const defaultNodes = bookGraphPresets['高等数学'].nodes
-  const defaultLinks = bookGraphPresets['高等数学'].links
-  const name = target.title?.length > 6 ? target.title.slice(0, 5) + '…' : (target.title || '教材')
+  const title = target.title || ''
+  const presetKey = Object.keys(bookGraphPresets).find(key => title.includes(key)) || '高等数学'
+  const defaultNodes = bookGraphPresets[presetKey].nodes
+  const defaultLinks = bookGraphPresets[presetKey].links
+  const name = title.length > 6 ? title.slice(0, 5) + '…' : title || '教材'
   graphData.nodes = [{ id: '0', name, category: 0 }, ...defaultNodes.slice(1)]
   graphData.links = [...defaultLinks]
   activeNodeId.value = '0'
   graphKey.value++
   currentBook.value = target
   showBookPanel.value = false
+  console.log(`使用${presetKey}的默认mock数据`)
 }
 
 /* ===== 习题 ===== */
-const fetchExercises = async () => { try { const r = await api.get('/exercises', { params: { knowledgePoint: activeNodeName.value, difficulty: exFilter.value } }); exercises.value = (r.data || []).map((e, i) => enhanceExercise(e, i)) } catch (e) { exercises.value = generateMockExercises() } }
-const openExerciseModal = async () => { showExerciseModal.value = true; await fetchExercises() }
+const fetchExercises = async () => {
+  isGeneratingExercises.value = true;
+  try {
+    const r = await api.get('/exercise/exercises', { knowledgePoint: activeNodeName.value, difficulty: exFilter.value });
+    exercises.value = (r.data || []).map((e, i) => enhanceExercise(e, i))
+  } catch (e) {
+    console.error('获取习题失败:', e)
+    exercises.value = []
+    ElMessage.warning('习题生成失败，请稍后重试')
+  } finally {
+    isGeneratingExercises.value = false;
+  }
+}
+const openExerciseModal = async () => { 
+  showExerciseModal.value = true; 
+  await fetchExercises();
+}
+const closeExerciseModal = () => {
+  if (exercises.value.length > 0) {
+    const exercisesToSave = exercises.value.map(e => ({
+      id: e.id,
+      title: cleanHTML(e.title),
+      content: cleanHTML(e.content),
+      question: cleanHTML(e.question),
+      options: cleanHTML(e.options),
+      answer: cleanHTML(e.answer),
+      analysis: cleanHTML(e.analysis),
+      difficulty: e.difficulty,
+      type: e.type,
+      questionType: e.questionType,
+      score: e.score
+    }));
+    sessionStorage.setItem('exerciseList', JSON.stringify(exercisesToSave));
+  }
+  sessionStorage.removeItem('showExerciseModal');
+  showExerciseModal.value = false;
+}
+const getExerciseContent = (e) => {
+  if (e.title) return e.title;
+  if (e.content) return e.content;
+  if (e.question) return e.question;
+  return '暂无题目内容';
+}
+const getExerciseOptions = (e) => {
+  console.log('[KnowledgeGraph] getExerciseOptions input:', JSON.stringify(e?.options));
+  if (!e.options) return [];
+  const raw = typeof e.options === 'string' ? e.options.split('@@@') : e.options;
+  console.log('[KnowledgeGraph] after split:', JSON.stringify(raw));
+  const result = raw.map(opt => {
+    let trimmed = (opt || '').trim();
+    trimmed = trimmed.replace(/^[A-H][.\s]*(?:\\n|\n)?\s*/, '');
+    return trimmed;
+  }).filter(opt => opt.length > 0);
+  console.log('[KnowledgeGraph] final options:', JSON.stringify(result));
+  return result;
+}
 const changeExFilter = async (f) => { exFilter.value = f; await fetchExercises() }
+const cleanHTML = (str) => {
+  if (!str) return str;
+  return str.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+}
 const enhanceExercise = (e, i) => ({ ...e, selected: false, diffKey: difficultyKey(e.difficulty), typeIcon: ['📝','🧮','📐','🔢','💡'][i % 5], tags: e.tags || pickTags(i), aiReason: e.aiReason || pickReason(i), estTime: e.estTime || [5,8,10,12,15][i % 5], expGain: e.expGain || [15,20,20,25,30][i % 5] })
 const difficultyKey = (d) => { if (/基础/.test(d)) return 'easy'; if (/进阶/.test(d)) return 'mid'; if (/真题/.test(d)) return 'hard'; if (/竞赛|冲刺/.test(d)) return 'extreme'; return 'mid' }
 const pickTags = (i) => { const all = [['极限','导数'],['积分','微积分'],['矩阵','线性代数'],['概率','分布'],['中值定理','应用'],['向量','空间'],['连续性','极限'],['微分','近似']]; return all[i % all.length] }
 const pickReason = (i) => { const all = ['该知识点在考试中高频出现', '你在相关节点停留较久，建议强化', '与当前知识图谱节点强关联', '你最近在此类题型错误率较高', '考研中该题型占比逐年上升', '巩固基础后可解锁进阶内容']; return all[i % all.length] }
-const generateMockExercises = () => {
-  const base = [
-    { title: '导数定义理解与应用', difficulty: '基础巩固', diffKey: 'easy' }, { title: '极限计算方法综合', difficulty: '基础巩固', diffKey: 'easy' },
-    { title: '不定积分换元法', difficulty: '基础巩固', diffKey: 'easy' }, { title: '定积分应用：面积计算', difficulty: '基础巩固', diffKey: 'easy' },
-    { title: '导数与极限综合应用', difficulty: '进阶提升', diffKey: 'mid' }, { title: '中值定理证明题', difficulty: '进阶提升', diffKey: 'mid' },
-    { title: '多元函数求偏导', difficulty: '进阶提升', diffKey: 'mid' }, { title: '级数收敛性判断', difficulty: '进阶提升', diffKey: 'mid' },
-    { title: '泰勒展开与近似计算', difficulty: '进阶提升', diffKey: 'mid' }, { title: '考研真题：极限大题', difficulty: '真题冲刺', diffKey: 'hard' },
-    { title: '考研真题：积分综合', difficulty: '真题冲刺', diffKey: 'hard' }, { title: '竞赛：不等式证明', difficulty: '竞赛拓展', diffKey: 'extreme' },
-  ]
-  return base.map((e, i) => ({ id: 'ex' + (i + 1), ...e, selected: false, typeIcon: ['📝','🧮','📐','🔢','💡'][i % 5], tags: pickTags(i), aiReason: pickReason(i), estTime: [5,8,10,12,15][i % 5], expGain: [15,20,20,25,30][i % 5] }))
+const startEx = () => {
+  const sel = exercises.value.filter(e => e.selected); 
+  if (!sel.length) return; 
+  sessionStorage.setItem('showExerciseModal', 'true');
+  
+  const exercisesToSave = exercises.value.map(e => ({
+    id: e.id,
+    title: cleanHTML(e.title),
+    content: cleanHTML(e.content),
+    question: cleanHTML(e.question),
+    options: cleanHTML(e.options),
+    answer: cleanHTML(e.answer),
+    analysis: cleanHTML(e.analysis),
+    difficulty: e.difficulty,
+    type: e.type,
+    questionType: e.questionType,
+    score: e.score
+  }));
+  sessionStorage.setItem('exerciseList', JSON.stringify(exercisesToSave));
+  
+  const convertedExercises = sel.map(e => {
+    const rawOpts = e.options || '';
+    const options = rawOpts.includes('@@@') ? rawOpts.split('@@@') : rawOpts.split(',').filter(Boolean);
+    options.forEach((opt, i) => {
+      options[i] = options[i].replace(/^[A-H][.\s]*(?:\\n|\n)?\s*/, '');
+    });
+    const correctAnswerText = e.answer || '';
+    let correctAnswer = 0;
+    if (correctAnswerText && options.length > 0) {
+      const firstChar = correctAnswerText.charAt(0).toUpperCase();
+      const idx = ['A', 'B', 'C', 'D'].indexOf(firstChar);
+      correctAnswer = idx >= 0 ? idx : 0;
+    }
+    
+    let questionType = e.type || e.questionType || '选择题';
+    if (questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE') {
+      questionType = '选择题';
+    } else if (questionType === 'FILL_BLANK') {
+      questionType = '填空题';
+    } else if (questionType === 'TRUE_FALSE') {
+      questionType = '判断题';
+    } else if (questionType === 'SHORT_ANSWER') {
+      questionType = '解答题';
+    }
+    
+    return {
+      type: questionType,
+      question: e.content || e.title || '',
+      options: options.length && options.some(o => o.trim()) ? options : [],
+      correctAnswer: correctAnswer,
+      correctAnswerText: correctAnswerText,
+      analysis: e.analysis || '本题考查相关知识点',
+      knowledgePoint: activeNodeName.value,
+      difficulty: e.difficulty?.includes('基础') ? 'basic' : e.difficulty?.includes('进阶') ? 'advanced' : e.difficulty?.includes('真题') ? 'exam' : 'basic',
+      difficultyText: e.difficulty || '中等',
+      score: e.score || 10
+    };
+  });
+  
+  router.push({ path: '/practice', query: { from: 'graph', exercises: encodeURIComponent(JSON.stringify(convertedExercises)) } }) 
 }
-const startEx = () => { const sel = exercises.value.filter(e => e.selected); if (!sel.length) return; showExerciseModal.value = false; router.push({ path: '/practice', query: { from: 'graph', multiple: 'true', exerciseIds: sel.map(e => e.id).join(',') } }) }
 const filteredExercises = computed(() => { if (exFilter.value === 'all') return exercises.value; const m = { basic: '基础巩固', advanced: '进阶提升', exam: '真题冲刺', competition: '竞赛拓展' }; return exercises.value.filter(e => e.difficulty === m[exFilter.value]) })
 const selectedExCount = computed(() => exercises.value.filter(e => e.selected).length)
 const getFilterCount = (k) => { if (k === 'all') return exercises.value.length; const m = { basic: '基础巩固', advanced: '进阶提升', exam: '真题冲刺', competition: '竞赛拓展' }; return exercises.value.filter(e => e.difficulty === m[k]).length }
 const totalEstTime = computed(() => exercises.value.filter(e => e.selected).reduce((s, e) => s + (e.estTime || 8), 0))
 const totalExp = computed(() => exercises.value.filter(e => e.selected).reduce((s, e) => s + (e.expGain || 20), 0))
 const benefitTags = computed(() => { const tags = ['微积分理解', '导数应用', '极限计算']; if (activeNodeName.value.includes('代数')) tags.splice(1, 2, '矩阵运算', '向量空间'); if (activeNodeName.value.includes('概率')) tags.splice(1, 2, '分布函数', '期望计算'); return tags })
-const refreshRecommend = async () => { isRefreshing.value = true; await fetchExercises(); await new Promise(r => setTimeout(r, 400)); isRefreshing.value = false }
+const refreshRecommend = async () => { isRefreshing.value = true; exercises.value = []; await fetchExercises(); await new Promise(r => setTimeout(r, 400)); isRefreshing.value = false }
 
-onMounted(fetchBooks)
+onMounted(async () => {
+  await fetchBooks();
+  const shouldShowModal = sessionStorage.getItem('showExerciseModal');
+  if (shouldShowModal === 'true') {
+    sessionStorage.removeItem('showExerciseModal');
+    const savedExercises = sessionStorage.getItem('exerciseList');
+    if (savedExercises) {
+      try {
+        const savedList = JSON.parse(savedExercises);
+        exercises.value = savedList.map((e, i) => enhanceExercise(e, i));
+        sessionStorage.removeItem('exerciseList');
+      } catch (e) {
+        console.error('Failed to parse saved exercises:', e);
+      }
+    }
+    await nextTick();
+    showExerciseModal.value = true;
+  } else if (route.query.showExercises === 'true') {
+    await nextTick();
+    openExerciseModal();
+  }
+})
+
+watch(() => route.query.showExercises, async (newVal) => {
+  if (newVal === 'true') {
+    await nextTick();
+    openExerciseModal();
+  }
+})
 
 const exportPDF = async () => {
   const wrap = document.querySelector('.kg-canvas-wrap'); if (!wrap) return
   try {
+    const [{ default: html2canvas }, jspdfModule] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf')
+    ])
+    const jsPDF = jspdfModule.jsPDF || jspdfModule.default
+
     const clone = wrap.cloneNode(true); clone.style.cssText = 'width:1100px;height:680px;position:fixed;left:-9999px;top:0;background:#faf8ff;'
     clone.querySelectorAll('.kg-toolbar,.kg-tbtn,.kg-hero-sub,.kg-legend,.kg-home-btn,.kg-particle').forEach(el => el.remove())
     const titleEl = clone.querySelector('.kg-hero-title'); if (titleEl) { titleEl.style.fontSize = '28px'; titleEl.style.marginBottom = '12px' }
@@ -768,7 +986,7 @@ const exportPDF = async () => {
 .kg-root { height: calc(100vh - 60px); position: relative; }
 
 .kg-page {
-  --c: #7c5cfc; --c2: #a78bfa; --cl: #f5f0ff; --cb: #ece6fa; --t: #2d2438; --m: #9088a0;
+  --c: #6366f1; --c2: #a78bfa; --cl: #f5f0ff; --cb: #ece6fa; --t: #1e293b; --m: #94a3b8;
   height: 100%; display: flex; overflow: hidden;
   background: #faf8ff; font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif;
 }
@@ -800,14 +1018,14 @@ const exportPDF = async () => {
   color: var(--c); font-size: 13px; font-weight: 700; cursor: pointer; transition: all .25s;
   box-shadow: 0 2px 8px rgba(120,100,180,.08);
 }
-.kg-home-btn:hover { background: var(--c); color: #fff; border-color: var(--c); transform: translateX(-2px); box-shadow: 0 4px 16px rgba(124,92,252,.25); }
+.kg-home-btn:hover { background: var(--c); color: #fff; border-color: var(--c); transform: translateX(-2px); box-shadow: 0 4px 16px rgba(99,102,241,.25); }
 
 .kg-hero-title {
   font-size: 36px; font-weight: 900; margin: 0; letter-spacing: 2px;
-  background: linear-gradient(135deg, #5b3cb8 0%, #7c5cfc 40%, #a78bfa 100%);
+  background: linear-gradient(135deg, #5b3cb8 0%, #6366f1 40%, #a78bfa 100%);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.kg-hero-sub { margin: 0; font-size: 14px; color: #9088a0; font-weight: 500; }
+.kg-hero-sub { margin: 0; font-size: 14px; color: #94a3b8; font-weight: 500; }
 
 .kg-toolbar { position: absolute; top: 28px; right: 28px; z-index: 5; display: flex; gap: 6px; }
 
@@ -819,10 +1037,10 @@ const exportPDF = async () => {
 }
 .kg-tbtn:hover { background: var(--cl); border-color: var(--c); color: var(--c); }
 .kg-tbtn--primary {
-  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
-  color: #fff; border: none; box-shadow: 0 2px 12px rgba(124,92,252,.22);
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  color: #fff; border: none; box-shadow: 0 2px 12px rgba(99,102,241,.22);
 }
-.kg-tbtn--primary:hover { background: linear-gradient(135deg, #6b4aee, #9678f0); color: #fff; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(124,92,252,.35); }
+.kg-tbtn--primary:hover { background: linear-gradient(135deg, #6b4aee, #9678f0); color: #fff; transform: translateY(-1px); box-shadow: 0 4px 18px rgba(99,102,241,.35); }
 
 .kg-svg { width: 100%; height: 100%; position: relative; z-index: 1; }
 
@@ -842,7 +1060,7 @@ const exportPDF = async () => {
 .kg-select-ring { animation: dashSpin 8s linear infinite; }
 @keyframes dashSpin { to { stroke-dashoffset: -60; } }
 
-.kg-flow-dot { filter: drop-shadow(0 0 4px rgba(124,92,252,.8)); }
+.kg-flow-dot { filter: drop-shadow(0 0 4px rgba(99,102,241,.8)); }
 
 .kg-legend {
   position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
@@ -865,7 +1083,7 @@ const exportPDF = async () => {
 .ks-lv { padding: 3px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; background: var(--cl); color: var(--c); }
 .ks-pct { font-size: 12px; color: var(--m); font-weight: 600; }
 .ks-bar { height: 7px; background: #f0ecf8; border-radius: 10px; overflow: hidden; }
-.ks-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #a78bfa, #7c5cfc); transition: width .6s ease; }
+.ks-bar-fill { height: 100%; border-radius: 10px; background: linear-gradient(90deg, #a78bfa, #6366f1); transition: width .6s ease; }
 
 .ks-card { background: #faf9fd; border-radius: 14px; padding: 16px; border: 1px solid var(--cb); }
 .ks-label { font-size: 12px; font-weight: 700; color: var(--m); margin-bottom: 8px; letter-spacing: .3px; }
@@ -880,11 +1098,11 @@ const exportPDF = async () => {
 
 .ks-btn {
   width: 100%; padding: 13px; border: none; border-radius: 14px;
-  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
   color: #fff; font-size: 14px; font-weight: 700; cursor: pointer;
-  transition: all .3s; box-shadow: 0 4px 16px rgba(124,92,252,.22);
+  transition: all .3s; box-shadow: 0 4px 16px rgba(99,102,241,.22);
 }
-.ks-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,92,252,.35); }
+.ks-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,.35); }
 
 /* ================================================
    教材浏览器 — 独立浮层，不受父级 filter 影响
@@ -923,26 +1141,26 @@ const exportPDF = async () => {
   border-bottom: 1px solid rgba(200,185,240,0.15);
 }
 .sb-head-l { flex-shrink: 0; }
-.sb-head-title { margin: 0; font-size: 18px; font-weight: 800; color: #2d2438; letter-spacing: -0.2px; line-height: 1.2; }
-.sb-head-sub { margin: 1px 0 0; font-size: 11px; color: #9088a0; font-weight: 500; }
+.sb-head-title { margin: 0; font-size: 18px; font-weight: 800; color: #1e293b; letter-spacing: -0.2px; line-height: 1.2; }
+.sb-head-sub { margin: 1px 0 0; font-size: 11px; color: #94a3b8; font-weight: 500; }
 
 .sb-head-search { flex: 1; position: relative; }
-.sb-head-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #b0a8c0; pointer-events: none; }
+.sb-head-search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #cbd5e1; pointer-events: none; }
 .sb-head-search-input {
   width: 100%; height: 38px; padding: 0 36px 0 36px; border-radius: 10px;
   border: 1.5px solid rgba(200,185,240,0.3); background: rgba(255,255,255,0.55);
-  font-size: 13px; font-family: inherit; color: #2d2438; outline: none; transition: all 0.25s ease;
+  font-size: 13px; font-family: inherit; color: #1e293b; outline: none; transition: all 0.25s ease;
 }
-.sb-head-search-input::placeholder { color: #b0a8c0; }
-.sb-head-search-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(124,92,252,0.06); background: rgba(255,255,255,0.85); }
+.sb-head-search-input::placeholder { color: #cbd5e1; }
+.sb-head-search-input:focus { border-color: #a78bfa; box-shadow: 0 0 0 3px rgba(99,102,241,0.06); background: rgba(255,255,255,0.85); }
 
 .sb-head-search-clear {
   position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
   width: 24px; height: 24px; border-radius: 50%; border: none;
-  background: rgba(0,0,0,0.05); color: #9088a0; cursor: pointer;
+  background: rgba(0,0,0,0.05); color: #94a3b8; cursor: pointer;
   display: flex; align-items: center; justify-content: center; transition: all 0.2s;
 }
-.sb-head-search-clear:hover { background: rgba(0,0,0,0.1); color: #2d2438; }
+.sb-head-search-clear:hover { background: rgba(0,0,0,0.1); color: #1e293b; }
 
 /* ---- 搜索浮层 ---- */
 .sp-drop {
@@ -966,11 +1184,11 @@ const exportPDF = async () => {
 .sp-sec + .sp-sec { border-top: 1px solid rgba(200,190,230,0.1); margin-top: 4px; padding-top: 8px; }
 
 .sp-sec-head {
-  font-size: 10px; font-weight: 700; color: #b0a8c0;
+  font-size: 10px; font-weight: 700; color: #cbd5e1;
   text-transform: uppercase; letter-spacing: 0.4px;
   padding: 4px 8px 6px;
 }
-.sp-count { font-size: 9px; padding: 1px 6px; border-radius: 5px; background: rgba(124,92,252,0.07); color: #7c5cfc; font-weight: 700; }
+.sp-count { font-size: 9px; padding: 1px 6px; border-radius: 5px; background: rgba(99,102,241,0.07); color: #6366f1; font-weight: 700; }
 
 /* 热门 / AI 推荐 胶囊 */
 .sp-row { display: flex; gap: 5px; flex-wrap: wrap; padding: 0 4px; }
@@ -979,7 +1197,7 @@ const exportPDF = async () => {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 5px 10px; border-radius: 8px; border: none;
   background: rgba(255,255,255,0.4); border: 1px solid rgba(200,190,230,0.15);
-  font-size: 11px; font-family: inherit; color: #2d2438; cursor: pointer;
+  font-size: 11px; font-family: inherit; color: #1e293b; cursor: pointer;
   transition: all 0.15s ease;
 }
 .sp-chip:hover { background: rgba(255,255,255,0.7); border-color: #a78bfa; transform: translateY(-1px); }
@@ -994,15 +1212,16 @@ const exportPDF = async () => {
 }
 .sp-line:hover { background: rgba(245,240,255,0.6); }
 
-.sp-line-cover { font-size: 16px; flex-shrink: 0; width: 26px; text-align: center; }
+.sp-line-cover { font-size: 16px; flex-shrink: 0; width: 26px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.sp-line-cover-img { width: 22px; height: 28px; border-radius: 4px; object-fit: cover; }
 
 .sp-line-name {
-  flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #2d2438;
+  flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: #1e293b;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
 .sp-line-extra {
-  font-size: 10px; color: #9088a0; flex-shrink: 0;
+  font-size: 10px; color: #94a3b8; flex-shrink: 0;
   max-width: 100px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -1016,15 +1235,15 @@ const exportPDF = async () => {
   padding: 1px 5px; border-radius: 5px; background: rgba(22,163,74,0.06);
 }
 
-.sp-none { text-align: center; padding: 18px; font-size: 12px; color: #9088a0; }
+.sp-none { text-align: center; padding: 18px; font-size: 12px; color: #94a3b8; }
 
 .sb-head-close {
   width: 32px; height: 32px; border-radius: 50%;
   border: 1px solid rgba(200,185,240,0.25); background: rgba(255,255,255,0.5);
-  color: #9088a0; cursor: pointer; display: flex; align-items: center; justify-content: center;
+  color: #94a3b8; cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: all 0.2s ease; flex-shrink: 0;
 }
-.sb-head-close:hover { background: rgba(124,92,252,0.06); color: #7c5cfc; border-color: rgba(167,139,250,0.35); }
+.sb-head-close:hover { background: rgba(99,102,241,0.06); color: #6366f1; border-color: rgba(167,139,250,0.35); }
 
 /* ---- Body ---- */
 .sb-body { flex: 1; overflow-y: auto; padding: 6px 20px 12px; }
@@ -1035,15 +1254,15 @@ const exportPDF = async () => {
 .sb-section { margin-bottom: 6px; }
 .sb-section-head {
   display: flex; align-items: center; gap: 7px; padding: 12px 4px 8px;
-  font-size: 12px; font-weight: 700; color: #9088a0;
+  font-size: 12px; font-weight: 700; color: #94a3b8;
   text-transform: uppercase; letter-spacing: 0.4px;
   position: sticky; top: 0; z-index: 2;
   background: rgba(255,255,255,0.6); backdrop-filter: blur(8px);
   border-radius: 8px; margin-bottom: 2px;
 }
 .sb-section-icon { font-size: 14px; }
-.sb-section-count { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: rgba(180,165,220,0.15); color: #7c5cfc; font-weight: 700; }
-.sb-section-head--platform .sb-section-count { background: rgba(59,130,246,0.1); color: #3b82f6; }
+.sb-section-count { font-size: 10px; padding: 1px 7px; border-radius: 8px; background: rgba(180,165,220,0.15); color: #6366f1; font-weight: 700; }
+.sb-section-head--platform .sb-section-count { background: rgba(99,102,241,0.1); color: #6366f1; }
 
 /* ---- 教材卡片 ---- */
 .sb-book {
@@ -1061,10 +1280,10 @@ const exportPDF = async () => {
 .sb-book:hover { background: rgba(255,255,255,0.75); border-color: rgba(167,139,250,0.3); transform: translateY(-2px); box-shadow: 0 6px 22px rgba(100,80,170,0.08); }
 
 /* 当前展示中 */
-.sb-book.active { border-color: #a78bfa; background: linear-gradient(135deg, rgba(250,246,255,0.9), rgba(245,238,255,0.85)); box-shadow: 0 0 0 3px rgba(124,92,252,0.08), 0 6px 24px rgba(124,92,252,0.08); }
+.sb-book.active { border-color: #a78bfa; background: linear-gradient(135deg, rgba(250,246,255,0.9), rgba(245,238,255,0.85)); box-shadow: 0 0 0 3px rgba(99,102,241,0.08), 0 6px 24px rgba(99,102,241,0.08); }
 
 /* 待切换 */
-.sb-book.pending { border-color: #c4b5fd; background: linear-gradient(135deg, rgba(250,248,255,0.8), rgba(248,244,255,0.75)); box-shadow: 0 0 0 2px rgba(167,139,250,0.1), 0 4px 18px rgba(124,92,252,0.06); }
+.sb-book.pending { border-color: #c4b5fd; background: linear-gradient(135deg, rgba(250,248,255,0.8), rgba(248,244,255,0.75)); box-shadow: 0 0 0 2px rgba(167,139,250,0.1), 0 4px 18px rgba(99,102,241,0.06); }
 
 .sb-book-shine {
   position: absolute; inset: 0; z-index: 1; pointer-events: none;
@@ -1085,14 +1304,20 @@ const exportPDF = async () => {
 .sb-book:hover .sb-book-cover { transform: scale(1.06); }
 .sb-book.active .sb-book-cover { background: linear-gradient(135deg, #ede3ff, #dcd0f6); border-color: rgba(167,139,250,0.3); }
 .sb-book-cover--thin { width: 44px; }
+.sb-book-cover-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  object-fit: cover;
+}
 
 .sb-book-info { flex: 1; min-width: 0; position: relative; z-index: 2; }
-.sb-book-name { font-size: 15px; font-weight: 700; color: #2d2438; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
+.sb-book-name { font-size: 15px; font-weight: 700; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 2px; }
 .sb-book.active .sb-book-name { color: #1c1530; }
-.sb-book-publisher { font-size: 11px; color: #9088a0; font-weight: 500; margin-bottom: 4px; }
+.sb-book-publisher { font-size: 11px; color: #94a3b8; font-weight: 500; margin-bottom: 4px; }
 .sb-book-tags { display: flex; gap: 5px; flex-wrap: wrap; }
-.sb-book-tag { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; background: rgba(240,236,250,0.6); color: #9088a0; }
-.sb-book-tag--nodes { background: rgba(124,92,252,0.06); color: #7c5cfc; }
+.sb-book-tag { padding: 2px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; background: rgba(240,236,250,0.6); color: #94a3b8; }
+.sb-book-tag--nodes { background: rgba(99,102,241,0.06); color: #6366f1; }
 .sb-book-tag--hot { background: rgba(239,68,68,0.06); color: #ef4444; display: inline-flex; align-items: center; gap: 2px; }
 .sb-book-tag--graph { background: rgba(16,185,129,0.06); color: #10b981; }
 
@@ -1102,11 +1327,11 @@ const exportPDF = async () => {
 .sb-book-active-tag {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 4px 11px; border-radius: 20px; font-size: 11px; font-weight: 700;
-  color: #7c3aed; background: rgba(124,92,252,0.07);
+  color: #7c3aed; background: rgba(99,102,241,0.07);
   border: 1px solid rgba(167,139,250,0.25);
 }
-.sb-book-active-dot { width: 5px; height: 5px; border-radius: 50%; background: #7c5cfc; box-shadow: 0 0 8px rgba(124,92,252,0.5); animation: activeDotPulse 2s ease-in-out infinite; }
-@keyframes activeDotPulse { 0%, 100% { box-shadow: 0 0 6px rgba(124,92,252,0.4); } 50% { box-shadow: 0 0 14px rgba(124,92,252,0.7); } }
+.sb-book-active-dot { width: 5px; height: 5px; border-radius: 50%; background: #6366f1; box-shadow: 0 0 8px rgba(99,102,241,0.5); animation: activeDotPulse 2s ease-in-out infinite; }
+@keyframes activeDotPulse { 0%, 100% { box-shadow: 0 0 6px rgba(99,102,241,0.4); } 50% { box-shadow: 0 0 14px rgba(99,102,241,0.7); } }
 
 /* 待切换 */
 .sb-book-pending-tag {
@@ -1117,40 +1342,41 @@ const exportPDF = async () => {
 }
 
 .sb-book-match { display: inline-flex; align-items: center; gap: 3px; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; color: #7c3aed; background: rgba(167,139,250,0.08); border: 1px solid rgba(167,139,250,0.18); }
-.sb-book-source { font-size: 10px; color: #b0a8c0; font-weight: 500; }
+.sb-book-source { font-size: 10px; color: #cbd5e1; font-weight: 500; }
 .sb-book--light { background: rgba(255,255,255,0.3); border-color: rgba(200,190,230,0.12); }
 
 /* ---- 空态 ---- */
 .sb-empty { display: flex; align-items: center; justify-content: center; padding: 32px 20px; min-height: 200px; }
 .sb-empty-wrap { text-align: center; }
 .sb-empty-icon { font-size: 40px; display: block; margin-bottom: 12px; opacity: 0.5; }
-.sb-empty-title { font-size: 15px; font-weight: 700; color: #2d2438; margin: 0 0 4px; }
-.sb-empty-hint { font-size: 12px; color: #9088a0; margin: 0 0 16px; }
+.sb-empty-title { font-size: 15px; font-weight: 700; color: #1e293b; margin: 0 0 4px; }
+.sb-empty-hint { font-size: 12px; color: #94a3b8; margin: 0 0 16px; }
 .sb-empty-suggestions { margin-top: 12px; }
-.sb-empty-sug-label { font-size: 11px; font-weight: 600; color: #9088a0; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 8px; }
+.sb-empty-sug-label { font-size: 11px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.3px; display: block; margin-bottom: 8px; }
 .sb-empty-sug-list { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
-.sb-empty-sug-item { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: 1px solid rgba(200,185,240,0.25); background: rgba(255,255,255,0.5); font-size: 12px; font-weight: 600; color: #2d2438; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.sb-empty-sug-item { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 20px; border: 1px solid rgba(200,185,240,0.25); background: rgba(255,255,255,0.5); font-size: 12px; font-weight: 600; color: #1e293b; cursor: pointer; font-family: inherit; transition: all 0.2s; }
+.sb-empty-sug-img { width: 16px; height: 20px; border-radius: 3px; object-fit: cover; }
 .sb-empty-sug-item:hover { border-color: #a78bfa; background: rgba(255,255,255,0.8); transform: translateY(-1px); }
 
 /* ---- 底部 ---- */
 .sb-foot { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; flex-shrink: 0; border-top: 1px solid rgba(200,185,240,0.15); background: rgba(255,255,255,0.35); }
 .sb-foot-l { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
-.sb-foot-label { font-size: 11px; color: #9088a0; font-weight: 600; flex-shrink: 0; }
-.sb-foot-name { font-size: 13px; font-weight: 700; color: #2d2438; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-foot-label { font-size: 11px; color: #94a3b8; font-weight: 600; flex-shrink: 0; }
+.sb-foot-name { font-size: 13px; font-weight: 700; color: #1e293b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .sb-foot-arrow { font-size: 14px; color: #a78bfa; font-weight: 700; flex-shrink: 0; }
 .sb-foot-next { font-size: 13px; font-weight: 700; color: #a78bfa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .sb-foot-btn {
   display: flex; align-items: center; gap: 6px;
   padding: 9px 18px; border-radius: 12px; border: none;
-  background: rgba(180,170,210,0.15); color: #9088a0;
+  background: rgba(180,170,210,0.15); color: #94a3b8;
   font-size: 13px; font-weight: 700; font-family: inherit;
   cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   flex-shrink: 0; position: relative; overflow: hidden;
 }
 .sb-foot-btn.ready {
-  background: linear-gradient(135deg, #7c5cfc, #a78bfa);
-  color: #fff; box-shadow: 0 4px 14px rgba(124,92,252,0.25);
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  color: #fff; box-shadow: 0 4px 14px rgba(99,102,241,0.25);
 }
 .sb-foot-btn.ready::after {
   content: ''; position: absolute; inset: 0;
@@ -1158,13 +1384,13 @@ const exportPDF = async () => {
   transform: translateX(-100%); animation: sbShimmer 2.8s infinite;
 }
 @keyframes sbShimmer { 100% { transform: translateX(100%); } }
-.sb-foot-btn.ready:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(124,92,252,0.4); }
+.sb-foot-btn.ready:hover { transform: translateY(-2px); box-shadow: 0 8px 26px rgba(99,102,241,0.4); }
 .sb-foot-btn:active { transform: translateY(0) scale(0.97); }
 
 /* ====== 习题弹窗 ====== */
 .ex-modal-overlay { position: fixed; inset: 0; background: rgba(45,36,56,.30); z-index: 2001; display: flex; align-items: center; justify-content: center; animation: exFadeIn .22s ease-out; }
 @keyframes exFadeIn { from { opacity: 0; } to { opacity: 1; } }
-.ex-modal { width: 820px; max-height: 88vh; border-radius: 24px; background: rgba(255,255,255,.92); backdrop-filter: blur(18px); box-shadow: 0 20px 60px rgba(124,92,252,.18), 0 0 0 1px rgba(200,185,240,.3); display: flex; flex-direction: column; overflow: hidden; animation: exScaleIn .22s cubic-bezier(.34,1.56,.64,1); }
+.ex-modal { width: 820px; max-height: 88vh; border-radius: 24px; background: rgba(255,255,255,.92); backdrop-filter: blur(18px); box-shadow: 0 20px 60px rgba(99,102,241,.18), 0 0 0 1px rgba(200,185,240,.3); display: flex; flex-direction: column; overflow: hidden; animation: exScaleIn .22s cubic-bezier(.34,1.56,.64,1); }
 @keyframes exScaleIn { from { transform: scale(.96); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .exm-top { display: flex; align-items: flex-start; padding: 24px 28px 18px; position: relative; border-bottom: 1px solid rgba(220,210,245,.4); background: linear-gradient(135deg, rgba(248,244,255,.8), rgba(255,255,255,.6)); }
 .exmt-left { flex: 1; min-width: 0; } .exmt-node { font-size: 13px; font-weight: 700; color: var(--c2); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
@@ -1176,13 +1402,13 @@ const exportPDF = async () => {
 .exmt-close:hover { background: rgba(0,0,0,.08); color: var(--t); }
 .exm-filters { display: flex; gap: 8px; padding: 14px 28px; background: rgba(250,249,253,.6); border-bottom: 1px solid rgba(220,210,245,.3); overflow-x: auto; }
 .exm-filters button { display: flex; align-items: center; gap: 5px; padding: 7px 15px; border-radius: 20px; border: 1.5px solid rgba(200,185,240,.35); background: #fff; font-size: 12px; font-weight: 600; color: var(--m); cursor: pointer; transition: all .2s; font-family: inherit; white-space: nowrap; flex-shrink: 0; }
-.exm-filters button:hover { border-color: var(--c3); color: var(--c); } .exm-filters button.on { background: var(--c); color: #fff; border-color: var(--c); box-shadow: 0 2px 12px rgba(124,92,252,.2); }
+.exm-filters button:hover { border-color: var(--c3); color: var(--c); } .exm-filters button.on { background: var(--c); color: #fff; border-color: var(--c); box-shadow: 0 2px 12px rgba(99,102,241,.2); }
 .exmf-icon { font-size: 13px; } .exmf-count { font-size: 10px; opacity: .7; }
 .exm-list { flex: 1; overflow-y: auto; padding: 16px 28px; display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
 .exml-empty { text-align: center; padding: 40px; color: var(--m); } .exml-empty span { font-size: 36px; display: block; margin-bottom: 8px; }
 .exml-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; border-radius: 16px; border: 1.5px solid rgba(220,210,245,.3); background: #fff; cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1); }
-.exml-card:hover { border-color: var(--c3); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,92,252,.06); }
-.exml-card.sel { border-color: var(--c); background: linear-gradient(135deg, #faf7ff, #f5f0ff); box-shadow: 0 0 0 2px rgba(124,92,252,.06); }
+.exml-card:hover { border-color: var(--c3); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(99,102,241,.06); }
+.exml-card.sel { border-color: var(--c); background: linear-gradient(135deg, #faf7ff, #f5f0ff); box-shadow: 0 0 0 2px rgba(99,102,241,.06); }
 .exmlc-left { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; } .exmlc-diff { width: 10px; height: 10px; border-radius: 50%; }
 .exmlc-diff.easy { background: #4ade80; } .exmlc-diff.mid { background: #fbbf24; } .exmlc-diff.hard { background: #f87171; } .exmlc-diff.extreme { background: #c084fc; }
 .exmlc-type { font-size: 20px; } .exmlc-mid { flex: 1; min-width: 0; } .exmlcm-title { font-size: 14px; font-weight: 700; color: var(--t); margin-bottom: 6px; }
@@ -1197,8 +1423,8 @@ const exportPDF = async () => {
 .exmf-right { display: flex; align-items: center; gap: 10px; }
 .exmfr-refresh { display: flex; align-items: center; gap: 5px; padding: 9px 16px; border-radius: 12px; border: 1.5px solid rgba(200,185,240,.4); background: #fff; color: var(--c); font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s; }
 .exmfr-refresh:hover:not(:disabled) { background: #f5f0ff; } .exmfr-refresh:disabled { opacity: .6; cursor: not-allowed; }
-.exmfr-start { display: flex; align-items: center; gap: 6px; padding: 9px 22px; border-radius: 12px; border: none; background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .25s; box-shadow: 0 4px 16px rgba(124,92,252,.2); }
-.exmfr-start:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(124,92,252,.35); }
+.exmfr-start { display: flex; align-items: center; gap: 6px; padding: 9px 22px; border-radius: 12px; border: none; background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .25s; box-shadow: 0 4px 16px rgba(99,102,241,.2); }
+.exmfr-start:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 24px rgba(99,102,241,.35); }
 .exmfr-start:disabled { opacity: .4; cursor: not-allowed; transform: none; box-shadow: none; }
 .exm-filters::-webkit-scrollbar, .exm-list::-webkit-scrollbar { height: 0; width: 4px; }
 .exm-list::-webkit-scrollbar-thumb { background: rgba(200,185,240,.4); border-radius: 4px; }

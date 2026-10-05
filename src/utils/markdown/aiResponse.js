@@ -15,11 +15,17 @@ const md = new MarkdownIt({
         }
         return '';
     },
-    breaks: false,
+    breaks: true,
     html: true,
     linkify: true,
-    typographer: true
+    typographer: true,
+    table: true
 });
+
+// 自定义表格渲染（添加样式类）
+md.renderer.rules.table_open = function(tokens, idx, options, env, self) {
+    return '<table class="md-table">';
+};
 
 // 自定义代码块渲染
 md.renderer.rules.code_block = function(tokens, idx, options, env, self) {
@@ -146,7 +152,6 @@ function findMatchingDelimiter(text, startIndex, delimiter) {
     const length = text.length;
 
     while (i <= length - delimiterLength) {
-        // 检查是否匹配分隔符
         if (text.substring(i, i + delimiterLength) === delimiter) {
             return i;
         }
@@ -156,15 +161,65 @@ function findMatchingDelimiter(text, startIndex, delimiter) {
     return -1;
 }
 
-
+function normalizeTable(text) {
+    const lines = text.split('\n');
+    let inTable = false;
+    const tableBuffer = [];
+    const result = [];
+    
+    for (let line of lines) {
+        const trimmed = line.trim();
+        
+        if (trimmed.startsWith('|') && trimmed.includes('---')) {
+            if (!inTable && tableBuffer.length > 0) {
+                const header = tableBuffer[tableBuffer.length - 1].trim();
+                if (!header.startsWith('|')) {
+                    tableBuffer[tableBuffer.length - 1] = '| ' + header.replace(/\s{2,}/g, ' | ') + ' |';
+                }
+            }
+            inTable = true;
+            tableBuffer.push(trimmed);
+        } else if (trimmed.startsWith('|')) {
+            inTable = true;
+            tableBuffer.push(trimmed);
+        } else if (inTable && trimmed) {
+            if (trimmed.includes('\t') || (trimmed.match(/  +/g) || []).length > 1) {
+                const formattedLine = '| ' + trimmed.replace(/\t+| {2,}/g, ' | ') + ' |';
+                tableBuffer.push(formattedLine);
+            } else {
+                inTable = false;
+                result.push(...tableBuffer);
+                result.push('');
+                result.push(line);
+                tableBuffer.length = 0;
+            }
+        } else {
+            if (tableBuffer.length > 0) {
+                result.push(...tableBuffer);
+                result.push('');
+                tableBuffer.length = 0;
+            }
+            inTable = false;
+            result.push(line);
+        }
+    }
+    
+    if (tableBuffer.length > 0) {
+        result.push(...tableBuffer);
+    }
+    
+    return result.join('\n');
+}
 
 // 主函数：处理AI返回的文本
 export function processAiResponse(text) {
     try {
         if (!text) return '';
         
+        let processedText = normalizeTable(text);
+        
         // 1. 安全清理
-        const cleanText = DOMPurify.sanitize(text);
+        const cleanText = DOMPurify.sanitize(processedText);
 
         // 2. 处理KaTeX公式（在Markdown解析之前）
         const textWithMath = processKaTeXFormulas(cleanText);
@@ -192,10 +247,8 @@ export function processAiResponse(text) {
             return placeholder;
         });
         
-        // 清理非保留块内的多余空白
-        finalHtml = finalHtml
-            .replace(/>\s+</g, '><')
-            .replace(/\s+/g, ' ');
+        // 清理非保留块内的多余空白（只处理标签间的空白）
+        finalHtml = finalHtml.replace(/>\s+</g, '><');
         
         // 恢复保留块
         preservedBlocks.forEach((block, index) => {
@@ -208,6 +261,67 @@ export function processAiResponse(text) {
         // 如果处理失败，返回原始文本
         return text || '';
     }
+}
+
+// 实时处理函数：只处理LaTeX公式，不处理Markdown（用于打字过程中）
+export function processLatexOnly(text) {
+    if (!text) return '';
+    
+    let result = '';
+    let i = 0;
+    const length = text.length;
+
+    while (i < length) {
+        // 检查是否是行内公式 \( ... \)
+        if (text.substring(i, i + 2) === '\\(') {
+            const endIndex = text.indexOf('\\)', i + 2);
+            if (endIndex !== -1) {
+                const formula = text.substring(i + 2, endIndex);
+                try {
+                    const rendered = katex.renderToString(formula, {
+                        displayMode: false,
+                        throwOnError: false,
+                        errorCallback: function(msg, err) {
+                            // 渲染失败时显示原文
+                        }
+                    });
+                    result += rendered;
+                } catch (error) {
+                    result += '\\(' + formula + '\\)';
+                }
+                i = endIndex + 2;
+                continue;
+            }
+        }
+        
+        // 检查是否是块级公式 \[ ... \]
+        if (text.substring(i, i + 2) === '\\[') {
+            const endIndex = text.indexOf('\\]', i + 2);
+            if (endIndex !== -1) {
+                const formula = text.substring(i + 2, endIndex);
+                try {
+                    const rendered = katex.renderToString(formula, {
+                        displayMode: true,
+                        throwOnError: false,
+                        errorCallback: function(msg, err) {
+                            // 渲染失败时显示原文
+                        }
+                    });
+                    result += rendered;
+                } catch (error) {
+                    result += '\\[' + formula + '\\]';
+                }
+                i = endIndex + 2;
+                continue;
+            }
+        }
+        
+        // 普通文本
+        result += text[i];
+        i++;
+    }
+
+    return result;
 }
 
 // 智能内容解析器
@@ -269,9 +383,38 @@ export function parseMarkdown(text) {
 export function markdownToPlainText(markdown) {
     let plainText = markdown;
 
+    // 0. 保护数学公式，防止被后续处理破坏
+    const mathBlocks = [];
+    
+    // 保护块级公式 $$...$$
+    plainText = plainText.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+        const placeholder = `__MATH_BLOCK_${mathBlocks.length}__`;
+        mathBlocks.push(match);
+        return placeholder;
+    });
+    
+    // 保护行内公式 $...$（但排除 $$...$$ 的情况）
+    plainText = plainText.replace(/(?<!\$)\$(?!\$)(.*?)(?<!\$)\$(?!\$)/g, (match) => {
+        const placeholder = `__MATH_BLOCK_${mathBlocks.length}__`;
+        mathBlocks.push(match);
+        return placeholder;
+    });
+    
+    // 保护 \[...\] 和 \(...\) 公式
+    plainText = plainText.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+        const placeholder = `__MATH_BLOCK_${mathBlocks.length}__`;
+        mathBlocks.push(match);
+        return placeholder;
+    });
+    
+    plainText = plainText.replace(/\\\(([\s\S]*?)\\\)/g, (match) => {
+        const placeholder = `__MATH_BLOCK_${mathBlocks.length}__`;
+        mathBlocks.push(match);
+        return placeholder;
+    });
+
     // 1. 处理代码块 (```...```)
     plainText = plainText.replace(/```[\s\S]*?```/g, (match) => {
-        // 提取代码内容，移除语言标记
         const codeContent = match.replace(/^```[\s\S]*?\n|```$/g, '');
         return codeContent;
     });
@@ -297,9 +440,7 @@ export function markdownToPlainText(markdown) {
     plainText = plainText.replace(/^#{1,6}\s+(.*)$/gm, '$1');
 
     // 8. 处理列表
-    // 无序列表 (*, -, +)
     plainText = plainText.replace(/^\s*[*+-]\s+(.*)$/gm, '$1');
-    // 有序列表 (1., 2., etc.)
     plainText = plainText.replace(/^\s*\d+\.\s+(.*)$/gm, '$1');
 
     // 9. 处理引用 (>)
@@ -308,9 +449,7 @@ export function markdownToPlainText(markdown) {
     // 10. 处理水平线 (---, ***)
     plainText = plainText.replace(/^[-*]{3,}$/gm, '');
 
-
-
-    // 12. 清理多余的空行，将多个连续换行压缩为一个
+    // 12. 清理多余的空行
     plainText = plainText.replace(/\n{2,}/g, '\n');
 
     // 13. 清理行尾空格
@@ -318,6 +457,11 @@ export function markdownToPlainText(markdown) {
 
     // 14. 清理开头和结尾的空行
     plainText = plainText.trim();
+
+    // 15. 恢复数学公式
+    mathBlocks.forEach((block, index) => {
+        plainText = plainText.replace(new RegExp(`__MATH_BLOCK_${index}__`, 'g'), block);
+    });
 
     return plainText;
 }

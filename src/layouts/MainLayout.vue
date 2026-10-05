@@ -49,9 +49,11 @@
 
     <!-- 页面主体内容区 -->
     <main class="layout-main">
-      <keep-alive include="KnowledgeGraph">
-        <router-view />
-      </keep-alive>
+      <router-view v-slot="{ Component }">
+        <keep-alive include="KnowledgeGraph">
+          <component :is="Component" />
+        </keep-alive>
+      </router-view>
     </main>
 
     <!-- 退出登录确认弹框 -->

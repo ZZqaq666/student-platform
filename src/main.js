@@ -2,14 +2,89 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
-import ElementPlus from 'element-plus'
+import {
+  ElAlert,
+  ElAside,
+  ElButton,
+  ElCard,
+  ElCheckbox,
+  ElCol,
+  ElContainer,
+  ElDatePicker,
+  ElDialog,
+  ElDivider,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElIcon,
+  ElImage,
+  ElInput,
+  ElInputNumber,
+  ElLoading,
+  ElMain,
+  ElMenu,
+  ElMenuItem,
+  ElOption,
+  ElPagination,
+  ElProgress,
+  ElRadio,
+  ElRadioButton,
+  ElRadioGroup,
+  ElRow,
+  ElSelect,
+  ElSkeleton,
+  ElTable,
+  ElTableColumn,
+  ElTabPane,
+  ElTabs,
+  ElTag,
+  ElUpload
+} from 'element-plus'
 import 'element-plus/dist/index.css'
-import * as ElementPlusIconsVue from '@element-plus/icons-vue'
+import 'katex/dist/katex.min.css'
+import './styles/global.css'
 
 const app = createApp(App)
-for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
-  app.component(key, component)
-}
+const elementComponents = [
+  ElAlert,
+  ElAside,
+  ElButton,
+  ElCard,
+  ElCheckbox,
+  ElCol,
+  ElContainer,
+  ElDatePicker,
+  ElDialog,
+  ElDivider,
+  ElEmpty,
+  ElForm,
+  ElFormItem,
+  ElIcon,
+  ElImage,
+  ElInput,
+  ElInputNumber,
+  ElMain,
+  ElMenu,
+  ElMenuItem,
+  ElOption,
+  ElPagination,
+  ElProgress,
+  ElRadio,
+  ElRadioButton,
+  ElRadioGroup,
+  ElRow,
+  ElSelect,
+  ElSkeleton,
+  ElTable,
+  ElTableColumn,
+  ElTabPane,
+  ElTabs,
+  ElTag,
+  ElUpload
+]
+
+elementComponents.forEach(component => app.use(component))
+app.use(ElLoading)
 
 // 添加全局错误处理器
 app.config.errorHandler = (error, instance, info) => {
@@ -34,7 +109,6 @@ app.config.errorHandler = (error, instance, info) => {
 }
 
 // 挂载依赖
-app.use(ElementPlus)
 app.use(createPinia())
 app.use(router)
 app.mount('#app')

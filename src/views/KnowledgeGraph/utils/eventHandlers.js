@@ -1,14 +1,12 @@
 // 事件处理模块
 
 import { useRouter } from 'vue-router'
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
-import api, { apiService } from '@/api/api.js'
+import api, { apiService } from '@/api/api'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { generateMockExercises, generateDefaultGraphData, getRelatedKnowledgePoints } from './dataProcessor.js'
-import { loadLearningProgress, calculateKnowledgeMastery, analyzeLearningBehavior, recommendExercises } from './learningProgress.js'
-import { updateChart, toggleViewMode, highlightRelatedNodes, clearHighlights, highlightSearchResults } from './chartConfig.js'
+import { generateDefaultGraphData, getRelatedKnowledgePoints } from './dataProcessor'
+import { loadLearningProgress, calculateKnowledgeMastery, analyzeLearningBehavior, recommendExercises } from './learningProgress'
+import { updateChart, toggleViewMode, highlightRelatedNodes, clearHighlights, highlightSearchResults } from './chartConfig'
 
 const router = useRouter()
 
@@ -438,6 +436,11 @@ export const exportToPDF = async (chartContainer, chart, selectedNode, component
     if (!componentState.isMounted.value) return
     
     showToastMessage('正在生成PDF，请稍候...')
+    const [{ default: html2canvas }, jspdfModule] = await Promise.all([
+      import('html2canvas'),
+      import('jspdf')
+    ])
+    const jsPDF = jspdfModule.jsPDF || jspdfModule.default
     
     // 创建一个临时容器来渲染标题和图表
     const tempDiv = document.createElement('div')

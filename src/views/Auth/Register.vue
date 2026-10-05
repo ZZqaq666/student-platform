@@ -126,7 +126,7 @@ const registerForm = ref({ username: '', password: '', confirmPwd: '' })
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { pattern: /^[一-龥a-zA-Z]+$/, message: '用户名只能由汉字或字母组成', trigger: 'blur' }
+    { pattern: /^[一-龥a-zA-Z][一-龥a-zA-Z0-9_]{1,19}$/, message: '用户名为2-20位汉字、字母开头，可含数字或下划线', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -142,7 +142,7 @@ const rules = {
   ]
 }
 
-import { apiService } from '@/api/api.js'
+import { apiService } from '@/api/api'
 
 const handleRegister = async () => {
   await registerFormRef.value.validate()
@@ -298,7 +298,7 @@ const dotStyle = (i) => {
   width: 40px;
   height: 40px;
   border-radius: 6px;
-  background: url('@/assets/智能云.png') no-repeat center/cover;
+  background: url('@/assets/images/auth-bg.png') no-repeat center/cover;
   margin-left: -6px;
   animation: logoPulse 3s ease-in-out infinite;
 }

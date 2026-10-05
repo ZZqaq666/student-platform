@@ -31,3 +31,7 @@ openspec
 .codex/
 .codex-*.log
 .codex-*.pid
+
+# Local verification artifacts / backups
+screenshots/
+_backup_src_*/

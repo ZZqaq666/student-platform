@@ -526,315 +526,16 @@
             <button class="expand-btn">▼</button>
           </div>
           <div class="reading-content" @mouseup="handleTextSelection">
-            <!-- 高等数学 -->
-            <template v-if="studyBook?.id === 205 || studyBook?.id === 206">
-              <div class="section-title">欢迎学习高等数学</div>
-              <p>高等数学是大学数学的基础课程，主要包括微积分、线性代数、概率论等内容。本课程旨在培养学生的数学思维能力和解决实际问题的能力。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握微积分的基本概念和计算方法</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解多元函数微积分的应用</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养数学建模和解决实际问题的能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>丰富的例题和习题</li>
-                <li>在线视频讲解</li>
-                <li>互动式学习工具</li>
-              </ul>
-            </template>
-            
-            <!-- 大学物理 -->
-            <template v-else-if="studyBook?.id === 209 || studyBook?.id === 210">
-              <div class="section-title">欢迎学习大学物理</div>
-              <p>大学物理是一门基础自然科学课程，主要包括力学、热学、电磁学、光学和近代物理等内容。本课程旨在培养学生的科学素养和实验能力。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握物理学的基本概念和定律</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解物理学在工程技术中的应用</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养科学实验和数据分析能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>实验指导书</li>
-                <li>在线视频讲解</li>
-                <li>虚拟实验室</li>
-              </ul>
-            </template>
-            
-            <!-- 计算机相关课程 -->
-            <template v-else-if="[211, 212, 213, 214, 216].includes(studyBook?.id)">
-              <div class="section-title">欢迎学习计算机相关课程</div>
-              <p>{{ studyBook?.title }}是计算机科学与技术专业的核心课程，旨在培养学生的计算机系统思维和编程能力。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握{{ studyBook?.title }}的基本概念和原理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解{{ studyBook?.title }}在计算机系统中的应用</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养解决实际问题的能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>编程实践项目</li>
-                <li>在线编程环境</li>
-                <li>技术文档和参考资料</li>
-              </ul>
-            </template>
-            
-            <!-- 英语课程 -->
-            <template v-else-if="studyBook?.id === 222">
-              <div class="section-title">欢迎学习新视野大学英语</div>
-              <p>新视野大学英语是一门基础英语课程，旨在提高学生的英语听、说、读、写能力，为专业学习和国际交流打下基础。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>提高英语听力和口语能力</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>增强英语阅读和写作能力</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养跨文化交流能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>课文音频和视频</li>
-                <li>词汇和语法练习</li>
-                <li>在线听力训练</li>
-                <li>口语练习平台</li>
-              </ul>
-            </template>
-            
-            <!-- 体育与健康 -->
-            <template v-else-if="studyBook?.id === 224">
-              <div class="section-title">欢迎学习体育与健康</div>
-              <p>体育与健康是一门培养学生体质和健康意识的课程，旨在提高学生的身体素质和健康水平，培养终身锻炼的习惯。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>提高身体素质和运动能力</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握科学锻炼的方法和原理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养健康的生活方式和习惯</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>体育理论知识讲义</li>
-                <li>各类运动项目指导</li>
-                <li>健康饮食和生活方式指南</li>
-                <li>体育场馆和设施使用指南</li>
-              </ul>
-            </template>
-            
-            <!-- 概率论与数理统计 -->
-            <template v-else-if="studyBook?.id === 208">
-              <div class="section-title">欢迎学习概率论与数理统计</div>
-              <p>概率论与数理统计是一门研究随机现象和数据处理的数学课程，旨在培养学生的统计思维和数据分析能力。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握概率论的基本概念和定理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解统计推断和假设检验的方法</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养数据分析和处理的能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>统计软件使用指南</li>
-                <li>数据分析案例</li>
-                <li>在线模拟实验</li>
-              </ul>
-            </template>
-            
-            <!-- 线性代数 -->
-            <template v-else-if="studyBook?.id === 207">
-              <div class="section-title">欢迎学习线性代数</div>
-              <p>线性代数是一门研究线性空间和线性变换的数学课程，是现代数学的重要基础，广泛应用于工程、计算机科学等领域。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握线性代数的基本概念和理论</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解矩阵运算和线性方程组的解法</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养抽象思维和逻辑推理能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>矩阵计算软件使用指南</li>
-                <li>线性代数在工程中的应用案例</li>
-                <li>在线练习和测试</li>
-              </ul>
-            </template>
-            
-            <!-- 经济学原理 -->
-            <template v-else-if="studyBook?.id === 217">
-              <div class="section-title">欢迎学习经济学原理</div>
-              <p>经济学原理是一门研究人类经济行为和经济现象的社会科学课程，旨在培养学生的经济思维和分析能力。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握经济学的基本概念和原理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解市场经济的运行机制</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养经济分析和决策能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>经济案例分析</li>
-                <li>经济数据和统计资料</li>
-                <li>经济学模型和软件</li>
-              </ul>
-            </template>
-            
-            <!-- 马克思主义基本原理 -->
-            <template v-else-if="studyBook?.id === 221">
-              <div class="section-title">欢迎学习马克思主义基本原理</div>
-              <p>马克思主义基本原理是一门研究马克思主义理论体系的课程，旨在培养学生的马克思主义世界观和方法论。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握马克思主义的基本概念和原理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解马克思主义的当代价值</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养运用马克思主义分析问题的能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>经典著作选读</li>
-                <li>案例分析和讨论</li>
-                <li>在线学习平台</li>
-              </ul>
-            </template>
-            
-            <!-- 其他课程 -->
-            <template v-else>
-              <div class="section-title">欢迎学习{{ studyBook?.title }}</div>
-              <p>{{ studyBook?.title }}是一门重要的大学课程，旨在培养学生的专业知识和技能。</p>
-              
-              <div class="section-title">学习目标</div>
-              <div class="checklist">
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>掌握课程的基本概念和原理</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>理解课程在专业领域中的应用</span>
-                </div>
-                <div class="check-item">
-                  <input type="checkbox">
-                  <span>培养解决实际问题的能力</span>
-                </div>
-              </div>
-              
-              <div class="section-title">学习资源</div>
-              <p>本课程提供了丰富的学习资源，包括：</p>
-              <ul>
-                <li>详细的课程讲义</li>
-                <li>习题和案例分析</li>
-                <li>参考资料和文献</li>
-                <li>在线学习平台</li>
-              </ul>
-            </template>
+            <!-- 动态章节内容 -->
+            <div v-if="contentLoading" class="loading-state">
+              <div class="loading-spinner"></div>
+              <p>内容加载中...</p>
+            </div>
+            <div v-else-if="currentContent" class="chapter-content" v-html="currentContent"></div>
+            <div v-else class="empty-state">
+              <div class="empty-icon">📖</div>
+              <p>请从左侧目录选择章节开始阅读</p>
+            </div>
             
             <button class="create-btn" @click="createNewNote">创建学习笔记</button>
           </div>
@@ -1170,7 +871,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import { apiService } from '@/api/api.js'
+import { apiService } from '@/api/api'
 
 const router = useRouter()
 
@@ -1617,6 +1318,7 @@ const chapterTree = ref([])
 const expandedChapters = ref(new Set())
 const currentChapter = ref(null)
 const selectedChapter = ref(null)
+const currentContent = ref('')
 const searchKeyword = ref('')
 const searchResults = ref([])
 const showSearchResults = ref(false)
@@ -1627,6 +1329,7 @@ const studyEndTime = ref(null)
 
 // 章节加载状态
 const chapterLoading = ref(false)
+const contentLoading = ref(false)
 const chapterError = ref('')
 
 // 文本选择弹出菜单
@@ -2086,8 +1789,8 @@ const toggleAllChapters = () => {
 // 选择章节
 const selectChapter = (chapter) => {
   currentChapter.value = chapter
-  // 这里可以添加跳转到对应章节内容的逻辑
-  // 选择章节后隐藏搜索结果
+  selectedChapter.value = chapter
+  currentContent.value = chapter.content || ''
   showSearchResults.value = false
 }
 
@@ -2187,13 +1890,16 @@ const startStudy = async (book) => {
     const lastChapter = findChapterById(lastChapterId, chapterTree.value)
     if (lastChapter) {
       selectedChapter.value = lastChapter
+      currentContent.value = lastChapter.content || ''
     } else {
       // 如果找不到章节，默认显示第一章
       selectedChapter.value = chapterTree.value[0]
+      currentContent.value = chapterTree.value[0].content || ''
     }
   } else if (chapterTree.value.length > 0) {
     // 没有学习记录，显示第一章
     selectedChapter.value = chapterTree.value[0]
+    currentContent.value = chapterTree.value[0].content || ''
   }
   
   showStudyModal.value = true
@@ -2970,7 +2676,7 @@ const addTextbook = async () => {
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   border: none;
   border-radius: 8px;
@@ -2984,12 +2690,12 @@ const addTextbook = async () => {
 
 .back-home-btn:hover {
   transform: translateY(-50%) translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .back-home-btn:active {
   transform: translateY(-50%) translateY(0);
-  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
 }
 
 .page-title {
@@ -2997,11 +2703,11 @@ const addTextbook = async () => {
   font-weight: 700;
   color: #111827;
   margin: 0;
-  background: linear-gradient(135deg, #3b82f6 0%, #10b981 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #10b981 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  text-shadow: 0 2px 4px rgba(59, 130, 246, 0.1);
+  text-shadow: 0 2px 4px rgba(99, 102, 241, 0.1);
   letter-spacing: 1px;
   font-family: 'Microsoft YaHei', sans-serif;
   text-align: center;
@@ -3083,8 +2789,8 @@ const addTextbook = async () => {
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .header-actions {
@@ -3164,8 +2870,8 @@ const addTextbook = async () => {
 
 .filter-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .filter-select option {
@@ -3178,11 +2884,11 @@ const addTextbook = async () => {
 
 .filter-select option:hover {
   background: #f3f4f6;
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 .filter-select option:checked {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
   font-weight: 500;
 }
@@ -3199,12 +2905,12 @@ const addTextbook = async () => {
 }
 
 .custom-select:hover .select-arrow {
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 .custom-select select:focus + .select-arrow {
   transform: translateY(-50%) rotate(180deg);
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 /* 修复下拉菜单样式 */
@@ -3224,8 +2930,8 @@ const addTextbook = async () => {
 }
 
 .filter-select:hover {
-  border-color: #93c5fd;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  border-color: #a5b4fc;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 /* 自定义下拉菜单样式 */
@@ -3272,8 +2978,8 @@ const addTextbook = async () => {
 
 .select-search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .select-dropdown {
@@ -3301,11 +3007,11 @@ const addTextbook = async () => {
 
 .select-option:hover {
   background-color: #f3f4f6;
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 .select-option.active {
-  background-color: #3b82f6;
+  background-color: #6366f1;
   color: white;
   font-weight: 500;
 }
@@ -3325,8 +3031,8 @@ const addTextbook = async () => {
 }
 
 .select-display:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 .select-display .select-arrow {
@@ -3341,7 +3047,7 @@ const addTextbook = async () => {
 }
 
 .select-display:hover .select-arrow {
-  color: #3b82f6;
+  color: #6366f1;
   transform: translateY(-50%) rotate(180deg);
 }
 
@@ -3480,7 +3186,7 @@ const addTextbook = async () => {
   transform: translateY(-50%);
   width: 4px;
   height: 16px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   border-radius: 2px;
 }
 
@@ -3512,8 +3218,8 @@ const addTextbook = async () => {
 
 .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 /* 分类标签 */
@@ -3537,14 +3243,14 @@ const addTextbook = async () => {
 }
 
 .category-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .category-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .more-btn {
@@ -3585,14 +3291,14 @@ const addTextbook = async () => {
 }
 
 .textbook-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
   transform: translateY(-4px);
 }
 
 .textbook-card.selected {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .textbook-cover {
@@ -3626,7 +3332,7 @@ const addTextbook = async () => {
   right: 12px;
   width: 24px;
   height: 24px;
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
   border-radius: 50%;
   display: flex;
@@ -3634,7 +3340,7 @@ const addTextbook = async () => {
   justify-content: center;
   font-weight: bold;
   font-size: 14px;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
 }
 
 /* 批量添加按钮 */
@@ -3850,7 +3556,7 @@ const addTextbook = async () => {
 }
 
 .book-status.completed {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -3910,7 +3616,7 @@ const addTextbook = async () => {
 
 .progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
   border-radius: 2px;
   transition: width 0.3s ease;
 }
@@ -3925,20 +3631,20 @@ const addTextbook = async () => {
 
 .add-btn {
   padding: 16px 32px;
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   border: none;
   border-radius: 50px;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
   transition: all 0.3s ease;
 }
 
 .add-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(59, 130, 246, 0.5);
+  box-shadow: 0 6px 16px rgba(99, 102, 241, 0.5);
 }
 
 /* 书籍详情弹窗 */
@@ -4020,8 +3726,8 @@ const addTextbook = async () => {
 }
 
 .catalog-chapter:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 .chapter-title {
@@ -4046,7 +3752,7 @@ const addTextbook = async () => {
 }
 
 .section-item:hover {
-  color: #3b82f6;
+  color: #6366f1;
   cursor: pointer;
 }
 
@@ -4140,7 +3846,7 @@ const addTextbook = async () => {
 }
 
 .catalog-link {
-  color: #3b82f6;
+  color: #6366f1;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
@@ -4191,9 +3897,9 @@ const addTextbook = async () => {
   top: -6px;
   width: 20px;
   height: 20px;
-  background: #3b82f6;
+  background: #6366f1;
   border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);
   transform: translateX(-50%);
 }
 
@@ -4241,15 +3947,15 @@ const addTextbook = async () => {
 }
 
 .action-btn.primary {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .action-btn.primary:hover {
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #2563eb;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  background: linear-gradient(90deg, #4f46e5 0%, #1d4ed8 100%);
+  border-color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 /* 编辑按钮样式 */
@@ -4618,8 +4324,8 @@ const addTextbook = async () => {
 }
 
 .pagination-btn:hover:not(:disabled) {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .pagination-btn:disabled {
@@ -4648,14 +4354,14 @@ const addTextbook = async () => {
 }
 
 .pagination-number:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .pagination-number.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 /* 成功提示样式 */
@@ -4902,7 +4608,7 @@ const addTextbook = async () => {
 }
 
 .study-header .menu-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -5058,13 +4764,13 @@ const addTextbook = async () => {
 
 .question-input textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .submit-question-btn {
   padding: 12px 16px;
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
   border: none;
   border-radius: 8px;
@@ -5076,7 +4782,7 @@ const addTextbook = async () => {
 }
 
 .submit-question-btn:hover {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .submit-question-btn:active {
@@ -5088,7 +4794,7 @@ const addTextbook = async () => {
   margin-top: 16px;
   padding: 16px;
   background: #f0f9ff;
-  border: 1px solid #dbeafe;
+  border: 1px solid #e0e7ff;
   border-radius: 8px;
   animation: fadeIn 0.3s ease-in-out;
 }
@@ -5122,8 +4828,8 @@ const addTextbook = async () => {
 .detailed-question-btn {
   padding: 8px 12px;
   background: white;
-  color: #3b82f6;
-  border: 1px solid #3b82f6;
+  color: #6366f1;
+  border: 1px solid #6366f1;
   border-radius: 6px;
   font-size: 12px;
   font-weight: 500;
@@ -5241,11 +4947,11 @@ const addTextbook = async () => {
 }
 
 .toc-item.active .toc-title {
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 .toc-item.active {
-  background: #eff6ff;
+  background: #eef2ff;
 }
 
 .toc-children {
@@ -5299,8 +5005,8 @@ const addTextbook = async () => {
 
 .search-input-container .search-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .search-input-container .search-btn {
@@ -5472,11 +5178,11 @@ const addTextbook = async () => {
 .check-item input[type="checkbox"] {
   width: 16px;
   height: 16px;
-  accent-color: #3b82f6;
+  accent-color: #6366f1;
 }
 
 .create-btn {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
   border: none;
   border-radius: 8px;
@@ -5490,7 +5196,7 @@ const addTextbook = async () => {
 
 .create-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .pagination {
@@ -5557,8 +5263,8 @@ const addTextbook = async () => {
 }
 
 .info-card.primary {
-  background: linear-gradient(135deg, #dbeafe, #eff6ff);
-  border: 1px solid #bfdbfe;
+  background: linear-gradient(135deg, #e0e7ff, #eef2ff);
+  border: 1px solid #c7d2fe;
 }
 
 .info-card.secondary {
@@ -5652,7 +5358,7 @@ const addTextbook = async () => {
 }
 
 .study-footer .footer-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -5794,7 +5500,7 @@ const addTextbook = async () => {
 
 .add-note-btn {
   padding: 6px 12px;
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
   border: none;
   border-radius: 6px;
@@ -5804,7 +5510,7 @@ const addTextbook = async () => {
 }
 
 .add-note-btn:hover {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .note-list-content {
@@ -5824,13 +5530,13 @@ const addTextbook = async () => {
 }
 
 .note-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 .note-item.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.05);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.05);
 }
 
 .note-item-title {
@@ -5902,8 +5608,8 @@ const addTextbook = async () => {
 
 .note-title-input:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .note-content-textarea {
@@ -5921,8 +5627,8 @@ const addTextbook = async () => {
 
 .note-content-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
 .note-editor-actions {
@@ -5933,7 +5639,7 @@ const addTextbook = async () => {
 
 .save-note-btn {
   padding: 12px 24px;
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
   border: none;
   border-radius: 8px;
@@ -5944,11 +5650,11 @@ const addTextbook = async () => {
 }
 
 .save-note-btn:hover:not(:disabled) {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .save-note-btn:disabled {
-  background: #93c5fd;
+  background: #a5b4fc;
   cursor: not-allowed;
 }
 
@@ -5988,11 +5694,11 @@ const addTextbook = async () => {
 }
 
 .dark-mode .add-note-btn {
-  background: #3b82f6;
+  background: #6366f1;
 }
 
 .dark-mode .add-note-btn:hover {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .dark-mode .note-item {
@@ -6001,13 +5707,13 @@ const addTextbook = async () => {
 }
 
 .dark-mode .note-item:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
 }
 
 .dark-mode .note-item.active {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .dark-mode .note-item-title {
@@ -6038,8 +5744,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .note-title-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .dark-mode .note-content-textarea {
@@ -6049,16 +5755,16 @@ const addTextbook = async () => {
 }
 
 .dark-mode .note-content-textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .dark-mode .save-note-btn {
-  background: #3b82f6;
+  background: #6366f1;
 }
 
 .dark-mode .save-note-btn:hover:not(:disabled) {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .dark-mode .save-note-btn:disabled {
@@ -6155,7 +5861,7 @@ const addTextbook = async () => {
 
 .note-search-input:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .search-btn, .clear-btn {
@@ -6182,8 +5888,8 @@ const addTextbook = async () => {
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
   font-size: 11px;
   border-radius: 4px;
 }
@@ -6227,13 +5933,13 @@ const addTextbook = async () => {
 
 .chapter-select:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .current-chapter-tag {
   padding: 4px 12px;
-  background: rgba(59, 130, 246, 0.1);
-  color: #3b82f6;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
   font-size: 12px;
   border-radius: 4px;
   white-space: nowrap;
@@ -6296,9 +6002,9 @@ const addTextbook = async () => {
 }
 
 .toggle-btn:hover, .toggle-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 /* 笔记预览 */
@@ -6331,8 +6037,8 @@ const addTextbook = async () => {
 .note-preview blockquote {
   margin: 12px 0;
   padding: 12px 16px;
-  background: rgba(59, 130, 246, 0.05);
-  border-left: 4px solid #3b82f6;
+  background: rgba(99, 102, 241, 0.05);
+  border-left: 4px solid #6366f1;
   color: #4b5563;
   font-style: italic;
 }
@@ -6407,12 +6113,12 @@ const addTextbook = async () => {
 }
 
 .dark-mode .note-search-input:focus {
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .dark-mode .chapter-tag {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
 }
 
 .dark-mode .note-item-preview {
@@ -6434,8 +6140,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .current-chapter-tag {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
 }
 
 .dark-mode .editor-toolbar {
@@ -6459,9 +6165,9 @@ const addTextbook = async () => {
 }
 
 .dark-mode .toggle-btn:hover, .dark-mode .toggle-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .dark-mode .note-preview {
@@ -6483,7 +6189,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .note-preview blockquote {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(99, 102, 241, 0.1);
   color: #94a3b8;
 }
 
@@ -6546,8 +6252,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .search-input:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 /* 夜间模式筛选区域 */
@@ -6567,8 +6273,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .select-display:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.15);
 }
 
 .dark-mode .select-display .select-arrow {
@@ -6576,7 +6282,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .select-display:hover .select-arrow {
-  color: #3b82f6;
+  color: #6366f1;
   transform: translateY(-50%) rotate(180deg);
 }
 
@@ -6592,11 +6298,11 @@ const addTextbook = async () => {
 
 .dark-mode .select-option:hover {
   background-color: #334155;
-  color: #3b82f6;
+  color: #6366f1;
 }
 
 .dark-mode .select-option.active {
-  background-color: #3b82f6;
+  background-color: #6366f1;
   color: white;
 }
 
@@ -6636,8 +6342,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .pagination-btn:hover:not(:disabled) {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .dark-mode .pagination-number {
@@ -6647,14 +6353,14 @@ const addTextbook = async () => {
 }
 
 .dark-mode .pagination-number:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .dark-mode .pagination-number.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 /* 夜间模式模态框 */
@@ -6688,14 +6394,14 @@ const addTextbook = async () => {
 }
 
 .dark-mode .category-btn:hover {
-  border-color: #3b82f6;
-  color: #3b82f6;
+  border-color: #6366f1;
+  color: #6366f1;
 }
 
 .dark-mode .category-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
-  border-color: #3b82f6;
+  border-color: #6366f1;
 }
 
 .dark-mode .textbook-card {
@@ -6704,13 +6410,13 @@ const addTextbook = async () => {
 }
 
 .dark-mode .textbook-card:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 8px 24px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.15);
 }
 
 .dark-mode .textbook-card.selected {
-  border-color: #3b82f6;
-  background: rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .dark-mode .textbook-title {
@@ -6741,7 +6447,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .catalog-link {
-  color: #60a5fa;
+  color: #818cf8;
 }
 
 .dark-mode .chapter-title {
@@ -6753,7 +6459,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .section-item:hover {
-  color: #60a5fa;
+  color: #818cf8;
 }
 
 .dark-mode .catalog-chapter {
@@ -6761,8 +6467,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .catalog-chapter:hover {
-  border-color: #3b82f6;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
 }
 
 .dark-mode .action-btn {
@@ -6777,13 +6483,13 @@ const addTextbook = async () => {
 }
 
 .dark-mode .action-btn.primary {
-  background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%);
-  border-color: #3b82f6;
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
+  border-color: #6366f1;
 }
 
 .dark-mode .action-btn.primary:hover {
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #2563eb;
+  background: linear-gradient(90deg, #4f46e5 0%, #1d4ed8 100%);
+  border-color: #4f46e5;
 }
 
 .dark-mode .action-btn.edit {
@@ -6830,7 +6536,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .form-group label::before {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
 }
 
 /* 夜间模式学习模态框 */
@@ -6859,7 +6565,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .study-header .menu-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -6904,8 +6610,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .toc-item.active {
-  background: rgba(59, 130, 246, 0.1);
-  color: #60a5fa;
+  background: rgba(99, 102, 241, 0.1);
+  color: #818cf8;
 }
 
 .dark-mode .toc-children {
@@ -6945,12 +6651,12 @@ const addTextbook = async () => {
 }
 
 .dark-mode .create-btn {
-  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
   color: white;
 }
 
 .dark-mode .create-btn:hover {
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
 }
 
 .dark-mode .pagination {
@@ -7015,26 +6721,26 @@ const addTextbook = async () => {
 }
 
 .dark-mode .question-input textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .dark-mode .submit-question-btn {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
 .dark-mode .submit-question-btn:hover {
-  background: #2563eb;
+  background: #4f46e5;
 }
 
 .dark-mode .ai-answer {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .dark-mode .ai-answer h4 {
-  color: #60a5fa;
+  color: #818cf8;
 }
 
 .dark-mode .answer-content p {
@@ -7043,12 +6749,12 @@ const addTextbook = async () => {
 
 .dark-mode .detailed-question-btn {
   background: #334155;
-  color: #60a5fa;
-  border-color: #60a5fa;
+  color: #818cf8;
+  border-color: #818cf8;
 }
 
 .dark-mode .detailed-question-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 /* 夜间模式文本选择菜单 */
@@ -7085,7 +6791,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .study-footer .footer-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -7098,8 +6804,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .action-btn.primary:hover {
-  background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%);
-  border-color: #2563eb;
+  background: linear-gradient(90deg, #4f46e5 0%, #1d4ed8 100%);
+  border-color: #4f46e5;
 }
 
 .dark-mode .sidebar-section h4 {
@@ -7156,7 +6862,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .study-header .menu-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -7191,8 +6897,8 @@ const addTextbook = async () => {
 }
 
 .dark-mode .toc-item.active {
-  background: rgba(59, 130, 246, 0.2);
-  color: #60a5fa;
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
 }
 
 .dark-mode .toc-children {
@@ -7272,17 +6978,17 @@ const addTextbook = async () => {
 }
 
 .dark-mode .question-input textarea:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 .dark-mode .ai-answer {
-  background: rgba(59, 130, 246, 0.1);
-  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(99, 102, 241, 0.1);
+  border-color: rgba(99, 102, 241, 0.3);
 }
 
 .dark-mode .ai-answer h4 {
-  color: #60a5fa;
+  color: #818cf8;
 }
 
 .dark-mode .answer-content p {
@@ -7291,12 +6997,12 @@ const addTextbook = async () => {
 
 .dark-mode .detailed-question-btn {
   background: #1e293b;
-  color: #60a5fa;
-  border-color: #3b82f6;
+  color: #818cf8;
+  border-color: #6366f1;
 }
 
 .dark-mode .detailed-question-btn:hover {
-  background: rgba(59, 130, 246, 0.1);
+  background: rgba(99, 102, 241, 0.1);
 }
 
 .dark-mode .study-footer {
@@ -7315,7 +7021,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .study-footer .footer-btn.active {
-  background: #3b82f6;
+  background: #6366f1;
   color: white;
 }
 
@@ -7418,7 +7124,7 @@ const addTextbook = async () => {
   width: 20px;
   height: 20px;
   border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  border-top: 2px solid #6366f1;
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-right: 10px;
@@ -7508,7 +7214,7 @@ const addTextbook = async () => {
 
 .modal-icon {
   font-size: 24px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   width: 48px;
   height: 48px;
@@ -7516,7 +7222,7 @@ const addTextbook = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .modal-title {
@@ -7591,7 +7297,7 @@ const addTextbook = async () => {
   transform: translateY(-50%);
   width: 3px;
   height: 16px;
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   border-radius: 3px;
 }
 
@@ -7617,8 +7323,8 @@ const addTextbook = async () => {
 .form-textarea:focus,
 .form-select:focus {
   outline: none;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 16px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 16px rgba(99, 102, 241, 0.15);
   transform: translateY(-1px);
 }
 
@@ -7696,16 +7402,16 @@ const addTextbook = async () => {
 
 /* 确保:focus状态正常 */
 .form-select:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 16px rgba(59, 130, 246, 0.15);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1), 0 4px 16px rgba(99, 102, 241, 0.15);
   transform: translateY(-1px);
 }
 
 .form-select:hover {
-  border-color: #93c5fd;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  border-color: #a5b4fc;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
   transform: translateY(-1px);
 }
 
@@ -7765,16 +7471,16 @@ const addTextbook = async () => {
 
 .form-select option:hover {
   background: #f0f9ff;
-  color: #3b82f6;
-  border-color: #dbeafe;
+  color: #6366f1;
+  border-color: #e0e7ff;
   transform: translateX(4px);
 }
 
 .form-select option:checked {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   font-weight: 600;
-  border-color: #3b82f6;
+  border-color: #6366f1;
   transform: translateX(8px);
 }
 
@@ -7835,15 +7541,15 @@ const addTextbook = async () => {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #1d4ed8 100%);
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.3);
 }
 
 .btn-primary:disabled {
@@ -7940,7 +7646,7 @@ const addTextbook = async () => {
 }
 
 .dark-mode .field-label::before {
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%);
+  background: linear-gradient(135deg, #818cf8 0%, #6366f1 100%);
 }
 
 .dark-mode .form-input,
@@ -7955,8 +7661,8 @@ const addTextbook = async () => {
 .dark-mode .form-input:focus,
 .dark-mode .form-textarea:focus,
 .dark-mode .form-select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 16px rgba(59, 130, 246, 0.25);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), 0 4px 16px rgba(99, 102, 241, 0.25);
 }
 
 /* 夜间模式下的箭头样式 */
@@ -7990,16 +7696,16 @@ const addTextbook = async () => {
 
 /* 确保夜间模式下的:focus状态正常 */
 .dark-mode .form-select:focus {
-  outline: 2px solid #3b82f6;
+  outline: 2px solid #6366f1;
   outline-offset: 2px;
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2), 0 4px 16px rgba(59, 130, 246, 0.25);
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2), 0 4px 16px rgba(99, 102, 241, 0.25);
   transform: translateY(-1px);
 }
 
 .dark-mode .form-select:hover {
-  border-color: #60a5fa;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.2);
+  border-color: #818cf8;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.2);
   transform: translateY(-1px);
 }
 
@@ -8031,16 +7737,16 @@ const addTextbook = async () => {
 
 .dark-mode .form-select option:hover {
   background: #1e40af;
-  color: #60a5fa;
-  border-color: #3b82f6;
+  color: #818cf8;
+  border-color: #6366f1;
   transform: translateX(4px);
 }
 
 .dark-mode .form-select option:checked {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
   font-weight: 600;
-  border-color: #3b82f6;
+  border-color: #6366f1;
   transform: translateX(8px);
 }
 
@@ -8080,14 +7786,14 @@ const addTextbook = async () => {
 }
 
 .dark-mode .btn-primary {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
   color: white;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
 
 .dark-mode .btn-primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-  box-shadow: 0 6px 20px rgba(59, 130, 246, 0.4);
+  background: linear-gradient(135deg, #4f46e5 0%, #1d4ed8 100%);
+  box-shadow: 0 6px 20px rgba(99, 102, 241, 0.4);
 }
 
 /* 夜间模式编辑模态框滚动条 */
@@ -8150,7 +7856,7 @@ const addTextbook = async () => {
 
 .dark-mode .loading-spinner {
   border-color: #374151;
-  border-top-color: #60a5fa;
+  border-top-color: #818cf8;
 }
 
 .dark-mode .error-state {
@@ -8160,5 +7866,130 @@ const addTextbook = async () => {
 
 .dark-mode .empty-state {
   color: #9ca3af;
+}
+
+/* 章节内容样式 */
+.chapter-content {
+  padding: 10px 0;
+  line-height: 1.8;
+  color: #333;
+}
+
+.chapter-content h2 {
+  font-size: 1.4em;
+  color: #1a1a2e;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #4a90d9;
+}
+
+.chapter-content h3 {
+  font-size: 1.15em;
+  color: #2d3748;
+  margin: 20px 0 12px;
+}
+
+.chapter-content p {
+  margin-bottom: 12px;
+  text-indent: 2em;
+}
+
+.chapter-content ul, .chapter-content ol {
+  margin: 8px 0 12px 2em;
+}
+
+.chapter-content li {
+  margin-bottom: 6px;
+}
+
+.chapter-content .highlight {
+  background: #fff8e1;
+  border-left: 4px solid #ffc107;
+  padding: 12px 16px;
+  margin: 16px 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.chapter-content .highlight strong {
+  color: #e65100;
+}
+
+.chapter-content .example {
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  padding: 12px 16px;
+  margin: 12px 0;
+  border-radius: 0 4px 4px 0;
+}
+
+.chapter-content .example strong {
+  color: #1565c0;
+}
+
+.chapter-content .content-section {
+  margin-bottom: 20px;
+}
+
+.loading-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #4a90d9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin: 0 auto 12px;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  text-align: center;
+  padding: 80px 20px;
+  color: #aaa;
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+/* 暗色模式 */
+.dark-mode .chapter-content {
+  color: #e0e0e0;
+}
+
+.dark-mode .chapter-content h2 {
+  color: #90caf9;
+  border-bottom-color: #42a5f5;
+}
+
+.dark-mode .chapter-content h3 {
+  color: #b0bec5;
+}
+
+.dark-mode .chapter-content .highlight {
+  background: #3e2723;
+  border-left-color: #ffb300;
+}
+
+.dark-mode .chapter-content .highlight strong {
+  color: #ffb300;
+}
+
+.dark-mode .chapter-content .example {
+  background: #1a237e;
+  border-left-color: #42a5f5;
+}
+
+.dark-mode .chapter-content .example strong {
+  color: #64b5f6;
 }
 </style>

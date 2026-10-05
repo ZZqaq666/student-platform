@@ -3,7 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 const Login = () => import('@/views/Auth/Login.vue')
 const Register = () => import('@/views/Auth/Register.vue')
 const Home = () => import('@/views/Home/Home.vue')
-const QA = () => import('@/views/QA/QA.vue')
+const QA = () => import('@/views/Qa/QA.vue')
 const KnowledgeGraph = () => import('@/views/KnowledgeGraph/KnowledgeGraph.vue')
 const SeniorQA = () => import('@/views/Senior/SeniorQA.vue')
 
@@ -13,7 +13,7 @@ const routes = [
   { path: '/register', name: 'Register', component: Register },
   { 
     path: '/', 
-    component: () => import('@/layout/MainLayout.vue'),
+    component: () => import('@/layouts/MainLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       { path: '', name: 'Home', component: Home },
@@ -39,7 +39,7 @@ const router = createRouter({
 })
 
 // 路由守卫：未登录跳登录页
-import { useAuthStore } from '@/store/auth.js'
+import { useAuthStore } from '@/stores/auth'
 
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()

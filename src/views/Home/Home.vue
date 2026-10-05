@@ -225,7 +225,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
-import api from '@/api/api.js'
+import api from '@/api/api'
 
 const router = useRouter()
 const toPage = (path) => router.push(path)
@@ -473,7 +473,7 @@ const pathDoneLine = computed(() => {
 
 <style scoped>
 .page {
-  --c1: #7c5cfc;
+  --c1: #6366f1;
   --c2: #a78bfa;
   --c3: #5b9dfc;
   --c4: #5cc9a0;
@@ -594,7 +594,7 @@ const pathDoneLine = computed(() => {
   border-radius: var(--radius);
   border: 1px solid rgba(230, 224, 244, .7);
   box-shadow:
-    0 20px 60px rgba(124, 92, 252, .06),
+    0 20px 60px rgba(99, 102, 241, .06),
     0 2px 10px rgba(120, 100, 180, .04),
     inset 0 1px 0 rgba(255, 255, 255, .9);
 }
@@ -643,15 +643,15 @@ const pathDoneLine = computed(() => {
 }
 
 .goal-head { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 6px; }
-.goal-head span:first-child { color: #5b4a8a; font-weight: 700; }
-.goal-pct { color: #7c5cfc; font-weight: 800; }
+.goal-head span:first-child { color: #475569; font-weight: 700; }
+.goal-pct { color: #6366f1; font-weight: 800; }
 
 .goal-bar { height: 7px; background: #e8e2f8; border-radius: 99px; overflow: hidden; }
 
 .goal-fill {
   height: 100%; border-radius: 99px;
-  background: linear-gradient(90deg, #a78bfa, #7c5cfc);
-  box-shadow: 0 0 12px rgba(124,92,252,.28);
+  background: linear-gradient(90deg, #a78bfa, #6366f1);
+  box-shadow: 0 0 12px rgba(99,102,241,.28);
 }
 
 .hero-right {
@@ -677,7 +677,7 @@ const pathDoneLine = computed(() => {
     linear-gradient(145deg, rgba(255, 255, 255, .86), rgba(245, 239, 255, .72));
   border: 1px solid rgba(223, 212, 255, .72);
   box-shadow:
-    0 24px 60px rgba(124, 92, 252, .12),
+    0 24px 60px rgba(99, 102, 241, .12),
     inset 0 1px 0 rgba(255, 255, 255, .95);
   display: flex;
   align-items: center;
@@ -693,7 +693,7 @@ const pathDoneLine = computed(() => {
   border-radius: 999px;
   background: rgba(255, 255, 255, .92);
   border: 1px solid rgba(226, 216, 255, .85);
-  box-shadow: 0 8px 18px rgba(124, 92, 252, .08);
+  box-shadow: 0 8px 18px rgba(99, 102, 241, .08);
   color: #6d55d8;
   font-size: 12px;
   font-weight: 900;
@@ -745,9 +745,9 @@ const pathDoneLine = computed(() => {
   z-index: 2;
   border-radius: 18px 24px 24px 18px;
   background:
-    linear-gradient(145deg, #9f8cff 0%, #7c5cfc 52%, #6d55e9 100%);
+    linear-gradient(145deg, #9f8cff 0%, #6366f1 52%, #4f46e5 100%);
   box-shadow:
-    0 18px 32px rgba(124, 92, 252, .26),
+    0 18px 32px rgba(99, 102, 241, .26),
     inset 8px 0 0 rgba(255, 255, 255, .16),
     inset 0 1px 0 rgba(255, 255, 255, .4);
   overflow: hidden;
@@ -837,7 +837,7 @@ const pathDoneLine = computed(() => {
   height: 92px;
   z-index: 1;
   border-radius: 10px 0 0 10px;
-  background: linear-gradient(180deg, #6d55e9, #5b45d2);
+  background: linear-gradient(180deg, #4f46e5, #5b45d2);
 }
 
 .book-sprout {
@@ -899,7 +899,7 @@ const pathDoneLine = computed(() => {
   height: 12px;
   border-radius: 999px;
   background: #8d79ff;
-  box-shadow: 0 6px 12px rgba(124, 92, 252, .16);
+  box-shadow: 0 6px 12px rgba(99, 102, 241, .16);
   z-index: 1;
   animation: armWave 2.8s ease-in-out infinite;
 }
@@ -976,7 +976,7 @@ const pathDoneLine = computed(() => {
   height: 18px;
   transform: translateX(-50%);
   border-radius: 50%;
-  background: radial-gradient(ellipse, rgba(124, 92, 252, .16), transparent 70%);
+  background: radial-gradient(ellipse, rgba(99, 102, 241, .16), transparent 70%);
   animation: buddyShadow 3.8s ease-in-out infinite;
 }
 
@@ -1001,7 +1001,7 @@ const pathDoneLine = computed(() => {
   background: rgba(255, 255, 255, .96);
   border: 1px solid rgba(230, 224, 244, .72);
   box-shadow: 0 12px 26px rgba(96, 76, 150, .08);
-  color: #5b4a8a;
+  color: #475569;
   font-size: 13px;
   font-weight: 800;
   white-space: nowrap;
@@ -1055,7 +1055,7 @@ const pathDoneLine = computed(() => {
 /* 知识图谱节点 */
 .bc-illus-graph { width: 52px; height: 52px; flex-shrink: 0; position: relative; }
 .bc-node { position: absolute; width: 12px; height: 12px; border-radius: 50%; }
-.bc-node.n1 { top: 4px; left: 20px; background: #7c5cfc; }
+.bc-node.n1 { top: 4px; left: 20px; background: #6366f1; }
 .bc-node.n2 { top: 20px; left: 4px; background: #a78bfa; }
 .bc-node.n3 { top: 20px; right: 4px; background: #c4b5fd; }
 
@@ -1071,16 +1071,16 @@ const pathDoneLine = computed(() => {
 @keyframes peopleBob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
 
 .bc-body { display: flex; flex-direction: column; gap: 2px; }
-.bc-name { font-size: 15px; font-weight: 800; color: #2d2438; }
-.bc-desc { font-size: 12px; color: #9088a0; }
+.bc-name { font-size: 15px; font-weight: 800; color: #1e293b; }
+.bc-desc { font-size: 12px; color: #94a3b8; }
 
 .bc-go {
   position: absolute; bottom: 18px; right: 20px;
   width: 30px; height: 30px; border-radius: 50%;
   background: #f5f0ff; display: flex; align-items: center; justify-content: center;
-  font-size: 15px; color: #7c5cfc; transition: all .3s;
+  font-size: 15px; color: #6366f1; transition: all .3s;
 }
-.b-card:hover .bc-go { background: #7c5cfc; color: #fff; transform: translateX(3px); }
+.b-card:hover .bc-go { background: #6366f1; color: #fff; transform: translateX(3px); }
 
 /* ===== Hero pills ===== */
 .hero-pills {
@@ -1091,7 +1091,7 @@ const pathDoneLine = computed(() => {
   display: inline-flex; align-items: center; gap: 3px;
   padding: 4px 12px; border-radius: 999px;
   font-size: 11px; font-weight: 700;
-  color: #5b4a8a; background: #f0ecfc;
+  color: #475569; background: #f0ecfc;
 }
 
 .pill-fire { background: #fff7ed; color: #c2410c; }
@@ -1109,20 +1109,20 @@ const pathDoneLine = computed(() => {
   margin-bottom: 10px;
 }
 
-.ht-title { font-size: 13px; font-weight: 700; color: #5b4a8a; }
+.ht-title { font-size: 13px; font-weight: 700; color: #475569; }
 
 .ht-head-right { display: flex; align-items: center; gap: 12px; }
 
 .ht-add-btn {
   padding: 4px 12px; border-radius: 999px; border: 1.5px solid rgba(180,165,225,.4);
-  background: rgba(248,246,255,.7); color: #7c5cfc;
+  background: rgba(248,246,255,.7); color: #6366f1;
   font-size: 11px; font-weight: 700; cursor: pointer;
   transition: all .2s cubic-bezier(.4,0,.2,1);
 }
 
 .ht-add-btn:hover { transform: translateY(-1px); background: #ece2fc; border-color: #c4b5fd; }
 
-.ht-count { font-size: 11px; font-weight: 600; color: #9088a0; }
+.ht-count { font-size: 11px; font-weight: 600; color: #94a3b8; }
 
 /* 添加输入行 */
 .ht-add-row {
@@ -1135,16 +1135,16 @@ const pathDoneLine = computed(() => {
 .ht-add-input {
   flex: 1; padding: 8px 12px; border: 1.5px solid rgba(200,185,240,.4);
   border-radius: 10px; font-size: 12px; outline: none;
-  background: rgba(255,255,255,.7); color: #2d2438;
+  background: rgba(255,255,255,.7); color: #1e293b;
   transition: all .2s;
 }
 
-.ht-add-input:focus { border-color: #7c5cfc; box-shadow: 0 0 0 3px rgba(124,92,252,.08); }
-.ht-add-input::placeholder { color: #b0a8c0; }
+.ht-add-input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.08); }
+.ht-add-input::placeholder { color: #cbd5e1; }
 
 .ht-add-confirm {
   padding: 7px 16px; border-radius: 10px; border: none;
-  background: #7c5cfc; color: #fff; font-size: 12px; font-weight: 700;
+  background: #6366f1; color: #fff; font-size: 12px; font-weight: 700;
   cursor: pointer; white-space: nowrap; transition: all .2s;
 }
 
@@ -1152,7 +1152,7 @@ const pathDoneLine = computed(() => {
 
 .ht-add-cancel {
   padding: 7px 14px; border-radius: 10px; border: 1.5px solid rgba(200,185,240,.4);
-  background: #fff; color: #9088a0; font-size: 12px; font-weight: 600;
+  background: #fff; color: #94a3b8; font-size: 12px; font-weight: 600;
   cursor: pointer; white-space: nowrap; transition: all .2s;
 }
 
@@ -1167,10 +1167,10 @@ const pathDoneLine = computed(() => {
   padding: 11px 14px; border-radius: 12px;
   cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1);
   background: rgba(248,246,255,.7); border: 1.5px solid rgba(220,210,245,.35);
-  font-size: 13px; font-weight: 500; color: #5b4a8a;
+  font-size: 13px; font-weight: 500; color: #475569;
 }
 
-.ht-card:hover { transform: translateY(-1px); border-color: #c4b5fd; box-shadow: 0 4px 14px rgba(124,92,252,.06); }
+.ht-card:hover { transform: translateY(-1px); border-color: #c4b5fd; box-shadow: 0 4px 14px rgba(99,102,241,.06); }
 
 .ht-card.done {
   background: linear-gradient(135deg, #f0fdf4, #ecfdf3);
@@ -1259,21 +1259,21 @@ const pathDoneLine = computed(() => {
 
 .di-fill {
   height: 100%; border-radius: 10px;
-  background: linear-gradient(90deg, #a78bfa, #7c5cfc);
+  background: linear-gradient(90deg, #a78bfa, #6366f1);
   transition: width 1s cubic-bezier(.4,0,.2,1);
 }
 
-.di-pct { font-size: 13px; font-weight: 800; color: #7c5cfc; }
+.di-pct { font-size: 13px; font-weight: 800; color: #6366f1; }
 
 .di-btn-main {
   padding: 9px 18px; border-radius: 12px; font-size: 13px; font-weight: 700;
   cursor: pointer; transition: all .3s cubic-bezier(.4,0,.2,1); border: none;
-  background: linear-gradient(135deg, #7c5cfc, #a78bfa); color: #fff;
-  box-shadow: 0 4px 14px rgba(124,92,252,.22);
+  background: linear-gradient(135deg, #6366f1, #a78bfa); color: #fff;
+  box-shadow: 0 4px 14px rgba(99,102,241,.22);
   align-self: flex-start; margin-top: 6px;
 }
 
-.di-btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(124,92,252,.35); }
+.di-btn-main:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(99,102,241,.35); }
 
 
 /* 空状态 */
@@ -1281,7 +1281,7 @@ const pathDoneLine = computed(() => {
 
 .de-illustration { font-size: 48px; opacity: .7; }
 .de-title { font-size: 15px; font-weight: 700; color: #5b4a6a; margin: 0; }
-.de-sub { font-size: 12px; color: #9088a0; margin: 0; }
+.de-sub { font-size: 12px; color: #94a3b8; margin: 0; }
 
 /* ---- 学习轨迹时间轴 ---- */
 .tl-card {
@@ -1294,10 +1294,10 @@ const pathDoneLine = computed(() => {
 
 .tl-head {
   display: flex; justify-content: space-between; align-items: center;
-  margin-bottom: 20px; font-size: 14px; font-weight: 700; color: #5b4a8a;
+  margin-bottom: 20px; font-size: 14px; font-weight: 700; color: #475569;
 }
 
-.tl-week { font-size: 11px; color: #9088a0; background: rgba(255,255,255,.5); padding: 3px 10px; border-radius: 8px; font-weight: 500; }
+.tl-week { font-size: 11px; color: #94a3b8; background: rgba(255,255,255,.5); padding: 3px 10px; border-radius: 8px; font-weight: 500; }
 
 .tl-track { position: relative; flex: 1; display: flex; align-items: center; padding: 0 4px; }
 
@@ -1309,7 +1309,7 @@ const pathDoneLine = computed(() => {
 
 .tl-line-done {
   position: absolute; top: 16px; left: 0; height: 2px;
-  background: linear-gradient(90deg, #a78bfa, #7c5cfc); border-radius: 2px;
+  background: linear-gradient(90deg, #a78bfa, #6366f1); border-radius: 2px;
   transition: width .6s ease;
 }
 
@@ -1332,11 +1332,11 @@ const pathDoneLine = computed(() => {
   flex-shrink: 0;
 }
 
-.tl-dot.done { background: linear-gradient(135deg, #a78bfa, #7c5cfc); border-color: #7c5cfc; box-shadow: 0 2px 10px rgba(124,92,252,.18); }
-.tl-dot.current { border-color: #7c5cfc; background: #fff; box-shadow: 0 0 0 5px rgba(124,92,252,.1); }
+.tl-dot.done { background: linear-gradient(135deg, #a78bfa, #6366f1); border-color: #6366f1; box-shadow: 0 2px 10px rgba(99,102,241,.18); }
+.tl-dot.current { border-color: #6366f1; background: #fff; box-shadow: 0 0 0 5px rgba(99,102,241,.1); }
 
 .tl-dot-curr {
-  width: 12px; height: 12px; border-radius: 50%; background: #7c5cfc;
+  width: 12px; height: 12px; border-radius: 50%; background: #6366f1;
   animation: tlBreath 1.6s ease-in-out infinite;
 }
 
@@ -1345,8 +1345,8 @@ const pathDoneLine = computed(() => {
   50% { transform: scale(1.4); opacity: .5; }
 }
 
-.tl-date { font-size: 11px; color: #9088a0; font-weight: 500; }
-.tl-topic { font-size: 10px; color: #b0a8c0; white-space: nowrap; }
+.tl-date { font-size: 11px; color: #94a3b8; font-weight: 500; }
+.tl-topic { font-size: 10px; color: #cbd5e1; white-space: nowrap; }
 
 @media (max-width: 1000px) {
   .bento { grid-template-columns: 1fr 1fr; }

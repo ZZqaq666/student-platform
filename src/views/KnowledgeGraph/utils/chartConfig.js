@@ -1,8 +1,8 @@
 // 图表配置模块
 
 import * as echarts from 'echarts'
-import { getNodeColor, getLinkColor, getLinkWidth, getLinkType, initNodePositionsForBook } from './index.js'
-import { nodeHighFrequencyKnowledge } from './dataProcessor.js'
+import { getNodeColor, getLinkColor, getLinkWidth, getLinkType, initNodePositionsForBook } from './index'
+import { nodeHighFrequencyKnowledge } from './dataProcessor'
 
 /**
  * 初始化ECharts图表
@@ -46,7 +46,7 @@ export const initChart = (container, data, handleNodeClick) => {
         return ''
       },
       backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#3b82f6',
+      borderColor: '#6366f1',
       borderWidth: 1,
       padding: 12,
       textStyle: {
@@ -80,7 +80,7 @@ export const initChart = (container, data, handleNodeClick) => {
           emphasis: {
             itemStyle: {
               shadowBlur: 20,
-              shadowColor: 'rgba(59, 130, 246, 0.6)',
+              shadowColor: 'rgba(99, 102, 241, 0.6)',
               borderWidth: 3
             },
             label: {
@@ -208,7 +208,7 @@ export const updateChart = (chart, data, handleNodeClick) => {
         return ''
       },
       backgroundColor: 'rgba(255, 255, 255, 0.95)',
-      borderColor: '#3b82f6',
+      borderColor: '#6366f1',
       borderWidth: 1,
       padding: 12,
       textStyle: {
@@ -242,7 +242,7 @@ export const updateChart = (chart, data, handleNodeClick) => {
           emphasis: {
             itemStyle: {
               shadowBlur: 20,
-              shadowColor: 'rgba(59, 130, 246, 0.6)',
+              shadowColor: 'rgba(99, 102, 241, 0.6)',
               borderWidth: 3
             },
             label: {

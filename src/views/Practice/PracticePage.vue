@@ -54,11 +54,10 @@
           <div class="ppq-body">
             <div class="ppqb-question">
               <span class="ppqbq-num">{{ currentIndex + 1 }}.</span>
-              <span>{{ currentExercise.question }}</span>
+              <span v-html="renderKaTeX(currentExercise.question)"></span>
             </div>
 
-            <!-- 选择题选项 -->
-            <div v-if="currentExercise.type === '选择题'" class="ppqb-options">
+            <div v-if="currentExercise.type === '选择题' || currentExercise.type === '判断题'" class="ppqb-options">
               <div
                 v-for="(option, idx) in currentExercise.options || []"
                 :key="idx"
@@ -70,8 +69,8 @@
                 }"
                 @click="selectOption(idx)"
               >
-                <span class="ppqboi-letter">{{ ['A','B','C','D'][idx] }}</span>
-                <span class="ppqboi-text">{{ option }}</span>
+                <span class="ppqboi-letter">{{ ['A','B','C','D','E','F','G','H'][idx] }}</span>
+                <span class="ppqboi-text" v-html="renderKaTeX(option)"></span>
                 <span v-if="showAnswer && idx === currentExercise.correctAnswer" class="ppqboi-icon check">✓</span>
                 <span v-if="showAnswer && selectedOption === idx && idx !== currentExercise.correctAnswer" class="ppqboi-icon cross">✗</span>
               </div>
@@ -100,11 +99,11 @@
             </div>
             <div class="ppqa-right">
               <span class="ppqar-label">正确答案</span>
-              <span class="ppqar-val">{{ currentExercise.correctAnswerText }}</span>
+              <span class="ppqar-val" v-html="renderKaTeX(currentExercise.correctAnswerText)"></span>
             </div>
             <div v-if="currentExercise.analysis" class="ppqa-detail">
               <span class="ppqad-label">解析</span>
-              <p>{{ currentExercise.analysis }}</p>
+              <p v-html="renderKaTeX(currentExercise.analysis)"></p>
             </div>
           </div>
         </div>
@@ -235,7 +234,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import axios from 'axios'
+import api from '@/api/api'
+import katex from 'katex'
+import 'katex/dist/katex.min.css'
 
 const router = useRouter(); const route = useRoute()
 
@@ -279,7 +280,7 @@ const selectOption = (idx) => { if (!showAnswer.value) selectedOption.value = id
 
 const submitAnswer = () => {
   const ex = currentExercise.value; let ans = null
-  if (ex?.type === '选择题') { if (selectedOption.value === null) return; ans = selectedOption.value }
+  if (ex?.type === '选择题' || ex?.type === '判断题') { if (selectedOption.value === null) return; ans = selectedOption.value }
   else if (ex?.type === '填空题') { if (!fillAnswer.value.trim()) return; ans = fillAnswer.value }
   else if (ex?.type === '解答题') { if (!essayAnswer.value.trim()) return; ans = essayAnswer.value }
   if (ans === null) return
@@ -290,7 +291,7 @@ const submitAnswer = () => {
 }
 const saveAndNext = () => {
   const ex = currentExercise.value; let ans = null
-  if (ex?.type === '选择题') { if (selectedOption.value === null) return; ans = selectedOption.value }
+  if (ex?.type === '选择题' || ex?.type === '判断题') { if (selectedOption.value === null) return; ans = selectedOption.value }
   else if (ex?.type === '填空题') { if (!fillAnswer.value.trim()) return; ans = fillAnswer.value }
   else if (ex?.type === '解答题') { if (!essayAnswer.value.trim()) return; ans = essayAnswer.value }
   if (ans === null) return
@@ -313,37 +314,198 @@ const submitAllAnswers = () => {
 // 保存当前题答案（不跳题，仅保存）
 const saveCurrentAnswer = () => {
   const ex = currentExercise.value; if (!ex || answers.value[currentIndex.value] !== undefined) return
-  if (ex.type === '选择题' && selectedOption.value !== null) { answers.value[currentIndex.value] = selectedOption.value }
+  if ((ex.type === '选择题' || ex.type === '判断题') && selectedOption.value !== null) { answers.value[currentIndex.value] = selectedOption.value }
   else if (ex.type === '填空题' && fillAnswer.value.trim()) { answers.value[currentIndex.value] = fillAnswer.value }
   else if (ex.type === '解答题' && essayAnswer.value.trim()) { answers.value[currentIndex.value] = essayAnswer.value }
 }
 // 判断答案正确性（用 == 避免 API 返回字符串 vs 数字的严格比较问题）
 const checkAnswer = (userAnswer, correctAnswer) => userAnswer != null && String(userAnswer).trim() === String(correctAnswer).trim()
 
-const doSubmitAll = () => { showSubmitConfirm.value = false; clearInterval(timer); timer = null; exercises.value.forEach((ex, i) => { const a = answers.value[i]; const ok = a !== undefined ? checkAnswer(a, ex.correctAnswer) : false; results.value[i] = { isCorrect: ok, userAnswer: a } }); currentIndex.value = 0; showAnswer.value = true; showResults.value = true; const a0 = answers.value[0]; if (a0 !== undefined) { const e0 = exercises.value[0]; if (e0 && e0.type === '选择题') selectedOption.value = a0; else if (e0 && e0.type === '填空题') fillAnswer.value = a0; else if (e0) essayAnswer.value = a0 }; showCompleteModal.value = true }
+const doSubmitAll = () => { showSubmitConfirm.value = false; clearInterval(timer); timer = null; exercises.value.forEach((ex, i) => { const a = answers.value[i]; const ok = a !== undefined ? checkAnswer(a, ex.correctAnswer) : false; results.value[i] = { isCorrect: ok, userAnswer: a } }); currentIndex.value = 0; showAnswer.value = true; showResults.value = true; const a0 = answers.value[0]; if (a0 !== undefined) { const e0 = exercises.value[0]; if (e0 && (e0.type === '选择题' || e0.type === '判断题')) selectedOption.value = a0; else if (e0 && e0.type === '填空题') fillAnswer.value = a0; else if (e0) essayAnswer.value = a0 }; showCompleteModal.value = true }
 const handleSubmitConfirm = () => { if (submitConfirmCallback) submitConfirmCallback() }
 const handleSubmitCancel = () => { if (submitCancelCallback) submitCancelCallback() }
 const nextQuestion = () => { if (currentIndex.value < exercises.value.length - 1) { currentIndex.value++; showAnswer.value = true; selectedOption.value = answers.value[currentIndex.value] } }
 const prevQuestion = () => { if (currentIndex.value > 0) { currentIndex.value--; showAnswer.value = true; selectedOption.value = answers.value[currentIndex.value] } }
 const jumpToQuestion = (i) => { currentIndex.value = i; if (showResults.value) { showAnswer.value = true; const a = answers.value[i]; if (a !== undefined) selectedOption.value = a } else resetQuestion() }
-const resetQuestion = () => { showAnswer.value = false; selectedOption.value = null; fillAnswer.value = ''; essayAnswer.value = ''; const a = answers.value[currentIndex.value]; if (a !== undefined) { if (currentExercise.value?.type === '选择题') selectedOption.value = a; else if (currentExercise.value?.type === '填空题') fillAnswer.value = a; else essayAnswer.value = a; showAnswer.value = true } }
-const getUserAnswerText = () => { const a = answers.value[currentIndex.value]; if (a === undefined) return '未作答'; const ex = currentExercise.value; if (ex?.type === '选择题') return `${['A','B','C','D'][a]}. ${ex.options?.[a] || ''}`; return a }
+const resetQuestion = () => { showAnswer.value = false; selectedOption.value = null; fillAnswer.value = ''; essayAnswer.value = ''; const a = answers.value[currentIndex.value]; if (a !== undefined) { if (currentExercise.value?.type === '选择题' || currentExercise.value?.type === '判断题') selectedOption.value = a; else if (currentExercise.value?.type === '填空题') fillAnswer.value = a; else essayAnswer.value = a; showAnswer.value = true } }
+const getUserAnswerText = () => { const a = answers.value[currentIndex.value]; if (a === undefined) return '未作答'; const ex = currentExercise.value; if (ex?.type === '选择题' || ex?.type === '判断题') return `${['A','B','C','D'][a]}. ${ex.options?.[a] || ''}`; return a }
 
 /* ========== 导航 ========== */
 const exitPractice = () => { showExitConfirm.value = true }
-const confirmExit = () => { clearInterval(timer); router.back() }
-const goBack = () => { clearInterval(timer); router.back() }
+const confirmExit = () => { 
+  clearInterval(timer); 
+  if (route.query.from === 'graph') {
+    sessionStorage.setItem('showExerciseModal', 'true');
+    router.push({ path: '/graph', query: { refresh: Date.now() } });
+  } else {
+    router.back();
+  }
+}
+const goBack = () => { 
+  clearInterval(timer); 
+  if (route.query.from === 'graph') {
+    sessionStorage.setItem('showExerciseModal', 'true');
+    router.push({ path: '/graph', query: { refresh: Date.now() } });
+  } else {
+    router.back();
+  }
+}
 const reviewAll = () => { showCompleteModal.value = false; showResults.value = true; viewMode.value = 'all'; currentIndex.value = 0; showAnswer.value = true; selectedOption.value = answers.value[0] }
 const reviewWrong = () => { showCompleteModal.value = false; showResults.value = true; viewMode.value = 'wrong'; const w = Object.keys(results.value).map(Number).filter(i => !results.value[i].isCorrect).sort((a,b)=>a-b); if (w.length) { currentIndex.value = w[0]; showAnswer.value = true; selectedOption.value = answers.value[w[0]] } }
 const formatTime = (s) => { const m = Math.floor(s/60); const sec = s%60; return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` }
 
+const convertExerciseFormat = (exercise) => {
+  console.log('[convertExerciseFormat] input options:', JSON.stringify(exercise?.options));
+  let options = [];
+  if (exercise.options) {
+    const raw = exercise.options;
+    
+    let rawOptions = [];
+    if (typeof raw === 'string') {
+      if (raw.includes('@@@')) {
+        rawOptions = raw.split('@@@');
+      } else if (raw.includes('|||')) {
+        rawOptions = raw.split('|||');
+      } else if (raw.includes('|')) {
+        rawOptions = raw.split('|');
+      } else {
+        rawOptions = [raw];
+      }
+    } else if (Array.isArray(raw)) {
+      raw.forEach(item => {
+        const str = (item || '').trim();
+        if (str.includes('@@@')) {
+          str.split('@@@').forEach(s => rawOptions.push(s.trim()));
+        } else if (str.includes('|||')) {
+          str.split('|||').forEach(s => rawOptions.push(s.trim()));
+        } else if (str) {
+          rawOptions.push(str);
+        }
+      });
+    }
+    
+    console.log('[convertExerciseFormat] rawOptions:', JSON.stringify(rawOptions));
+    
+    options = rawOptions.map(opt => {
+      let trimmed = opt.trim();
+      trimmed = trimmed.replace(/^[A-H][.\s]*(?:\\n|\n)?\s*/, '');
+      return trimmed;
+    }).filter(opt => opt && opt.trim().length > 0);
+    
+    console.log('[convertExerciseFormat] final options:', JSON.stringify(options));
+  }
+
+  const correctAnswerText = exercise.answer || exercise.correctAnswerText || '';
+  let correctAnswer = 0;
+  if (correctAnswerText) {
+    const firstChar = correctAnswerText.charAt(0).toUpperCase();
+    const idx = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'].indexOf(firstChar);
+    correctAnswer = idx >= 0 ? idx : 0;
+  }
+  
+  const difficultyText = exercise.difficultyText || 
+    (exercise.difficulty?.includes('基础') ? '基础' : 
+     exercise.difficulty?.includes('进阶') ? '进阶' : 
+     exercise.difficulty?.includes('真题') ? '真题' : '中等');
+  const difficulty = exercise.difficulty?.includes('基础') ? 'basic' : 
+                     exercise.difficulty?.includes('进阶') ? 'advanced' : 
+                     exercise.difficulty?.includes('真题') ? 'exam' : 'basic';
+  
+  let questionType = exercise.type || exercise.questionType || '选择题';
+  if (questionType === 'SINGLE_CHOICE' || questionType === 'MULTIPLE_CHOICE') {
+    questionType = '选择题';
+  } else if (questionType === 'FILL_BLANK') {
+    questionType = '填空题';
+  } else if (questionType === 'TRUE_FALSE') {
+    questionType = '判断题';
+  }
+  
+  return {
+    type: questionType,
+    question: exercise.question || exercise.content || exercise.title || '',
+    options: options.length && options.some(o => o.trim() && o.trim().length > 0) ? options : ['选项1', '选项2', '选项3', '选项4'],
+    correctAnswer: correctAnswer,
+    correctAnswerText: correctAnswerText,
+    analysis: exercise.analysis || '本题考查相关知识点',
+    knowledgePoint: exercise.knowledgePoint || '高等数学',
+    difficulty: difficulty,
+    difficultyText: difficultyText,
+    score: exercise.score || 10,
+    id: exercise.id
+  };
+}
+
+const renderKaTeX = (text) => {
+  if (!text) return text;
+  
+  let result = text;
+  
+  result = result.replace(/\u2061/g, '');
+  result = result.replace(/\u200B/g, '');
+  result = result.replace(/（/g, '(');
+  result = result.replace(/）/g, ')');
+  result = result.replace(/，/g, ',');
+  result = result.replace(/。/g, '.');
+  result = result.replace(/；/g, ';');
+  result = result.replace(/：/g, ':');
+  result = result.replace(/？/g, '?');
+  result = result.replace(/！/g, '!');
+  result = result.replace(/【/g, '[');
+  result = result.replace(/】/g, ']');
+  
+  const tryRender = (formula) => {
+    try {
+      return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false, strict: false });
+    } catch (e) {}
+    try {
+      const fixed = formula.replace(/\b(lim|sin|cos|tan|cot|sec|csc|log|ln|lg|exp|det|dim|ker|Pr|sup|inf|max|min|arg|deg)\b/g, '\\$1');
+      return katex.renderToString(fixed.trim(), { displayMode: false, throwOnError: false, strict: false });
+    } catch (e) {}
+    try {
+      const fixed2 = formula.replace(/→/g, '\\to').replace(/∞/g, '\\infty').replace(/π/g, '\\pi').replace(/α/g, '\\alpha').replace(/β/g, '\\beta');
+      const fixed3 = fixed2.replace(/\b(lim|sin|cos|tan|cot|sec|csc|log|ln|lg|exp|det|dim|ker|Pr|sup|inf|max|min|arg|deg)\b/g, '\\$1');
+      return katex.renderToString(fixed3.trim(), { displayMode: false, throwOnError: false, strict: false });
+    } catch (e) {}
+    return null;
+  };
+  const tryRenderDisplay = (formula) => {
+    try {
+      return katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false, strict: false });
+    } catch (e) {}
+    return tryRender(formula);
+  };
+  
+  result = result.replace(/\\\[([\s\S]*?)\\\]/g, (m, f) => tryRenderDisplay(f) || m);
+  result = result.replace(/\\\(([\s\S]*?)\\\)/g, (m, f) => tryRender(f) || m);
+  result = result.replace(/\$\$([\s\S]*?)\$\$/g, (m, f) => tryRenderDisplay(f) || m);
+  result = result.replace(/\$([^$\n]+?)\$/g, (m, f) => tryRender(f) || m);
+
+  return result;
+}
+
 /* ========== 数据获取 ========== */
 const fetchExercises = async () => {
   try {
-    if (route.query.single === 'true' && route.query.exerciseId) { const r = await axios.get(`/api/exercises/${route.query.exerciseId}`); if (r.data.code===200) exercises.value=[r.data.data] }
-    else if (route.query.multiple === 'true' && route.query.exerciseIds) { const r = await axios.get('/api/exercises/batch',{params:{ids:route.query.exerciseIds}}); if (r.data.code===200) exercises.value=r.data.data }
-    else if (route.query.knowledgePoint) { const r = await axios.get('/api/exercises',{params:{knowledgePoint:route.query.knowledgePoint}}); if (r.data.code===200) exercises.value=r.data.data }
-    else { const r = await axios.get('/api/exercises'); if (r.data.code===200) exercises.value=r.data.data }
+    if (route.query.single === 'true' && route.query.exerciseId) {
+      const r = await api.get(`/exercise/${route.query.exerciseId}`);
+      if (r.code===200) exercises.value=[convertExerciseFormat(r.data)]
+    }
+    else if (route.query.multiple === 'true' && route.query.exerciseIds) {
+      try {
+        const r = await api.get('/exercise/batch',{ids:route.query.exerciseIds});
+        if (r.code===200) exercises.value=r.data.map(convertExerciseFormat)
+      } catch (batchError) {
+        console.warn('批量接口调用失败，使用mock数据');
+      }
+    }
+    else if (route.query.knowledgePoint) {
+      const r = await api.get('/exercise/exercises',{knowledgePoint:route.query.knowledgePoint});
+      if (r.code===200) exercises.value=r.data.map(convertExerciseFormat)
+    }
+    else {
+      const r = await api.get('/exercise/exercises');
+      if (r.code===200) exercises.value=r.data.map(convertExerciseFormat)
+    }
   } catch(e) { console.error(e) }
   if (!exercises.value.length) exercises.value = generateMock()
 }
@@ -360,7 +522,22 @@ const generateMock = () => {
 }
 
 onMounted(async () => {
-  try { if (route.query.exercises) { const p = JSON.parse(route.query.exercises); if (p.length && p[0].question) exercises.value = p; else await fetchExercises() } else await fetchExercises() } catch(e) { await fetchExercises() }
+  try { 
+    if (route.query.exercises) { 
+      const decoded = decodeURIComponent(route.query.exercises);
+      const p = JSON.parse(decoded); 
+      if (p && Array.isArray(p) && p.length > 0 && (p[0].question || p[0].title || p[0].content)) {
+        exercises.value = p.map(convertExerciseFormat);
+      } else {
+        await fetchExercises();
+      }
+    } else {
+      await fetchExercises();
+    }
+  } catch(e) { 
+    console.error('Failed to parse exercises from query:', e);
+    await fetchExercises();
+  }
   timer = setInterval(() => practiceTime.value++, 1000)
 })
 onUnmounted(() => clearInterval(timer))
@@ -368,8 +545,8 @@ onUnmounted(() => clearInterval(timer))
 
 <style scoped>
 .pp-page {
-  --c: #7c5cfc; --c2: #a78bfa; --c3: #c4b5fd; --cl: #f5f0ff; --cb: #ece6fa;
-  --t: #2d2438; --m: #9088a0;
+  --c: #6366f1; --c2: #a78bfa; --c3: #c4b5fd; --cl: #f5f0ff; --cb: #ece6fa;
+  --t: #1e293b; --m: #94a3b8;
   height: calc(100vh - 60px); display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(175deg, #fdfbff 0%, #f8f4fd 40%, #f5f0fa 100%);
   font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif; color: var(--t);
@@ -424,7 +601,7 @@ onUnmounted(() => clearInterval(timer))
 .ppqb-options { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
 .ppqbo-item { display: flex; align-items: center; gap: 14px; padding: 14px 18px; border-radius: 14px; border: 2px solid rgba(220,210,245,.35); cursor: pointer; transition: all .25s cubic-bezier(.4,0,.2,1); background: #fdfbff; }
 .ppqbo-item:hover:not(.correct):not(.wrong) { border-color: var(--c3); background: #faf7ff; transform: translateY(-1px); }
-.ppqbo-item.selected { border-color: var(--c); background: #f3edfc; box-shadow: 0 0 0 3px rgba(124,92,252,.08); }
+.ppqbo-item.selected { border-color: var(--c); background: #f3edfc; box-shadow: 0 0 0 3px rgba(99,102,241,.08); }
 .ppqbo-item.correct { border-color: #10b981; background: #ecfdf5; }
 .ppqbo-item.wrong { border-color: #ef4444; background: #fef2f2; animation: shake .4s ease-in-out; }
 @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
@@ -464,8 +641,8 @@ onUnmounted(() => clearInterval(timer))
 .ppa-btn { padding: 11px 28px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: all .25s; border: none; }
 .ppa-btn.prev { background: #f5f0ff; color: var(--c); border: 1.5px solid rgba(200,185,240,.4); }
 .ppa-btn.prev:hover:not(:disabled) { background: #ede4fe; }
-.ppa-btn.next { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; box-shadow: 0 4px 12px rgba(124,92,252,.2); }
-.ppa-btn.next:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(124,92,252,.35); }
+.ppa-btn.next { background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; box-shadow: 0 4px 12px rgba(99,102,241,.2); }
+.ppa-btn.next:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(99,102,241,.35); }
 .ppa-btn.submit { background: linear-gradient(135deg, #10b981, #059669); color: #fff; box-shadow: 0 4px 12px rgba(16,185,129,.2); }
 .ppa-btn.submit:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(16,185,129,.35); }
 .ppa-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -480,7 +657,7 @@ onUnmounted(() => clearInterval(timer))
 .ppsc-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px; }
 .ppscg-dot { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; cursor: pointer; transition: all .2s; border: 2px solid #e8e2f4; color: var(--m); background: #faf8fd; }
 .ppscg-dot:hover { border-color: var(--c2); }
-.ppscg-dot.current { border-color: var(--c); background: #ede4fe; color: var(--c); box-shadow: 0 0 0 4px rgba(124,92,252,.1); }
+.ppscg-dot.current { border-color: var(--c); background: #ede4fe; color: var(--c); box-shadow: 0 0 0 4px rgba(99,102,241,.1); }
 .ppscg-dot.answered { background: #e0d6f8; border-color: var(--c2); color: var(--c); }
 .ppscg-dot.correct { background: #d1fae5; border-color: #10b981; color: #047857; }
 .ppscg-dot.wrong { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
@@ -488,7 +665,7 @@ onUnmounted(() => clearInterval(timer))
 .ppsc-legend { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; font-size: 10px; color: var(--m); }
 .ppsc-legend span { display: flex; align-items: center; gap: 4px; }
 .l-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-.l-dot.cur { background: var(--c); box-shadow: 0 0 0 2px rgba(124,92,252,.2); }
+.l-dot.cur { background: var(--c); box-shadow: 0 0 0 2px rgba(99,102,241,.2); }
 .l-dot.done { background: var(--c2); }
 .l-dot.ok { background: #10b981; }
 .l-dot.fail { background: #ef4444; }
@@ -508,7 +685,7 @@ onUnmounted(() => clearInterval(timer))
 
 /* ===== 弹窗 ===== */
 .pp-overlay { position: fixed; inset: 0; background: rgba(45,36,56,.25); z-index: 2000; display: flex; align-items: center; justify-content: center; }
-.pp-complete { background: rgba(255,255,255,.95); backdrop-filter: blur(16px); border-radius: 24px; padding: 36px 32px; text-align: center; max-width: 440px; width: 90%; box-shadow: 0 24px 64px rgba(124,92,252,.15); border: 1px solid rgba(200,185,240,.3); }
+.pp-complete { background: rgba(255,255,255,.95); backdrop-filter: blur(16px); border-radius: 24px; padding: 36px 32px; text-align: center; max-width: 440px; width: 90%; box-shadow: 0 24px 64px rgba(99,102,241,.15); border: 1px solid rgba(200,185,240,.3); }
 .ppc-icon { font-size: 56px; margin-bottom: 12px; }
 .pp-complete h2 { font-size: 22px; font-weight: 800; margin: 0 0 20px; color: var(--t); }
 .ppc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 24px; }
@@ -520,17 +697,17 @@ onUnmounted(() => clearInterval(timer))
 .ppcb-btn { padding: 10px 22px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; border: none; transition: all .2s; }
 .ppcb-btn.sec { background: #f5f0ff; color: var(--c); border: 1.5px solid rgba(200,185,240,.4); }
 .ppcb-btn.sec:hover { background: #ede4fe; }
-.ppcb-btn.pri { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; }
-.ppcb-btn.pri:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,92,252,.3); }
+.ppcb-btn.pri { background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; }
+.ppcb-btn.pri:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.3); }
 
-.pp-confirm { background: rgba(255,255,255,.95); backdrop-filter: blur(16px); border-radius: 20px; padding: 28px 32px; text-align: center; max-width: 380px; width: 90%; box-shadow: 0 24px 64px rgba(124,92,252,.1); border: 1px solid rgba(200,185,240,.3); }
+.pp-confirm { background: rgba(255,255,255,.95); backdrop-filter: blur(16px); border-radius: 20px; padding: 28px 32px; text-align: center; max-width: 380px; width: 90%; box-shadow: 0 24px 64px rgba(99,102,241,.1); border: 1px solid rgba(200,185,240,.3); }
 .pp-confirm h3 { font-size: 18px; font-weight: 800; margin: 0 0 8px; color: var(--t); }
 .pp-confirm p { font-size: 13px; color: var(--m); margin: 0 0 20px; }
 .ppcf-btns { display: flex; gap: 10px; justify-content: center; }
 .ppcfb-cancel { padding: 10px 22px; border-radius: 12px; border: 1.5px solid rgba(200,185,240,.4); background: #f5f0ff; color: var(--t); font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .ppcfb-cancel:hover { background: #ede4fe; }
-.ppcfb-ok { padding: 10px 22px; border-radius: 12px; border: none; background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
-.ppcfb-ok:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,92,252,.3); }
+.ppcfb-ok { padding: 10px 22px; border-radius: 12px; border: none; background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.ppcfb-ok:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.3); }
 
 .pp-main::-webkit-scrollbar, .pp-side::-webkit-scrollbar { width: 4px; }
 .pp-main::-webkit-scrollbar-thumb, .pp-side::-webkit-scrollbar-thumb { background: rgba(200,185,240,.4); border-radius: 4px; }

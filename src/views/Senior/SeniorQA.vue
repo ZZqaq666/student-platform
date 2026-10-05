@@ -1,4 +1,4 @@
-﻿<script setup>
+<script setup>
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
@@ -20,6 +20,7 @@ const {
   listSort,
   currentPage,
   pageSize,
+  total,
   askDialogVisible,
   askState,
   detailDialogVisible,
@@ -120,7 +121,7 @@ function handleSubmitFollowUp(content) {
           :questions="paginatedQuestions"
           :current-page="currentPage"
           :page-size="pageSize"
-          :total="filteredAndSortedQuestions.length"
+          :total="total"
           @update:list-filter="setListFilter"
           @update:list-sort="setListSort"
           @update:current-page="setCurrentPage"

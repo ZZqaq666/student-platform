@@ -114,8 +114,8 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { apiService } from '@/api/api.js'
-import { useAuthStore } from '@/store/auth.js'
+import { apiService } from '@/api/api'
+import { useAuthStore } from '@/stores/auth'
 
 const loginApi = async (data) => {
   const response = await apiService.auth.login(data)
@@ -149,7 +149,7 @@ const loginForm = ref({
 const rules = {
   username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
-    { pattern: /^[一-龥a-zA-Z]+$/, message: '用户名只能由汉字或字母组成', trigger: 'blur' }
+    { pattern: /^[一-龥a-zA-Z][一-龥a-zA-Z0-9_]{1,19}$/, message: '用户名为2-20位汉字、字母开头，可含数字或下划线', trigger: 'blur' }
   ],
   password: [
     { required: true, message: '请输入密码', trigger: 'blur' },
@@ -325,7 +325,7 @@ const dotStyle = (i) => {
   width: 40px;
   height: 40px;
   border-radius: 6px;
-  background: url('@/assets/智能云.png') no-repeat center/cover;
+  background: url('@/assets/images/auth-bg.png') no-repeat center/cover;
   margin-left: -6px;
   animation: logoPulse 3s ease-in-out infinite;
 }
@@ -410,7 +410,7 @@ const dotStyle = (i) => {
 .ambient--2 {
   width: 220px;
   height: 220px;
-  background: rgba(59,130,246,0.18);
+  background: rgba(99,102,241,0.18);
   top: 120px;
   right: 50px;
 }
@@ -555,7 +555,7 @@ const dotStyle = (i) => {
   border: 1px solid rgba(255,255,255,0.6);
   box-shadow:
     0 0 60px rgba(99,102,241,0.15),
-    0 0 30px rgba(59,130,246,0.1),
+    0 0 30px rgba(99,102,241,0.1),
     inset 0 0 30px rgba(255,255,255,0.3),
     inset 0 1px 0 rgba(255,255,255,0.7);
 }
@@ -593,7 +593,7 @@ const dotStyle = (i) => {
   justify-content: center;
   gap: 14px;
   box-shadow:
-    inset 0 0 30px rgba(59,130,246,0.08),
+    inset 0 0 30px rgba(99,102,241,0.08),
     0 0 30px rgba(99,102,241,0.1);
 }
 
@@ -669,7 +669,7 @@ const dotStyle = (i) => {
   height: 44px;
   animation-direction: reverse;
   animation-duration: 6s;
-  border-color: rgba(59,130,246,0.2);
+  border-color: rgba(99,102,241,0.2);
 }
 
 @keyframes coreSpin {
@@ -721,7 +721,7 @@ const dotStyle = (i) => {
 .ai-entity:hover .head-glass {
   box-shadow:
     0 0 80px rgba(99,102,241,0.22),
-    0 0 40px rgba(59,130,246,0.15),
+    0 0 40px rgba(99,102,241,0.15),
     inset 0 0 40px rgba(255,255,255,0.4),
     inset 0 1px 0 rgba(255,255,255,0.8);
 }
@@ -759,7 +759,7 @@ const dotStyle = (i) => {
 
 .title-char {
   display: inline-block;
-  background: linear-gradient(135deg, #1890ff, #722ed1);
+  background: linear-gradient(135deg, #6366f1, #722ed1);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -798,7 +798,7 @@ const dotStyle = (i) => {
 
 .form-input:focus-within :deep(.el-input__prefix) {
   transform: scale(1.15);
-  color: #1890ff;
+  color: #6366f1;
 }
 
 .form-row {
@@ -818,7 +818,7 @@ const dotStyle = (i) => {
   letter-spacing: 6px !important;
   font-weight: 600 !important;
   border: none !important;
-  background: linear-gradient(135deg, #1890ff, #722ed1) !important;
+  background: linear-gradient(135deg, #6366f1, #722ed1) !important;
   position: relative;
   overflow: hidden;
   transition: all 0.3s ease !important;
@@ -826,7 +826,7 @@ const dotStyle = (i) => {
 
 .login-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(24,144,255,0.4) !important;
+  box-shadow: 0 8px 24px rgba(99,102,241,0.4) !important;
 }
 
 .login-btn:active { transform: translateY(0) scale(0.98) !important; }

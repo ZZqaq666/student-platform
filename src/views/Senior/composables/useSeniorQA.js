@@ -1,7 +1,6 @@
 import { ref, computed } from 'vue'
-import { apiService } from '../../../api/api.js'
-import { useAuthStore } from '../../../store/auth.js'
-import { seniorMockApi, stats as mockStats, seniors as mockSeniors } from '../../../mock/seniorMock.js'
+import { apiService } from '@/api/api'
+import { useAuthStore } from '@/stores/auth'
 
 export const UI_STATES = {
   IDLE: 'idle',
@@ -11,10 +10,9 @@ export const UI_STATES = {
 }
 
 export function useSeniorQA() {
-  // State
   const authStore = useAuthStore()
   const currentUser = ref({ id: authStore.userId || 1, name: 'User' })
-  const stats = ref(mockStats)
+  const stats = ref({ seniorCount: 0, totalQuestions: 0, solvedRate: 0, avgRating: 0 })
   const seniorFilter = ref('all')
   const selectedSeniorId = ref(null)
   const listFilter = ref('all')
@@ -27,21 +25,26 @@ export function useSeniorQA() {
   const detailState = ref(UI_STATES.IDLE)
   const detailError = ref(null)
   const questions = ref([])
+  const seniors = ref([])
+  const total = ref(0)
   
-  // Computed
   const filteredSeniors = computed(() => {
-    return mockSeniors
+    return seniors.value
   })
+  
   const selectedSenior = computed(() => {
     if (!selectedSeniorId.value) return null
-    return mockSeniors.find(s => s.id === selectedSeniorId.value) || null
+    return seniors.value.find(s => s.id === selectedSeniorId.value) || null
   })
+  
   const listState = ref(UI_STATES.IDLE)
+  
   const paginatedQuestions = computed(() => {
     const start = (currentPage.value - 1) * pageSize.value
     const end = start + pageSize.value
     return filteredAndSortedQuestions.value.slice(start, end)
   })
+  
   const filteredAndSortedQuestions = computed(() => {
     if (!Array.isArray(questions.value)) {
       return []
@@ -49,38 +52,42 @@ export function useSeniorQA() {
     
     let result = [...questions.value]
     
-    // 根据专业方向筛选（如果后端没有筛选）
     if (seniorFilter.value && seniorFilter.value !== 'all') {
       result = result.filter(q => q.category === seniorFilter.value)
     }
     
     return result
   })
+  
   const activeQuestion = ref(null)
   
-  // Methods
   const setSeniorFilter = (filter) => {
     seniorFilter.value = filter
+    currentPage.value = 1
     loadQuestions()
   }
   
   const selectSenior = (seniorId) => {
     selectedSeniorId.value = seniorId
+    currentPage.value = 1
     loadQuestions()
   }
   
   const setListFilter = (filter) => {
     listFilter.value = filter
+    currentPage.value = 1
     loadQuestions()
   }
   
   const setListSort = (sort) => {
     listSort.value = sort
+    currentPage.value = 1
     loadQuestions()
   }
   
   const setCurrentPage = (page) => {
     currentPage.value = page
+    loadQuestions()
   }
   
   const openAskDialog = () => {
@@ -91,10 +98,36 @@ export function useSeniorQA() {
     askDialogVisible.value = false
   }
   
+  const loadStats = async () => {
+    try {
+      const response = await apiService.senior.getStats()
+      if (response && response.data) {
+        stats.value = response.data
+      } else if (response && typeof response === 'object') {
+        stats.value = response
+      }
+    } catch (error) {
+      console.error('加载统计数据失败:', error)
+    }
+  }
+  
+  const loadSeniors = async () => {
+    try {
+      const response = await apiService.senior.getSeniors()
+      if (response && response.data) {
+        seniors.value = response.data
+      } else if (Array.isArray(response)) {
+        seniors.value = response
+      }
+    } catch (error) {
+      console.error('加载学长学姐列表失败:', error)
+      seniors.value = []
+    }
+  }
+  
   const loadQuestions = async () => {
     listState.value = UI_STATES.LOADING
     try {
-      // 构建查询参数
       const params = {
         seniorId: selectedSeniorId.value,
         filter: listFilter.value,
@@ -103,33 +136,39 @@ export function useSeniorQA() {
         pageSize: pageSize.value
       }
       
-      // 如果选择了专业方向筛选（不是"全部"），添加到参数中
       if (seniorFilter.value && seniorFilter.value !== 'all') {
         params.category = seniorFilter.value
       }
       
       console.log('加载问题列表，参数:', params)
-      const response = await seniorMockApi.getQuestions(params)
+      const response = await apiService.senior.getQuestions(params)
       console.log('问题列表原始响应:', response)
       
-      // 处理各种可能的后端返回结构
       let rawQuestions = []
       if (Array.isArray(response)) {
         rawQuestions = response
       } else if (response?.data) {
-        // 可能是 {code, message, data: [...]} 或 {code, message, data: {list: [...]}}
         if (Array.isArray(response.data)) {
           rawQuestions = response.data
         } else if (Array.isArray(response.data.list)) {
           rawQuestions = response.data.list
+          total.value = response.data.total || rawQuestions.length
         } else if (Array.isArray(response.data.records)) {
           rawQuestions = response.data.records
+          total.value = response.data.total || rawQuestions.length
         }
       }
       
-      // 打印每个问题的分类，用于调试
-      console.log('问题分类统计:', rawQuestions.map(q => ({ id: q.id, category: q.category, categoryText: q.categoryText, title: q.title?.slice(0, 20) })))
-      questions.value = rawQuestions
+      questions.value = rawQuestions.map(q => ({
+        ...q,
+        categoryText: getCategoryText(q.category),
+        status: q.solved ? 'solved' : 'unsolved'
+      }))
+      
+      if (total.value === 0) {
+        total.value = questions.value.length
+      }
+      
       listState.value = UI_STATES.SUCCESS
     } catch (error) {
       console.error('加载问题列表失败:', error)
@@ -138,14 +177,30 @@ export function useSeniorQA() {
     }
   }
   
+  const getCategoryText = (category) => {
+    const categoryMap = {
+      'computer': '计算机科学',
+      'electronics': '电子信息',
+      'software': '软件工程',
+      'data': '数据科学',
+      'math': '数学',
+      'physics': '物理',
+      'other': '其他',
+      'cs': '计算机科学',
+      'math': '数学',
+      'physics': '物理',
+      'english': '英语'
+    }
+    return categoryMap[category] || category
+  }
+  
   const publishQuestion = async (payload) => {
     askState.value = UI_STATES.LOADING
     try {
       console.log('发布问题，参数:', payload)
-      const response = await seniorMockApi.publishQuestion(payload)
+      const response = await apiService.senior.publishQuestion(payload)
       console.log('问题发布成功，响应:', response)
       askState.value = UI_STATES.SUCCESS
-      // 重新加载问题列表
       await loadQuestions()
       return { ok: true, message: '问题发布成功' }
     } catch (error) {
@@ -163,11 +218,15 @@ export function useSeniorQA() {
     detailState.value = UI_STATES.LOADING
     try {
       console.log('加载问题详情，ID:', questionId)
-      const response = await seniorMockApi.getQuestionById(questionId)
+      const response = await apiService.senior.getQuestionById(questionId)
       console.log('问题详情加载成功:', response)
-      // 处理后端返回的统一响应格式 {code, message, data}
       const questionData = response.data || response
-      activeQuestion.value = questionData
+      activeQuestion.value = {
+        ...questionData,
+        categoryText: getCategoryText(questionData.category),
+        status: questionData.solved ? 'solved' : 'unsolved',
+        answers: questionData.answers || []
+      }
       detailState.value = UI_STATES.SUCCESS
       detailDialogVisible.value = true
     } catch (error) {
@@ -189,7 +248,6 @@ export function useSeniorQA() {
   
   const toggleAnswerLike = async (answerId) => {
     try {
-      // 检查 activeQuestion 是否存在
       if (!activeQuestion.value) {
         console.error('点赞失败: 当前没有激活的问题')
         return false
@@ -202,9 +260,8 @@ export function useSeniorQA() {
       }
 
       console.log('点赞回答，ID:', answerId)
-      await seniorMockApi.likeAnswer(answerId)
+      await apiService.senior.likeAnswer(answerId)
       console.log('点赞成功')
-      // 重新加载问题详情
       await openDetail(questionId)
       return true
     } catch (error) {
@@ -215,7 +272,6 @@ export function useSeniorQA() {
   
   const acceptAnswer = async (answerId) => {
     try {
-      // 检查 activeQuestion 是否存在
       if (!activeQuestion.value) {
         console.error('采纳回答失败: 当前没有激活的问题')
         return { ok: false, message: '采纳失败：问题信息不存在' }
@@ -228,9 +284,8 @@ export function useSeniorQA() {
       }
 
       console.log('采纳回答，问题ID:', questionId, '回答ID:', answerId)
-      await seniorMockApi.acceptAnswer(questionId, answerId)
+      await apiService.senior.acceptAnswer(questionId, answerId)
       console.log('采纳成功')
-      // 重新加载问题详情
       await openDetail(questionId)
       return { ok: true, message: '已采纳回答' }
     } catch (error) {
@@ -241,13 +296,11 @@ export function useSeniorQA() {
   
   const submitFollowUp = async (content) => {
     try {
-      // 检查 activeQuestion 是否存在
       if (!activeQuestion.value) {
         console.error('提交追问失败: 当前没有激活的问题')
         return { ok: false, message: '提交失败：问题信息不存在，请重新打开问题详情' }
       }
 
-      // 检查问题 ID 是否存在
       const questionId = activeQuestion.value.id
       if (!questionId) {
         console.error('提交追问失败: 问题 ID 不存在', activeQuestion.value)
@@ -255,9 +308,8 @@ export function useSeniorQA() {
       }
 
       console.log('提交追问，问题ID:', questionId, '内容:', content)
-      await seniorMockApi.submitFollowUp(questionId, content)
+      await apiService.senior.submitFollowUp(questionId, content)
       console.log('追问提交成功')
-      // 重新加载问题详情
       await openDetail(questionId)
       return { ok: true, message: '追问已提交' }
     } catch (error) {
@@ -266,8 +318,13 @@ export function useSeniorQA() {
     }
   }
   
-  // 初始化加载问题列表
-  loadQuestions()
+  const initData = async () => {
+    await loadStats()
+    await loadSeniors()
+    await loadQuestions()
+  }
+  
+  initData()
   
   return {
     currentUser,
@@ -278,6 +335,7 @@ export function useSeniorQA() {
     listSort,
     currentPage,
     pageSize,
+    total,
     askDialogVisible,
     askState,
     detailDialogVisible,

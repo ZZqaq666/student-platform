@@ -189,35 +189,35 @@
           </template>
 
           <!-- ====== 历史对话 ====== -->
-          <div class="qas-history" v-if="sessions.length > 0">
+          <div class="qas-history">
             <div class="qash-head">
               <span class="qas-label">📋 历史对话</span>
               <button class="qash-new-btn" @click="startNewSession" title="新对话">+ 新对话</button>
             </div>
-            <div class="qash-list">
+            <div class="qash-list" v-if="sessions.length > 0">
               <div
                 v-for="s in sessions"
                 :key="s.id"
                 class="qash-item"
                 :class="{ active: activeSessionId === s.id }"
-                @click="loadSession(s)"
+                @click="s.isBackend ? loadBackendHistory(s) : loadSession(s)"
               >
-                <div class="qashi-icon">{{ s.mode === 'exam' ? '🎓' : '📚' }}</div>
+                <div class="qashi-icon">{{ s.mode === 'exam' ? '🎓' : '💬' }}</div>
                 <div class="qashi-info">
                   <div class="qashi-title">{{ s.title }}</div>
-                  <div class="qashi-meta">{{ s.msgCount }} 条对话 · {{ formatSessionTime(s.createdAt) }}</div>
+                  <div class="qashi-meta">{{ formatSessionTime(s.createdAt) }}</div>
                 </div>
-                <button class="qashi-del" @click.stop="deleteSession(s.id)" title="删除">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                <button class="qashi-del" @click.stop="confirmDelete(s)" title="删除">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6m3 0V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2"/></svg>
                 </button>
               </div>
             </div>
+            <div v-else class="qash-empty">
+              <div class="qashe-icon">📝</div>
+              <div class="qashe-text">暂无对话记录</div>
+              <button class="qashe-new-btn" @click="startNewSession">开始新对话</button>
+            </div>
           </div>
-
-          <!-- 新对话按钮（无历史时显示） -->
-          <button v-if="messages.length > 0 && sessions.length === 0" class="qas-new-session-btn" @click="startNewSession">
-            + 新对话
-          </button>
         </div>
 
         <button class="qas-toggle" @click="sidebarCollapsed = !sidebarCollapsed">
@@ -249,7 +249,10 @@
           </div>
 
           <div v-for="msg in messages" :key="msg.id" class="qam-row" :class="msg.role">
-            <div v-if="msg.role === 'user'" class="qam-bubble user">{{ msg.question }}</div>
+            <div v-if="msg.role === 'user'" class="qam-bubble user">
+              <img v-if="msg.image" :src="msg.image" class="qam-image" alt="用户上传的图片" />
+              <span>{{ msg.question }}</span>
+            </div>
             <template v-else>
               <div class="qam-avatar">AI</div>
               <div class="qam-ai-wrap">
@@ -270,7 +273,7 @@
                     </div>
                   </div>
                   <div v-else-if="msg.status === 'typing'" class="qam-typing">
-                    <span v-html="msg.displayContent"></span><span class="qam-cursor">|</span>
+                    <div class="qam-html" v-html="msg.displayContent"></div><span class="qam-cursor">|</span>
                   </div>
                   <div v-else-if="msg.status === 'success'">
                     <div v-if="msg.displayContent" v-html="msg.displayContent" class="qam-html"></div>
@@ -317,12 +320,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick, reactive } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { useAuthStore } from '@/store/auth.js'
-import { streamingApiService } from '../../api/streaming.js'
-import { apiService } from '../../api/api.js'
-import { processAiResponse } from '../../utils/markdownUtils'
+import { useAuthStore } from '@/stores/auth'
+import { streamingApiService } from '@/api/streaming'
+import { apiService } from '@/api/api'
+import { processAiResponse, processLatexOnly, markdownToPlainText } from '@/utils/markdown/aiResponse'
+import { ElMessageBox } from 'element-plus'
 
 const router = useRouter(); const route = useRoute()
 
@@ -337,6 +341,99 @@ const selectedResource = ref(null)
 /* ========== 会话历史 ========== */
 const sessions = ref([])
 const activeSessionId = ref(null)
+const aiSessionId = ref(null)
+
+// localStorage和sessionStorage中会话ID的key
+const SESSION_ID_KEY = 'qa_session_id'
+const SESSION_ID_KEY_SESSION_STORAGE = 'qa_session_id_session'
+
+// 从存储获取会话ID（优先localStorage，其次sessionStorage）
+const getStoredSessionId = () => {
+  try {
+    // 优先从localStorage获取（持久化存储）
+    let sessionId = localStorage.getItem(SESSION_ID_KEY)
+    if (sessionId) return sessionId
+    
+    // 其次从sessionStorage获取（会话级存储）
+    sessionId = sessionStorage.getItem(SESSION_ID_KEY_SESSION_STORAGE)
+    return sessionId
+  } catch (e) {
+    return null
+  }
+}
+
+// 保存会话ID到存储（同时保存到localStorage和sessionStorage）
+const saveSessionId = (sessionId) => {
+  try {
+    // 保存到localStorage（持久化）
+    localStorage.setItem(SESSION_ID_KEY, sessionId)
+    // 保存到sessionStorage（会话级，防止localStorage被禁用）
+    sessionStorage.setItem(SESSION_ID_KEY_SESSION_STORAGE, sessionId)
+    aiSessionId.value = sessionId
+  } catch (e) {
+  }
+}
+
+// 清除存储的会话ID
+const clearStoredSessionId = () => {
+  try {
+    localStorage.removeItem(SESSION_ID_KEY)
+    sessionStorage.removeItem(SESSION_ID_KEY_SESSION_STORAGE)
+    aiSessionId.value = null
+  } catch (e) {
+  }
+}
+
+// 验证会话ID是否有效（宽松验证：只要是非空字符串即可）
+const isValidSessionId = (sessionId) => {
+  if (!sessionId || typeof sessionId !== 'string') return false
+  // 宽松验证：只要长度在合理范围内且不为空
+  return sessionId.length >= 10 && sessionId.length <= 100
+}
+
+const fetchBackendHistory = async () => {
+  try {
+    const authStore = useAuthStore()
+    const userId = authStore.userId
+    if (!userId) return
+    const r = await apiService.qa.getHistorySessions({ params: { userId } })
+    if (r && r.data) {
+      const backendSessions = r.data.map(session => ({
+        id: session.sessionId ? session.sessionId : Date.now(),
+        title: session.title || '对话记录',
+        mode: 'text',
+        resource: session.bookId ? { type: 'book', id: session.bookId, name: session.context } : null,
+        messages: session.messages.map((msg, idx) => [
+          { id: Date.now() + idx * 2, role: 'user', question: msg.question, timestamp: msg.createdAt },
+          { id: Date.now() + idx * 2 + 1, role: 'assistant', content: msg.answer, displayContent: processMathText(msg.answer), status: 'success', timestamp: msg.createdAt }
+        ]).flat(),
+        msgCount: session.messages.length * 2,
+        createdAt: session.createdAt,
+        updatedAt: session.updatedAt,
+        isBackend: true,
+        backendIds: session.messages.map(m => m.id)
+      }))
+      
+      sessions.value = [...backendSessions, ...sessions.value]
+    }
+  } catch (e) {
+  }
+}
+
+// 从后端历史记录加载对话到聊天区
+const loadBackendHistory = (item) => {
+  if (messages.value.length > 0 && activeSessionId.value !== null) {
+    saveCurrentSilent()
+  }
+  activeSessionId.value = item.id
+  currentMode.value = 'text'
+  messages.value = item.messages.map(m => ({ ...m }))
+  inputText.value = ''
+  isSending.value = false
+  if (sidebarCollapsed.value) sidebarCollapsed.value = false
+  // 加载历史对话后滚动到底部
+  nextTick(() => scrollToBottom())
+}
 
 const saveCurrentSession = () => {
   const msgs = messages.value
@@ -372,6 +469,8 @@ const loadSession = (s) => {
   isSending.value = false
   selectedResource.value = s.resource
   if (sidebarCollapsed.value) sidebarCollapsed.value = false
+  // 加载历史对话后滚动到底部
+  nextTick(() => scrollToBottom())
 }
 
 const saveCurrentSilent = () => {
@@ -409,11 +508,50 @@ const startNewSession = () => {
   activeSessionId.value = null
   uploadedImage.value = null
   questionType.value = 'text'
+  // 清除会话ID，开始新会话
+  clearStoredSessionId()
+}
+
+const confirmDelete = async (s) => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除这条对话记录吗？',
+      '提示',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    if (s.isBackend) {
+      deleteBackendSession(s)
+    } else {
+      deleteSession(s.id)
+    }
+  } catch (e) {
+    // 用户取消删除
+  }
 }
 
 const deleteSession = (id) => {
   sessions.value = sessions.value.filter(s => s.id !== id)
   if (activeSessionId.value === id) {
+    activeSessionId.value = null
+    messages.value = []
+    inputText.value = ''
+  }
+}
+
+const deleteBackendSession = async (s) => {
+  if (!s.isBackend || !s.backendIds || s.backendIds.length === 0) return
+  try {
+    for (const id of s.backendIds) {
+      await apiService.qa.deleteHistory(id)
+    }
+  } catch (e) {
+  }
+  sessions.value = sessions.value.filter(session => session.id !== s.id)
+  if (activeSessionId.value === s.id) {
     activeSessionId.value = null
     messages.value = []
     inputText.value = ''
@@ -446,6 +584,8 @@ const switchMode = (mode) => {
   keyPoints.value = []; selectedKeyPoint.value = null; selectedPapers.value = []
   selectedResource.value = null
   activeSessionId.value = null
+  aiSessionId.value = null
+  clearStoredSessionId()
   if (sidebarCollapsed.value) sidebarCollapsed.value = false
 }
 
@@ -535,16 +675,28 @@ const MOCK_BOOKS = [
 const fetchBooks = async () => {
   loading.value.books = true
   try {
-    const t = useAuthStore().token
-    const r = await fetch('/api/qa/books', { headers: { 'Content-Type': 'application/json', ...(t ? { Authorization: `Bearer ${t}` } : {}) } })
-    if (r.ok) { const d = await r.json(); if (d && d.length) { books.value = d; loading.value.books = false; return } }
-  } catch (e) {}
+    const r = await apiService.qa.getBooks();
+    if (r && r.data && r.data.length) {
+      books.value = r.data;
+      loading.value.books = false;
+      return;
+    }
+  } catch (e) {
+  }
   books.value = MOCK_BOOKS
   loading.value.books = false
 }
 const fetchChapters = async (id) => {
   loading.value.chapters = true
-  try { const r = await apiService.qa.getChapters(id); if (r && r.length) { chapters.value = r; loading.value.chapters = false; return } } catch (e) {}
+  try { 
+    const r = await apiService.qa.getChapters(id); 
+    if (r && r.data && r.data.length) { 
+      chapters.value = r.data; 
+      loading.value.chapters = false; 
+      return 
+    } 
+  } catch (e) {
+  }
   chapters.value = [
     { id: 1, title: '第一章', children: [{ id: 11, title: '基本概念' }, { id: 12, title: '核心定理' }, { id: 13, title: '典型例题' }] },
     { id: 2, title: '第二章', children: [{ id: 21, title: '基础知识' }, { id: 22, title: '进阶内容' }] },
@@ -602,21 +754,83 @@ const sendQuestion = async (text) => {
   inputText.value = ''
 
   const mode = currentMode.value; const ctx = buildContext()
-  const aiMsg = { id: Date.now()+1, role: 'assistant', question: t, content: '', displayContent: '', status: 'loading', errorMessage: '', mode, context: ctx }
+  const aiMsg = reactive({ id: Date.now()+1, role: 'assistant', question: t, content: '', displayContent: '', status: 'loading', errorMessage: '', mode, context: ctx })
   messages.value.push({ id: Date.now(), role: 'user', question: t }, aiMsg)
   await scrollToBottom()
 
   closeSSE(); stopTyping()
   let fullContent = ''; let hasError = false
+  const authStore = useAuthStore()
+  const userId = authStore.userId
+
+  // 获取会话ID：优先使用内存中的，其次从localStorage获取
+  let currentSessionId = aiSessionId.value || getStoredSessionId()
 
   streamingApiService.stream.askQuestionStream(
-    { question: t, subject: ctx },
+    { question: t, subject: ctx, userId: userId, sessionId: currentSessionId },
     (msg) => {
+      // 从响应中获取sessionId（通过SseMessage对象的sessionId字段传递）
+      if (msg.sessionId) {
+        // 验证会话ID格式
+        if (isValidSessionId(msg.sessionId)) {
+          // 如果收到新的sessionId，说明之前的无效或需要创建新会话
+          if (!currentSessionId || currentSessionId !== msg.sessionId) {
+            saveSessionId(msg.sessionId)
+          }
+        }
+      }
       if (msg.error) { hasError=true; aiMsg.status='error'; aiMsg.errorMessage=msg.error||'服务暂时异常，请稍后重试'; isSending.value=false; return }
-      if (msg.content) { fullContent+=msg.content; if (aiMsg.status==='loading') { aiMsg.status='typing'; startTypingEffect(aiMsg, fullContent) } }
+      if (msg.content) { 
+        fullContent+=msg.content; 
+        aiMsg.status='typing'; 
+        aiMsg._targetContent = fullContent; // 始终更新目标内容
+        if (!typingTimer) {
+          startTypingEffect(aiMsg, fullContent)
+        }
+      }
     },
-    () => { if (!hasError) { stopTyping(); aiMsg.content=fullContent; aiMsg.displayContent=processMathText(fullContent); aiMsg.status='success' } isSending.value=false },
-    (e) => { stopTyping(); aiMsg.status='error'; const em=e?.message||''; aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em.includes('超时')||em.includes('timeout'))?'请求超时，请检查网络后重试':(em||'服务暂时异常，请稍后重试'); isSending.value=false }
+    () => {
+      if (!hasError) {
+        aiMsg.content=fullContent;
+        aiMsg._targetContent = fullContent;
+        
+        // 如果打字机没在运行，启动它
+        if (!typingTimer) {
+          startTypingEffect(aiMsg, fullContent);
+        }
+        
+        // 等待打字完成，每100ms检查一次
+        const waitForTyping = setInterval(() => {
+          if (!typingTimer) {
+            aiMsg.status='success';
+            isSending.value=false;
+            clearInterval(waitForTyping);
+          }
+        }, 100);
+        
+        // 最长等待30秒，超过则强制完成
+        setTimeout(() => {
+          clearInterval(waitForTyping);
+          if (!aiMsg.status === 'success') {
+            aiMsg.status='success';
+            isSending.value=false;
+          }
+        }, 30000);
+      } else {
+        isSending.value=false;
+      }
+    },
+    (e) => { 
+      stopTyping(); 
+      aiMsg.status='error'; 
+      const em=e?.message||''; 
+      aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em.includes('超时')||em.includes('timeout'))?'请求超时，请检查网络后重试':(em||'服务暂时异常，请稍后重试'); 
+      isSending.value=false;
+      // 如果发生错误，清除无效的会话ID
+      if (em.includes('500') || em.includes('服务器')) {
+        clearStoredSessionId()
+      }
+    }
   )
 }
 
@@ -628,10 +842,54 @@ const regenerate = async (aiMsg) => {
   isSending.value=true; closeSSE(); stopTyping()
   aiMsg.status='loading'; aiMsg.content=''; aiMsg.displayContent=''; aiMsg.errorMessage=''
   const t=um.question; const ctx=aiMsg.context||''; let full=''; let err=false
+  const authStore = useAuthStore()
+  const userId = authStore.userId
+  // 获取会话ID：优先使用内存中的，其次从localStorage获取
+  let currentSessionId = aiSessionId.value || getStoredSessionId()
   streamingApiService.stream.askQuestionStream(
-    {question:t,subject:ctx},
-    (m)=>{if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}if(m.content){full+=m.content;if(aiMsg.status==='loading'){aiMsg.status='typing';startTypingEffect(aiMsg,full)}}},
-    ()=>{if(!err){stopTyping();aiMsg.content=full;aiMsg.displayContent=processMathText(full);aiMsg.status='success'}isSending.value=false},
+    {question:t,subject:ctx,userId:userId,sessionId:currentSessionId},
+    (m)=>{
+      // 处理sessionId
+      if (m.sessionId && isValidSessionId(m.sessionId)) {
+        if (!currentSessionId || currentSessionId !== m.sessionId) {
+          saveSessionId(m.sessionId)
+        }
+      }
+      if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}
+      if(m.content){
+        full+=m.content;
+        aiMsg.status='typing';
+        aiMsg._targetContent = full;
+        if (!typingTimer) {
+          startTypingEffect(aiMsg, full)
+        }
+      }
+    },
+    ()=>{
+      if(!err){
+        aiMsg.content=full;
+        aiMsg._targetContent = full;
+        if(!typingTimer){
+          startTypingEffect(aiMsg, full);
+        }
+        const waitForTyping = setInterval(()=>{
+          if(!typingTimer){
+            aiMsg.status='success';
+            isSending.value=false;
+            clearInterval(waitForTyping);
+          }
+        },100);
+        setTimeout(()=>{
+          clearInterval(waitForTyping);
+          if(aiMsg.status !== 'success'){
+            aiMsg.status='success';
+            isSending.value=false;
+          }
+        },30000);
+      }else{
+        isSending.value=false;
+      }
+    },
     (e)=>{stopTyping();aiMsg.status='error';const em=e?.message||'';aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em||'服务暂时异常，请稍后重试');isSending.value=false}
   )
 }
@@ -641,10 +899,48 @@ const retry = async (aiMsg) => {
   isSending.value=true; closeSSE(); stopTyping()
   aiMsg.status='loading'; aiMsg.errorMessage=''
   const t=aiMsg.question; const ctx=aiMsg.context||''; let full=''; let err=false
+  const authStore = useAuthStore()
+  const userId = authStore.userId
+  // 获取会话ID：优先使用内存中的，其次从localStorage获取
+  let currentSessionId = aiSessionId.value || getStoredSessionId()
   streamingApiService.stream.askQuestionStream(
-    {question:t,subject:ctx},
-    (m)=>{if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}if(m.content){full+=m.content;if(aiMsg.status==='loading'){aiMsg.status='typing';startTypingEffect(aiMsg,full)}}},
-    ()=>{if(!err){stopTyping();aiMsg.content=full;aiMsg.displayContent=processMathText(full);aiMsg.status='success'}isSending.value=false},
+    {question:t,subject:ctx,userId:userId,sessionId:currentSessionId},
+    (m)=>{
+      // 处理sessionId
+      if (m.sessionId && isValidSessionId(m.sessionId)) {
+        if (!currentSessionId || currentSessionId !== m.sessionId) {
+          saveSessionId(m.sessionId)
+        }
+      }
+      if(m.error){err=true;aiMsg.status='error';aiMsg.errorMessage=m.error||'服务暂时异常，请稍后重试';isSending.value=false;return}
+      if(m.content){
+        full+=m.content;
+        aiMsg.status='typing';
+        aiMsg._targetContent = full;
+        if (!typingTimer) {
+          startTypingEffect(aiMsg, full)
+        }
+      }
+    },
+    ()=>{
+      if(!err){
+        aiMsg.content=full;
+        aiMsg._targetContent = full;
+        if(!typingTimer){
+          startTypingEffect(aiMsg, full);
+        }
+        const checkComplete = setInterval(()=>{
+          if(!typingTimer && aiMsg.displayContent?.length >= full.length){
+            aiMsg.displayContent=markdownToPlainText(full);
+            aiMsg.status='success';
+            isSending.value=false;
+            clearInterval(checkComplete);
+          }
+        },100);
+      }else{
+        isSending.value=false;
+      }
+    },
     (e)=>{stopTyping();aiMsg.status='error';const em=e?.message||'';aiMsg.errorMessage=(em.includes('500')||em.includes('服务器'))?'服务暂时异常，请稍后重试':(em||'服务暂时异常，请稍后重试');isSending.value=false}
   )
 }
@@ -652,9 +948,51 @@ const retry = async (aiMsg) => {
 const reAsk = (text) => { inputText.value = text || ''; nextTick(() => inputRef.value?.focus()) }
 
 const startTypingEffect = (aiMsg, full) => {
-  aiMsg.displayContent=''; let i=0
-  const tick=()=>{if(i<full.length){aiMsg.displayContent+=full.charAt(i);i++;typingTimer=setTimeout(tick,28)}else{aiMsg.displayContent=processMathText(full);aiMsg.status='success'}}
-  tick()
+  
+  // 将Markdown转为纯文本，打字过程只显示纯文本，不暴露Markdown符号
+  const plain = markdownToPlainText(full);
+  aiMsg._plainContent = plain;
+  
+  // 如果定时器已存在，说明已经在打字，只需更新目标即可
+  if (typingTimer) {
+    return;
+  }
+  
+  // 立即开始打字，不要等待
+  const tick = () => {
+    const current = aiMsg.displayContent?.length || 0;
+    const target = aiMsg._plainContent?.length || 0;
+    const remaining = target - current;
+    
+    if (remaining <= 0) {
+      // 打字完成，直接用纯文本，不做任何Markdown转换（避免闪烁）
+      aiMsg.displayContent = aiMsg._plainContent || '';
+      aiMsg._plainContent = null;
+      typingTimer = null;
+      // 打字完成后也滚动到底部
+      scrollToBottom();
+      return;
+    }
+    
+    // 根据剩余内容调整速度
+    const speed = remaining > 1000 ? 5 : remaining > 500 ? 10 : 20;
+    const step = remaining > 1000 ? 3 : remaining > 500 ? 2 : 1;
+    
+    // 显示下一个字符（纯文本，无Markdown符号）
+    const partialText = (aiMsg._plainContent || '').substring(0, current + step);
+    aiMsg.displayContent = partialText;
+    
+    // 打字过程中自动滚动到底部
+    scrollToBottom();
+    
+    // 强制触发 Vue 更新
+    nextTick();
+    
+    typingTimer = setTimeout(tick, speed);
+  };
+  
+  // 立即执行一次
+  tick();
 }
 const stopTyping = () => { if(typingTimer){clearTimeout(typingTimer);typingTimer=null} }
 const closeSSE = () => { if(sseConnection){try{sseConnection.close?.()}catch(e){};sseConnection=null} }
@@ -671,25 +1009,92 @@ const deleteImage = () => { uploadedImage.value=null; questionType.value='text' 
 const submitImageQuestion = async () => {
   if(!uploadedImage.value||isSending.value)return; isSending.value=true
   const t=inputText.value||'基于上传的图片'
-  const aiMsg={id:Date.now()+1,role:'assistant',question:t,content:'',displayContent:'',status:'loading',errorMessage:'',mode:currentMode.value,context:buildContext()}
-  messages.value.push({id:Date.now(),role:'user',question:'[图片提问]'},aiMsg); inputText.value=''
-  try{const fd=new FormData();fd.append('question',t);const blob=await fetch(uploadedImage.value).then(r=>r.blob());fd.append('image',blob,'question.jpg');const r=await apiService.qa.askImageQuestion(fd);if(r.code===200&&r.data){aiMsg.content=r.data.answer;aiMsg.displayContent=processMathText(r.data.answer);aiMsg.status='success'}else{aiMsg.status='error';aiMsg.errorMessage='图片识别失败，请重试'}}catch(e){aiMsg.status='error';aiMsg.errorMessage=e?.errorMessage||'图片上传失败，请重试'}finally{isSending.value=false;uploadedImage.value=null;questionType.value='text'}
+  const aiMsg=reactive({id:Date.now()+1,role:'assistant',question:t,content:'',displayContent:'',status:'loading',errorMessage:'',mode:currentMode.value,context:buildContext()})
+  messages.value.push({id:Date.now(),role:'user',question:'[图片提问]',image:uploadedImage.value},aiMsg); inputText.value=''
+  const authStore=useAuthStore();const userId=authStore.userId
+  closeSSE(); stopTyping()
+  let fullContent = ''; let hasError = false
+  
+  try {
+    const fd = new FormData()
+    fd.append('question', t)
+    if (userId) fd.append('userId', userId)
+    const blob = await fetch(uploadedImage.value).then(r => r.blob())
+    fd.append('image', blob, 'question.jpg')
+    
+    streamingApiService.stream.askImageQuestionStream(
+      fd,
+      (msg) => {
+        if (msg.error) {
+          hasError = true
+          aiMsg.status = 'error'
+          aiMsg.errorMessage = msg.error || '图片识别失败，请重试'
+          isSending.value = false
+          return
+        }
+        if (msg.content) {
+          fullContent += msg.content
+          aiMsg.status = 'typing'
+          aiMsg.displayContent = fullContent.substring(0, (aiMsg.displayContent?.length || 0) + 1)
+          if (!typingTimer) {
+            startTypingEffect(aiMsg, fullContent)
+          }
+        }
+      },
+      () => {
+        if (!hasError) {
+          stopTyping()
+          aiMsg.content = fullContent
+          aiMsg.displayContent = markdownToPlainText(fullContent)
+          aiMsg.status = 'success'
+        }
+        isSending.value = false
+      },
+      (e) => {
+        stopTyping()
+        aiMsg.status = 'error'
+        const em = e?.message || ''
+        aiMsg.errorMessage = (em.includes('500') || em.includes('服务器')) ? '服务暂时异常，请稍后重试' : (em.includes('超时') || em.includes('timeout')) ? '请求超时，请检查网络后重试' : (em || '图片识别失败，请重试')
+        isSending.value = false
+      }
+    )
+  } catch(e) {
+    stopTyping()
+    aiMsg.status = 'error'
+    aiMsg.errorMessage = e?.message || e?.errorMessage || '图片上传失败，请重试'
+    isSending.value = false
+  } finally {
+    uploadedImage.value = null
+    questionType.value = 'text'
+  }
 }
 
 /* ========== 考研 ========== */
 const examSubjects=ref([]);const selectedExamSubject=ref('');const subjectSearchQuery=ref('');const showSubjectDropdown=ref(false)
 const keyPoints=ref([]);const selectedKeyPoint=ref(null);const selectedPapers=ref([])
 const filteredSubjects=computed(()=>{const q=subjectSearchQuery.value.toLowerCase();return q?examSubjects.value.filter(s=>s.name.toLowerCase().includes(q)):examSubjects.value})
-const fetchExamSubjects=async()=>{try{const r=await apiService.qa.getExamSubjects();if(r){examSubjects.value=r;if(r.length){selectedExamSubject.value=r[0].id;await fetchKeyPoints(r[0].id);await fetchExamPapers(r[0].id)}}}catch(e){}}
+const fetchExamSubjects=async()=>{try{const r=await apiService.qa.getExamSubjects();if(r&&r.data){examSubjects.value=r.data;if(r.data.length){selectedExamSubject.value=r.data[0].id;await fetchKeyPoints(r.data[0].id);await fetchExamPapers(r.data[0].id)}}}catch(e){}}
 const getSelectedSubjectName=()=>{const s=examSubjects.value.find(x=>x.id===selectedExamSubject.value);return s?s.name:'选择科目'}
-const fetchKeyPoints=async(sid)=>{try{const r=await apiService.qa.getKeyPoints(sid);if(r)keyPoints.value=r}catch(e){}}
-const fetchExamPapers=async(sid)=>{try{const r=await apiService.qa.getExamPapers(sid);if(r)selectedPapers.value=r}catch(e){}}
+const fetchKeyPoints=async(sid)=>{try{const r=await apiService.qa.getKeyPoints(sid);if(r&&r.data)keyPoints.value=r.data}catch(e){}}
+const fetchExamPapers=async(sid)=>{try{const r=await apiService.qa.getExamPapers(sid);if(r&&r.data)selectedPapers.value=r.data}catch(e){}}
 const selectKeyPoint=(p)=>{selectedKeyPoint.value=p;sendQuestion('请详细讲解：'+p.name)}
 const askAiPredict=()=>sendQuestion(`请基于${getSelectedSubjectName()}的历年真题趋势，分析今年的高频考点和预测方向`)
 
 const goHome = () => router.push('/')
 
-onMounted(async () => { if(route.query.question) inputText.value=route.query.question; await fetchBooks(); await fetchExamSubjects() })
+onMounted(async () => { 
+  if(route.query.question) inputText.value=route.query.question
+  
+  // 刷新后从localStorage恢复会话ID，保持AI上下文连续性
+  const storedSessionId = getStoredSessionId()
+  if (storedSessionId && isValidSessionId(storedSessionId)) {
+    aiSessionId.value = storedSessionId
+  }
+  
+  await fetchBooks()
+  await fetchExamSubjects()
+  await fetchBackendHistory()
+})
 onUnmounted(() => { closeSSE(); stopTyping() })
 
 const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n'))
@@ -697,9 +1102,9 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 
 <style scoped>
 .qa-page {
-  --c: #7c5cfc; --c2: #a78bfa; --c3: #c4b5fd;
+  --c: #6366f1; --c2: #a78bfa; --c3: #c4b5fd;
   --border: rgba(220,210,245,.5); --border2: rgba(200,185,240,.4);
-  --text: #2d2438; --text2: #5b4a8a; --text3: #9088a0;
+  --text: #1e293b; --text2: #475569; --text3: #94a3b8;
   height: calc(100vh - 60px);
   display: flex; flex-direction: column; overflow: hidden;
   background: linear-gradient(175deg, #fffdfd 0%, #f9f6ff 34%, #f8fafd 64%, #fdfaff 100%);
@@ -707,7 +1112,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
   color: var(--text); position: relative;
 }
 .qp-bg { position: absolute; inset: 0; pointer-events: none; z-index: 0;
-  background-image: radial-gradient(circle at 8% 12%, rgba(167,139,250,.10), transparent 26%), radial-gradient(circle at 92% 75%, rgba(124,92,252,.06), transparent 28%);
+  background-image: radial-gradient(circle at 8% 12%, rgba(167,139,250,.10), transparent 26%), radial-gradient(circle at 92% 75%, rgba(99,102,241,.06), transparent 28%);
 }
 
 /* ===== 顶部栏 ===== */
@@ -738,7 +1143,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-mode { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
 .qasm-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid transparent; cursor: pointer; background: rgba(248,246,255,.6); font-family: inherit; transition: all .2s; text-align: left; }
 .qasm-btn:hover { background: #f5f0ff; border-color: var(--c3); }
-.qasm-btn.active { background: #ede4fe; border-color: var(--c); box-shadow: 0 0 0 2px rgba(124,92,252,.06); }
+.qasm-btn.active { background: #ede4fe; border-color: var(--c); box-shadow: 0 0 0 2px rgba(99,102,241,.06); }
 .qasm-icon { font-size: 20px; flex-shrink: 0; }
 .qasm-text { display: flex; flex-direction: column; gap: 1px; }
 .qasm-label { font-size: 13px; font-weight: 700; color: var(--text); }
@@ -754,18 +1159,18 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qasr-extra { font-size:11px;color:var(--text3);margin-top:2px; }
 
 .qas-search { display:flex;align-items:center;gap:7px;padding:8px 12px;border-radius:10px;margin-bottom:10px;background:rgba(248,246,255,.7);border:1.5px solid var(--border2);transition:all .2s; }
-.qas-search:focus-within { border-color:var(--c);background:#fff;box-shadow:0 0 0 3px rgba(124,92,252,.05); }
+.qas-search:focus-within { border-color:var(--c);background:#fff;box-shadow:0 0 0 3px rgba(99,102,241,.05); }
 .qas-search svg { color:var(--text3);flex-shrink:0; }
 .qas-search input { flex:1;border:none;outline:none;background:transparent;font-size:12px;color:var(--text);font-family:inherit; }
-.qas-search input::placeholder { color:#b0a8c0; }
+.qas-search input::placeholder { color:#cbd5e1; }
 
 /* 搜索入口 */
 .qas-search-wrap { margin-bottom: 10px; }
 .qas-search-wrap .qas-search { cursor: pointer; }
-.qas-search-placeholder { font-size: 12px; color: #b0a8c0; flex: 1; }
+.qas-search-placeholder { font-size: 12px; color: #cbd5e1; flex: 1; }
 
 /* 上下文栏 */
-.qas-ctx { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;margin-bottom:8px;background:linear-gradient(135deg,rgba(124,92,252,.08),rgba(167,139,250,.04));border:1.5px solid rgba(167,139,250,.18);animation:ctxIn .3s ease-out; }
+.qas-ctx { display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:12px;margin-bottom:8px;background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(167,139,250,.04));border:1.5px solid rgba(167,139,250,.18);animation:ctxIn .3s ease-out; }
 @keyframes ctxIn { from{opacity:0;transform:translateY(-4px)} to{opacity:1;transform:translateY(0)} }
 .qas-ctx-left { display:flex;align-items:center;gap:9px;flex:1;min-width:0; }
 .qas-ctx-icon { font-size:20px; }
@@ -774,7 +1179,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-ctx-pub { font-size:10px;color:var(--text3);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .qas-ctx-actions { display:flex;gap:6px;flex-shrink:0; }
 .qas-ctx-switch { font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(167,139,250,.2);background:rgba(255,255,255,.6);color:var(--c);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit; }
-.qas-ctx-switch:hover { background:rgba(124,92,252,.08);border-color:var(--c2); }
+.qas-ctx-switch:hover { background:rgba(99,102,241,.08);border-color:var(--c2); }
 .qas-ctx-clear { font-size:10px;padding:4px 10px;border-radius:6px;border:1px solid rgba(200,185,240,.25);background:rgba(255,255,255,.4);color:var(--text3);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:inherit; }
 .qas-ctx-clear:hover { background:rgba(255,200,200,.25);border-color:#f87171;color:#ef4444; }
 
@@ -788,8 +1193,8 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-panel-bar { display:flex;align-items:center;gap:10px;padding:14px 16px;border-bottom:1px solid rgba(200,185,240,.12); }
 .qas-panel-bar svg { color:var(--c2);flex-shrink:0; }
 .qas-panel-input { flex:1;border:none;outline:none;background:none;font-size:14px;font-family:inherit;color:var(--text); }
-.qas-panel-input::placeholder { color:#b0a8c0; }
-.qas-panel-esc { font-size:9px;font-weight:600;color:#b0a8c0;padding:2px 7px;border-radius:4px;border:1px solid rgba(200,185,240,.2); }
+.qas-panel-input::placeholder { color:#cbd5e1; }
+.qas-panel-esc { font-size:9px;font-weight:600;color:#cbd5e1;padding:2px 7px;border-radius:4px;border:1px solid rgba(200,185,240,.2); }
 
 .qas-panel-body { flex:1;overflow-y:auto;padding:6px 12px 14px; }
 .qas-panel-body::-webkit-scrollbar { width:3px; }
@@ -799,7 +1204,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-panel-sec + .qas-panel-sec { border-top:1px solid rgba(200,190,230,.08);margin-top:4px;padding-top:10px; }
 
 .qas-panel-sec-head { font-size:10px;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:.4px;padding:4px 6px 6px; }
-.qas-panel-count { font-size:9px;padding:1px 6px;border-radius:5px;background:rgba(124,92,252,.07);color:var(--c); }
+.qas-panel-count { font-size:9px;padding:1px 6px;border-radius:5px;background:rgba(99,102,241,.07);color:var(--c); }
 
 .qas-panel-chips { display:flex;gap:6px;flex-wrap:wrap;padding:0 4px; }
 .qas-panel-chip { padding:5px 12px;border-radius:8px;border:1px solid rgba(200,185,240,.2);background:rgba(255,255,255,.5);font-size:11px;font-family:inherit;color:var(--text2);cursor:pointer;transition:all .15s; }
@@ -808,7 +1213,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-panel-item { display:flex;align-items:center;gap:10px;width:100%;padding:8px 10px;border-radius:9px;border:none;background:transparent;cursor:pointer;font-family:inherit;transition:all .15s;text-align:left;animation:qaspiIn .25s ease-out both; }
 @keyframes qaspiIn { from{opacity:0;transform:translateY(6px)} to{opacity:1;transform:translateY(0)} }
 .qas-panel-item:hover { background:rgba(245,240,255,.6); }
-.qas-panel-item.on { background:rgba(124,92,252,.05);border:1px solid rgba(167,139,250,.2); }
+.qas-panel-item.on { background:rgba(99,102,241,.05);border:1px solid rgba(167,139,250,.2); }
 
 .qas-panel-item-cover { width:30px;height:40px;border-radius:4px;flex-shrink:0;background:linear-gradient(140deg,#ede4fe,#ddd2f8);display:flex;align-items:center;justify-content:center;font-size:16px; }
 
@@ -816,7 +1221,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-panel-item-name { font-size:12px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .qas-panel-item-meta { font-size:10px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 
-.qas-panel-item-ctx { font-size:9px;font-weight:700;color:var(--c);padding:2px 7px;border-radius:6px;background:rgba(124,92,252,.07);flex-shrink:0; }
+.qas-panel-item-ctx { font-size:9px;font-weight:700;color:var(--c);padding:2px 7px;border-radius:6px;background:rgba(99,102,241,.07);flex-shrink:0; }
 .qas-panel-item-pct { font-size:10px;font-weight:700;color:#7c3aed;padding:2px 6px;border-radius:6px;background:rgba(167,139,250,.07);flex-shrink:0; }
 
 .qas-panel-empty { text-align:center;padding:20px;font-size:12px;color:var(--text3); }
@@ -886,6 +1291,12 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qas-new-session-btn { width: 100%; margin-top: 12px; padding: 8px; border-radius: 10px; border: 1.5px dashed var(--border2); background: transparent; color: var(--c); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s; }
 .qas-new-session-btn:hover { background: #f5f0ff; border-color: var(--c); }
 
+.qash-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 32px 16px; text-align: center; }
+.qashe-icon { font-size: 32px; margin-bottom: 10px; opacity: .6; }
+.qashe-text { font-size: 12px; color: var(--text3); margin-bottom: 12px; }
+.qashe-new-btn { padding: 6px 16px; border-radius: 8px; border: 1.5px solid var(--c3); background: #fff; color: var(--c); font-size: 12px; font-weight: 600; cursor: pointer; font-family: inherit; transition: all .2s; }
+.qashe-new-btn:hover { background: #ede4fe; border-color: var(--c); }
+
 /* ===== 主聊天区 ===== */
 .qa-main { flex: 1; min-width: 0; display: flex; flex-direction: column; overflow: hidden; z-index: 1; }
 .qam-messages { flex: 1; min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 32px 48px 24px; display: flex; flex-direction: column; gap: 20px; }
@@ -900,7 +1311,7 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qame-label { font-size: 12px; font-weight: 700; color: var(--text2); margin: 16px 0 8px; }
 .qame-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .qamec-card { padding: 15px 17px; border-radius: 14px; cursor: pointer; background: rgba(255,255,255,.72); border: 1.5px solid rgba(220,210,245,.35); transition: all .25s; }
-.qamec-card:hover { border-color: var(--c3); background: #fcfaff; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(124,92,252,.08); }
+.qamec-card:hover { border-color: var(--c3); background: #fcfaff; transform: translateY(-2px); box-shadow: 0 6px 24px rgba(99,102,241,.08); }
 .qamec-icon { font-size: 18px; margin-bottom: 6px; display: block; }
 .qamec-text { font-size: 13px; font-weight: 600; color: var(--text); }
 .qamec-tag { margin-top: 6px; font-size: 10px; color: var(--c); background: #ede4fe; padding: 2px 8px; border-radius: 8px; display: inline-block; }
@@ -913,12 +1324,13 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qam-row.user { justify-content: flex-end; }
 .qam-row.assistant { justify-content: flex-start; align-items: flex-start; gap: 12px; }
 .qam-bubble { max-width: min(680px, 72%); min-width: 80px; padding: 14px 18px; border-radius: 18px; line-height: 1.7; word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; font-size: 14px; }
-.qam-bubble.user { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; border-radius: 18px 18px 4px 18px; }
-.qam-bubble.ai { background: #fff; color: #1f2937; border: 1px solid #ebe4ff; border-radius: 18px 18px 18px 4px; box-shadow: 0 8px 24px rgba(124,92,252,.08); }
-.qam-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #7c5cfc, #a78bfa); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
+.qam-bubble.user { background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; border-radius: 18px 18px 4px 18px; display: flex; flex-direction: column; gap: 8px; }
+.qam-bubble.ai { background: #fff; color: #1f2937; border: 1px solid #ebe4ff; border-radius: 18px 18px 18px 4px; box-shadow: 0 8px 24px rgba(99,102,241,.08); }
+.qam-image { max-width: 300px; max-height: 200px; border-radius: 8px; object-fit: cover; }
+.qam-avatar { width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; background: linear-gradient(135deg, #6366f1, #a78bfa); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 12px; }
 .qam-ai-wrap { display: flex; flex-direction: column; gap: 8px; max-width: min(680px, 72%); min-width: 0; }
 
-.qam-loading { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); }
+.qam-loading { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text3); white-space: nowrap; }
 .qam-loading span { width: 7px; height: 7px; border-radius: 50%; background: var(--c2); animation: bounce 1.2s ease-in-out infinite; }
 .qam-loading span:nth-child(2) { animation-delay: .15s; }
 .qam-loading span:nth-child(3) { animation-delay: .3s; }
@@ -931,22 +1343,73 @@ const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n')
 .qame-desc { font-size: 13px; color: var(--text3); margin: 0 0 14px; }
 .qame-btns { display: flex; align-items: center; gap: 10px; }
 .qame-btns button { height: 36px; padding: 0 16px; border-radius: 12px; font-size: 13px; font-weight: 700; white-space: nowrap; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; transition: all .2s; border: none; }
-.qameb-retry { background: linear-gradient(135deg, #7c5cfc, #9b7cff); color: #fff; }
-.qameb-retry:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(124,92,252,.35); }
+.qameb-retry { background: linear-gradient(135deg, #6366f1, #9b7cff); color: #fff; }
+.qameb-retry:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(99,102,241,.35); }
 .qameb-reask { background: #f5f0ff; color: var(--c); border: 1.5px solid rgba(200,185,240,.4) !important; }
 .qameb-reask:hover { background: #ede4fe; }
 button:disabled { opacity: .5; cursor: not-allowed; }
 
 .qam-typing { position: relative; }
+.qam-typing pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  font-size: 14px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+}
+.qam-typing .katex {
+  font-size: 1.1em;
+}
+.qam-typing .katex-display {
+  margin: 0.5em 0;
+}
 .qam-cursor { display: inline-block; animation: blink 1s infinite; color: var(--c); font-weight: 100; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-.qam-html { line-height: 1.7; }
-.qam-html :deep(p) { margin: .2em 0; }
-.qam-html :deep(h1),.qam-html :deep(h2),.qam-html :deep(h3) { margin: .3em 0 .1em; font-weight: 700; }
-.qam-html :deep(pre) { background: #f5f0fc; border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; max-width: 100%; }
-.qam-html :deep(code) { font-family: monospace; font-size: .9em; word-break: break-all; }
-.qam-html :deep(ul),.qam-html :deep(ol) { padding-left: 1.5em; }
-.qam-html :deep(blockquote) { border-left: 3px solid var(--c3); padding-left: 1em; color: var(--text3); }
+.qam-html { 
+  line-height: 1.75; 
+  width: 100%; 
+  word-break: break-word; 
+  overflow-wrap: anywhere; 
+  font-size: 14px; 
+  color: var(--text);
+  /* 强制所有子元素继承字体大小，防止浏览器默认样式干扰 */
+  * {
+    font-size: inherit;
+    line-height: inherit;
+  }
+}
+.qam-html :deep(p) { margin: 0.3em 0; word-break: break-word; overflow-wrap: anywhere; font-size: 14px; line-height: 1.8; }
+.qam-html :deep(h1) { margin: 0.8em 0 0.4em; font-weight: 700; word-break: break-word; line-height: 1.35; font-size: 22px; }
+.qam-html :deep(h2) { margin: 0.7em 0 0.35em; font-weight: 700; word-break: break-word; line-height: 1.35; font-size: 19px; }
+.qam-html :deep(h3) { margin: 0.6em 0 0.3em; font-weight: 700; word-break: break-word; line-height: 1.4; font-size: 16px; }
+.qam-html :deep(h4) { margin: 0.5em 0 0.25em; font-weight: 600; word-break: break-word; line-height: 1.4; font-size: 15px; }
+.qam-html :deep(h5),.qam-html :deep(h6) { margin: 0.5em 0 0.25em; font-weight: 600; word-break: break-word; line-height: 1.4; font-size: 14px; }
+.qam-html :deep(pre) { background: #f5f0fc; border-radius: 10px; padding: 12px; overflow-x: auto; font-size: 13px; max-width: 100%; word-break: break-all; white-space: pre-wrap; }
+.qam-html :deep(code) { font-family: monospace; font-size: 13px; word-break: break-all; overflow-wrap: anywhere; background: rgba(167,139,250,0.08); padding: 2px 5px; border-radius: 4px; }
+.qam-html :deep(pre code) { background: transparent; padding: 0; font-size: inherit; }
+.qam-html :deep(ul),.qam-html :deep(ol) { padding-left: 1.5em; word-break: break-word; margin: 0.3em 0; font-size: 14px; }
+.qam-html :deep(li) { margin: 0.2em 0; line-height: 1.7; font-size: 14px; }
+.qam-html :deep(li p) { margin: 0.2em 0; font-size: 14px; }
+.qam-html :deep(li ul),.qam-html :deep(li ol) { font-size: 14px; }
+.qam-html :deep(blockquote) { border-left: 3px solid var(--c3); padding-left: 1em; color: var(--text2); word-break: break-word; margin: 0.5em 0; background: rgba(167,139,250,0.03); padding: 0.5em 1em; border-radius: 0 8px 8px 0; font-size: 14px; }
+.qam-html :deep(strong),.qam-html :deep(b) { font-weight: 700; color: var(--text); font-size: inherit; }
+.qam-html :deep(em),.qam-html :deep(i) { font-style: italic; font-size: inherit; }
+.qam-html :deep(a) { color: var(--c); text-decoration: underline; font-size: inherit; }
+.qam-html :deep(table) { font-size: 14px; }
+.qam-html :deep(th),.qam-html :deep(td) { font-size: 14px; }
+.qam-html :deep(hr) { border: none; height: 1px; background: var(--border); margin: 1em 0; }
+.qam-html :deep(div) { font-size: inherit; }
+
+/* KaTeX内联公式样式 */
+.qam-html :deep(.katex) { font-size: 1em; }
+.qam-html :deep(.katex-display) { margin: 12px 0; overflow-x: auto; overflow-y: hidden; max-width: 100%; display: block; }
+.qam-html :deep(.katex-display > .katex) { display: inline-block; white-space: nowrap; }
+.qam-html :deep(table) { width: 100%; border-collapse: collapse; overflow-x: auto; display: block; }
+.qam-html :deep(th),.qam-html :deep(td) { border: 1px solid var(--border); padding: 6px 8px; word-break: break-word; }
+.qam-html :deep(th) { background: rgba(99,102,241,.05); font-weight: 600; }
 .qam-empty-content { color: var(--text3); font-style: italic; }
 
 .qam-actions { display: flex; gap: 6px; }
@@ -964,31 +1427,25 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 .qami-preview img { max-height: 48px; border-radius: 6px; }
 .qami-preview button { width: 22px; height: 22px; border-radius: 50%; border: none; background: #ef4444; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .qami-bar { display: flex; align-items: center; gap: 6px; padding: 5px 6px 5px 16px; border-radius: 22px; background: rgba(255,255,255,.88); backdrop-filter: blur(20px); border: 1.5px solid rgba(200,185,240,.35); box-shadow: 0 2px 24px rgba(120,100,180,.06); transition: all .35s; }
-.qami-bar:focus-within { border-color: var(--c); box-shadow: 0 2px 32px rgba(124,92,252,.1), 0 0 0 4px rgba(124,92,252,.04); }
+.qami-bar:focus-within { border-color: var(--c); box-shadow: 0 2px 32px rgba(99,102,241,.1), 0 0 0 4px rgba(99,102,241,.04); }
 .qamib-img { width: 34px; height: 34px; border-radius: 9px; border: none; background: transparent; color: var(--text3); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; flex-shrink: 0; }
 .qamib-img:hover { color: var(--c); background: #f5f0ff; }
 .qamib-img.active { color: var(--c); background: #ede4fe; }
 .qamib-input { flex: 1; border: none; outline: none; background: transparent; font-size: 14px; color: var(--text); padding: 9px 4px; font-family: inherit; }
 .qamib-input::placeholder { color: #c0b8d0; }
 
-.qami-ctx-tag {
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 3px 10px; border-radius: 8px;
-  font-size: 11px; font-weight: 700; color: var(--c);
-  background: rgba(124,92,252,.06); border: 1px solid rgba(167,139,250,.18);
-  cursor: pointer; white-space: nowrap; flex-shrink: 0;
-  transition: all .2s; animation: ctxTagIn .3s ease-out;
-}
+.qami-ctx-tag { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 8px; font-size: 11px; font-weight: 700; color: var(--c); background: rgba(99,102,241,.06); border: 1px solid rgba(167,139,250,.18); cursor: pointer; white-space: nowrap; flex-shrink: 0; transition: all .2s; animation: ctxTagIn .3s ease-out; }
 @keyframes ctxTagIn { from{opacity:0;transform:scale(.9)} to{opacity:1;transform:scale(1)} }
-.qami-ctx-tag:hover { background: rgba(124,92,252,.1); border-color: var(--c2); transform: translateY(-1px); }
+.qami-ctx-tag:hover { background: rgba(99,102,241,.1); border-color: var(--c2); transform: translateY(-1px); }
 .qamib-send { width: 38px; height: 38px; border-radius: 50%; border: none; background: #f0ecf8; color: #c0b8d0; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .25s; flex-shrink: 0; }
-.qamib-send.ready { background: linear-gradient(135deg, #7c5cfc, #a78bfa); color: #fff; }
-.qamib-send.ready:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 4px 16px rgba(124,92,252,.3); }
+.qamib-send.ready { background: linear-gradient(135deg, #6366f1, #a78bfa); color: #fff; }
+.qamib-send.ready:hover:not(:disabled) { transform: scale(1.06); box-shadow: 0 4px 16px rgba(99,102,241,.3); }
 .qamib-send:disabled { cursor: not-allowed; opacity: .5; }
 .qamib-send.loading { background: var(--c); }
 .qamib-spin { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,.3); border-top-color: #fff; border-radius: 50%; animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* 滚动条样式 */
 .qas-scroll::-webkit-scrollbar, .qam-messages::-webkit-scrollbar { width: 4px; }
 .qas-scroll::-webkit-scrollbar-track, .qam-messages::-webkit-scrollbar-track { background: transparent; }
 .qas-scroll::-webkit-scrollbar-thumb, .qam-messages::-webkit-scrollbar-thumb { background: rgba(200,185,240,.3); border-radius: 4px; }

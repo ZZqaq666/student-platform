@@ -1,6 +1,6 @@
 import axios from 'axios';
-import { useAuthStore } from '@/store/auth.js';
-import router from '@/router';
+import { useAuthStore } from '@/stores/auth';
+import router from '@/router/index.js';
 
 // 缓存系统
 const cache = {
@@ -227,8 +227,8 @@ const validateParams = (params, rules) => {
 const request = {
   get: async (url, params, options = {}) => {
     try {
-      const { useCache = false, expire, headers, rules, signal } = options;
-      
+      const { useCache = false, expire, headers, rules, signal, responseType } = options;
+
       // 验证参数
       if (rules) {
         const validation = validateParams(params, rules);
@@ -236,15 +236,16 @@ const request = {
           throw new Error(validation.message);
         }
       }
-      
-      if (useCache) {
+
+      // blob 等非 JSON 响应不缓存
+      if (useCache && !responseType) {
         const cacheKey = generateCacheKey(url, params);
         const cachedData = cache.get(cacheKey);
         if (cachedData) {
           return Promise.resolve(cachedData);
         }
       }
-      
+
       const config = {};
       if (params) {
         config.params = params;
@@ -255,9 +256,12 @@ const request = {
       if (signal) {
         config.signal = signal;
       }
-      
+      if (responseType) {
+        config.responseType = responseType;
+      }
+
       const data = await api.get(url, config);
-      if (useCache) {
+      if (useCache && !responseType) {
         const cacheKey = generateCacheKey(url, params);
         cache.set(cacheKey, data, expire);
       }
@@ -447,7 +451,12 @@ export const apiService = {
       const params = options.params || {};
       return request.get('/qa/history', params, options);
     },
+    getHistorySessions: (options = {}) => {
+      const params = options.params || {};
+      return request.get('/qa/history/sessions', params, options);
+    },
     deleteHistory: (id) => request.delete(`/qa/history/${id}`),
+    saveHistory: (data) => request.post('/qa/history', data),
     // 书籍相关
     getBooks: () => request.get('/qa/books'),
     getChapters: (bookId) => request.get(`/qa/books/${bookId}/chapters`),
@@ -586,6 +595,8 @@ export const apiService = {
   
   // 学长学姐相关
   senior: {
+    // 获取统计数据
+    getStats: () => request.get('/senior/stats'),
     // 获取所有学长学姐
     getSeniors: () => request.get('/senior/list'),
     // 获取学长学姐详情

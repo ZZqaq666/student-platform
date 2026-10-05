@@ -1,6 +1,7 @@
 <script setup>
 import { computed, shallowRef } from 'vue'
 import { ElMessage } from 'element-plus'
+import { renderMarkdown } from '@/utils/markdown/renderer'
 
 const props = defineProps({
   modelValue: {
@@ -63,7 +64,6 @@ const answerCount = computed(() => {
   if (!props.question) {
     return 0
   }
-  // 优先使用 answerCount 字段，如果没有则使用 answers 数组长度
   return props.question.answerCount ?? props.question.answers?.length ?? 0
 })
 
@@ -100,6 +100,10 @@ function submitFollowUp() {
 
 function onClose() {
   followUpDraft.value = ''
+}
+
+function renderAnswerContent(content) {
+  return renderMarkdown(content)
 }
 </script>
 
@@ -158,7 +162,7 @@ function onClose() {
             <span class="answer-time">{{ answer.time }}</span>
           </div>
 
-          <p class="answer-text">{{ answer.content }}</p>
+          <div class="answer-text" v-html="renderAnswerContent(answer.content)"></div>
 
           <footer class="answer-actions">
             <button
@@ -372,6 +376,133 @@ function onClose() {
   margin: 10px 0;
   color: #455a74;
   line-height: 1.7;
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.answer-text :deep(h1),
+.answer-text :deep(h2),
+.answer-text :deep(h3),
+.answer-text :deep(h4),
+.answer-text :deep(h5),
+.answer-text :deep(h6) {
+  margin: 12px 0 8px;
+  font-weight: 600;
+}
+
+.answer-text :deep(h1) { font-size: 1.5em; }
+.answer-text :deep(h2) { font-size: 1.3em; }
+.answer-text :deep(h3) { font-size: 1.1em; }
+.answer-text :deep(h4),
+.answer-text :deep(h5),
+.answer-text :deep(h6) { font-size: 1em; }
+
+.answer-text :deep(p) {
+  margin: 8px 0;
+}
+
+.answer-text :deep(ul),
+.answer-text :deep(ol) {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.answer-text :deep(li) {
+  margin: 4px 0;
+}
+
+.answer-text :deep(code) {
+  background: #f4f4f4;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  font-size: 0.9em;
+}
+
+.answer-text :deep(pre) {
+  background: #f8f9fa;
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.answer-text :deep(pre code) {
+  background: none;
+  padding: 0;
+}
+
+.answer-text :deep(a) {
+  color: #4f46e5;
+  text-decoration: underline;
+}
+
+.answer-text :deep(kbd) {
+  background: #f4f4f4;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.8em;
+}
+
+.answer-text :deep(blockquote) {
+  border-left: 4px solid #4f46e5;
+  padding-left: 12px;
+  margin: 8px 0;
+  color: #666;
+  font-style: italic;
+}
+
+.answer-text :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+}
+
+.answer-text :deep(th),
+.answer-text :deep(td) {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.answer-text :deep(th) {
+  background: #f4f4f4;
+  font-weight: 600;
+}
+
+.answer-text :deep(.md-table),
+.answer-text :deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  overflow-x: auto;
+  display: block;
+}
+
+.answer-text :deep(.md-table th),
+.answer-text :deep(.md-table td),
+.answer-text :deep(table th),
+.answer-text :deep(table td) {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+  min-width: 80px;
+}
+
+.answer-text :deep(.md-table th),
+.answer-text :deep(table th) {
+  background: #f4f4f4;
+  font-weight: 600;
+}
+
+.answer-text :deep(.katex) {
+  font-size: 1.1em;
+}
+
+.answer-text :deep(.katex-display) {
+  margin: 12px 0;
+  overflow-x: auto;
 }
 
 .answer-actions {

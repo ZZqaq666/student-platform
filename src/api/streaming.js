@@ -401,17 +401,20 @@ class StreamingService {
         buffer = lines.pop() || '';
         
         for (const line of lines) {
+          console.log('streamFormData SSE line:', line);
           if (line.startsWith('data:')) {
             let dataStr = line.substring(5).trim();
+            console.log('streamFormData SSE dataStr:', dataStr);
             if (dataStr) {
               try {
                 const data = JSON.parse(dataStr);
+                console.log('streamFormData SSE parsed data:', data);
                 onData(data);
                 if (data.completed) {
                   if (onComplete) onComplete();
                 }
               } catch (error) {
-                console.error('Error parsing SSE data:', error);
+                console.error('streamFormData Error parsing SSE data:', error);
               }
             }
           }
