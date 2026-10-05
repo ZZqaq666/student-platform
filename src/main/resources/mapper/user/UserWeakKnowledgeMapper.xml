@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.user.mapper.UserWeakKnowledgeMapper">
+
+    <select id="selectByUserId" resultType="com.student.platform.user.entity.UserWeakKnowledge">
+        SELECT * FROM user_weak_knowledge WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectWeakestByUserId" resultType="com.student.platform.user.entity.UserWeakKnowledge">
+        SELECT * FROM user_weak_knowledge
+        WHERE user_id = #{userId}
+        ORDER BY mastery_level ASC, error_count DESC
+        LIMIT #{limit}
+    </select>
+
+</mapper>

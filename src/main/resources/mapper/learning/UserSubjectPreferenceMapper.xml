@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.learning.mapper.UserSubjectPreferenceMapper">
+
+    <select id="selectByUserId" resultType="com.student.platform.learning.entity.UserSubjectPreference">
+        SELECT * FROM user_subject_preference WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectByUserIdAndSubjectId" resultType="com.student.platform.learning.entity.UserSubjectPreference">
+        SELECT * FROM user_subject_preference WHERE user_id = #{userId} AND subject_id = #{subjectId}
+    </select>
+
+</mapper>

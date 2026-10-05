@@ -1,103 +1,85 @@
 server:
-  port: 8083
+  port: 8080
+  servlet:
+    context-path: /api
 
 spring:
   application:
-    name: student-platform-backend
-
-  output:
-    ansi:
-      enabled: always
-
-  config:
-    import: optional:application-secret.yml
-
+    name: student-platform
   datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/student_platform?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${SPRING_DATASOURCE_USERNAME:root}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://42.194.198.252:3306/student_platform?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: turing
-    password: tufirewall24
-
   data:
     redis:
-      host: 42.194.198.252
-      port: 6379
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
       database: 0
-      timeout: 3000ms
       lettuce:
         pool:
+          enabled: true
           max-active: 8
-          max-wait: -1ms
           max-idle: 8
           min-idle: 0
+  rabbitmq:
+    host: ${RABBIT_HOST:localhost}
+    port: ${RABBIT_PORT:5672}
+    username: ${RABBIT_USER:guest}
+    password: ${RABBIT_PASS:guest}
+    virtual-host: ${RABBIT_VHOST:/}
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+jwt:
+  secret: ${JWT_SECRET:change-me-dev-only-student-platform-jwt-secret-32-bytes-minimum}
+  expiration: 86400000
+
+langchain4j:
+  open-ai:
+    chat-model:
+      base-url: https://api.deepseek.com/v1/chat/completions
+      api-key: ${DEEPSEEK_API_KEY:}
+      model-name: deepseek-v4-flash
+      log-requests: true
+      log-responses: true
+    streaming-chat-model:
+      base-url: https://api.deepseek.com/v1
+      api-key: ${DEEPSEEK_API_KEY:}
+      model-name: deepseek-chat
+    vision-chat-model:
+      base-url: https://open.bigmodel.cn/api/paas/v4/chat/completions
+      api-key: ${GLM_API_KEY:}
+      model-name: glm-4.6v
 
 mybatis-plus:
   mapper-locations: classpath:mapper/**/*.xml
-  type-aliases-package: com.student.platform.entity
+  # 注意：不配置 type-aliases-package，各服务存在同名实体类（如 User）会引发别名冲突；
+  # 所有 Mapper XML 均使用全限定类名，无需别名。
   configuration:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+  global-config:
+    db-config:
+      id-type: auto
 
 springdoc:
   api-docs:
     path: /v3/api-docs
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus,heapdump,threaddump
-  endpoint:
-    health:
-      show-details: always
-      probes:
-        enabled: true
-  metrics:
-    tags:
-      application: ${spring.application.name}
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-      percentiles:
-        http.server.requests: 0.5, 0.95, 0.99
-  prometheus:
-    metrics:
-      export:
-        enabled: true
-
-
-langchain4j:
-  open-ai:
-    chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: sk-86094d27647a4acfafc67ebb849e7de5
-      model-name: deepseek-chat
-    streaming-chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: sk-86094d27647a4acfafc67ebb849e7de5
-      model-name: deepseek-chat
-    vision-chat-model:
-      base-url: https://api.deepseek.com/v1
-      api-key: sk-86094d27647a4acfafc67ebb849e7de5
-      model-name: deepseek-chat
-
-jwt:
-  secret: dummy-jwt-secret-key-must-be-at-least-256-bits-long
-  expiration: 86400000
+        include: health,info
 
 logging:
   level:
     com.student.platform: DEBUG
-    org.springframework.web: INFO
-    org.springframework.security: DEBUG
-  pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
   file:
     name: logs/student-platform.log
-    max-size: 10MB
-    max-history: 30
-    total-size-cap: 100MB

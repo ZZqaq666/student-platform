@@ -43,5 +43,8 @@ logs/
 *.log
 
 ### 敏感配置文件 ###
+.env
+.env.*
+!.env.example
 application-secret.yml
 application-local.yml

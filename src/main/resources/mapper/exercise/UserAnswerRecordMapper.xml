@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.student.platform.exercise.mapper.UserAnswerRecordMapper">
+
+    <select id="selectByUserId" resultType="com.student.platform.exercise.entity.UserAnswerRecord">
+        SELECT * FROM user_answer_record WHERE user_id = #{userId} ORDER BY created_at DESC
+    </select>
+
+    <select id="selectStatisticsByUserIdAndSubjectId" resultType="java.util.Map">
+        SELECT
+            COUNT(*) AS total,
+            SUM(CASE WHEN result = 1 THEN 1 ELSE 0 END) AS correct,
+            AVG(answer_time) AS avgTime
+        FROM user_answer_record
+        WHERE user_id = #{userId} AND subject_id = #{subjectId}
+    </select>
+
+    <select id="selectByUserIdAndKnowledgeId" resultType="com.student.platform.exercise.entity.UserAnswerRecord">
+        SELECT * FROM user_answer_record
+        WHERE user_id = #{userId} AND knowledge_id = #{knowledgeId}
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>
