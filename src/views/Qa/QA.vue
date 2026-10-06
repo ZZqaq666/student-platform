@@ -1043,12 +1043,35 @@ const submitImageQuestion = async () => {
       },
       () => {
         if (!hasError) {
-          stopTyping()
           aiMsg.content = fullContent
-          aiMsg.displayContent = markdownToPlainText(fullContent)
-          aiMsg.status = 'success'
+          // 与文本问答一致：让打字机自然打完，避免回答瞬间全量蹦出（观感像非流式）
+          if (!typingTimer) {
+            // 打字机未运行（回答极短）时直接显示
+            aiMsg.displayContent = markdownToPlainText(fullContent)
+            aiMsg.status = 'success'
+            isSending.value = false
+          } else {
+            aiMsg.status = 'typing'
+            // 等待打字完成，每100ms检查一次
+            const waitForTyping = setInterval(() => {
+              if (!typingTimer) {
+                aiMsg.status = 'success'
+                isSending.value = false
+                clearInterval(waitForTyping)
+              }
+            }, 100)
+            // 最长等待30秒，超过则强制完成
+            setTimeout(() => {
+              clearInterval(waitForTyping)
+              if (aiMsg.status !== 'success') {
+                stopTyping()
+                aiMsg.displayContent = markdownToPlainText(fullContent)
+                aiMsg.status = 'success'
+                isSending.value = false
+              }
+            }, 30000)
+          }
         }
-        isSending.value = false
       },
       (e) => {
         stopTyping()
