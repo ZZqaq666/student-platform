@@ -9,6 +9,7 @@ import com.student.platform.qa.mapper.QaHistoryMapper;
 import com.student.platform.qa.mapper.ExamQaHistoryMapper;
 import com.student.platform.qa.service.AiService;
 import com.student.platform.qa.service.CourseRecommendService;
+import com.student.platform.qa.service.util.BilibiliVideoSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -21,11 +22,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class CourseRecommendServiceImpl implements CourseRecommendService {
-    
+
     private final QaHistoryMapper qaHistoryMapper;
     private final ExamQaHistoryMapper examQaHistoryMapper;
     private final AiService aiService;
-    
+    private final BilibiliVideoSearchService bilibiliVideoSearchService;
+
     @Override
     public List<Map<String, Object>> recommendCoursesByQuestionHistory(Long userId, Integer limit) {
         try {
@@ -147,149 +149,196 @@ public class CourseRecommendServiceImpl implements CourseRecommendService {
     }
     
     /**
-     * 调用AI服务获取课程推荐
+     * 基于知识点获取课程推荐（真实联网搜索 + AI 精选）
+     *
+     * 流程：
+     * 1. 对每个知识点真实调用 B站搜索接口，取得真实视频候选（真实 BV 号/标题/UP主/播放量）
+     * 2. 让 AI 仅从真实候选中挑选最相关的视频并撰写推荐理由（禁止编造链接）
+     * 3. AI 失败时直接返回搜索结果前列（链接依然真实）
+     * 4. 后置校验：任何不在候选集合中的链接强制替换为该主题的B站搜索页链接（永远真实有效）
+     *
      * @param knowledgePoints 知识点列表
      * @param limit 推荐数量限制
      * @return 课程推荐列表
      */
     private List<Map<String, Object>> getCoursesFromAI(List<String> knowledgePoints, Integer limit) {
         String knowledgePointsStr = String.join("、", knowledgePoints);
-        String prompt = "请根据以下知识点推荐" + limit + "个相关的优质课程，返回JSON格式，包含以下字段：\n" +
-            "[\n" +
-            "  {\n" +
-            "    \"id\": 课程ID,\n" +
-            "    \"name\": \"课程名称\",\n" +
-            "    \"desc\": \"课程描述\",\n" +
-            "    \"code\": \"课程代码\",\n" +
-            "    \"videoLink\": \"视频链接\",\n" +
-            "    \"platform\": \"平台名称\",\n" +
-            "    \"recommendReason\": \"推荐理由\"\n" +
-            "  }\n" +
-            "]\n" +
-            "要求：\n" +
-            "1. 推荐的课程必须来自中国大陆可访问的平台，如B站、中国大学MOOC、智慧树等\n" +
-            "2. 课程必须与以下知识点相关：" + knowledgePointsStr + "\n" +
-            "3. 直接返回JSON格式，不要包含其他解释性文本\n" +
-            "4. 确保JSON格式正确，可直接解析\n" +
-            "5. 每个课程的视频链接必须有效且与课程内容相关\n" +
-            "6. 推荐理由要具体，说明与知识点的关联性\n";
-        
-        String response = aiService.generateResponseWithContext("你是一个专业的课程推荐助手，能够根据知识点推荐相关的优质课程", prompt);
-        log.info("AI返回的原始响应: '{}'", response);
-        
-        if (response == null || response.isEmpty()) {
-            log.warn("AI返回的响应为空");
+
+        // 第一步：联网真实搜索视频候选
+        List<Map<String, Object>> candidates =
+                bilibiliVideoSearchService.searchByKeywords(knowledgePoints, 4);
+        if (candidates.isEmpty()) {
+            log.warn("B站真实搜索无候选结果，知识点: {}", knowledgePointsStr);
             return Collections.emptyList();
         }
-        
-        // 预处理AI返回的响应，处理可能的格式问题
-        String processedResponse = response;
+        log.info("B站真实搜索获得候选视频 {} 条，知识点: {}", candidates.size(), knowledgePointsStr);
+
+        // 第二步：AI 从真实候选中精选
+        List<Map<String, Object>> courses = pickCoursesFromCandidatesWithAI(candidates, knowledgePointsStr, limit);
+
+        // 第三步：后置校验，替换任何编造的链接
+        validateAndFixLinks(courses, candidates);
+
+        if (!courses.isEmpty()) {
+            for (int i = 0; i < courses.size(); i++) {
+                Map<String, Object> course = courses.get(i);
+                course.put("id", i + 1);
+                if (!course.containsKey("code")) {
+                    course.put("code", "#" + UUID.randomUUID().toString().substring(0, 8));
+                }
+                if (!course.containsKey("platform")) {
+                    course.put("platform", "B站");
+                }
+                if (!course.containsKey("recommendReason")) {
+                    course.put("recommendReason", "基于您的知识点从B站真实检索精选");
+                }
+            }
+            log.info("课程推荐完成，共 {} 条（真实B站链接）", courses.size());
+            return courses;
+        }
+
+        // AI 精选失败：直接返回真实搜索结果前列（链接依然真实）
+        log.warn("AI 精选无结果，直接使用B站真实搜索结果");
+        return candidates.stream()
+                .limit(limit)
+                .map(this::toCourseFromCandidate)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 让 AI 从真实视频候选中精选推荐
+     */
+    private List<Map<String, Object>> pickCoursesFromCandidatesWithAI(List<Map<String, Object>> candidates,
+                                                                     String knowledgePointsStr, Integer limit) {
         try {
+            StringBuilder candidateText = new StringBuilder();
+            for (int i = 0; i < candidates.size(); i++) {
+                Map<String, Object> c = candidates.get(i);
+                candidateText.append(String.format("[%d] 标题: %s | UP主: %s | 播放量: %s | 时长: %s | 链接: %s | 搜索关键词: %s%n    简介: %s%n",
+                        i + 1, c.get("title"), c.get("author"), c.get("play"), c.get("duration"),
+                        c.get("url"), c.get("keyword"), c.get("description")));
+            }
+
+            String prompt = "针对知识点「" + knowledgePointsStr + "」，下面是通过B站搜索接口真实检索到的视频候选列表：\n\n"
+                    + candidateText
+                    + "\n请从上述候选中选出 " + limit + " 个最适合推荐给学生的学习视频，返回JSON数组，字段如下：\n"
+                    + "[\n"
+                    + "  {\n"
+                    + "    \"name\": \"视频标题（可微调，但不得改变视频主题）\",\n"
+                    + "    \"desc\": \"课程描述（基于候选的简介提炼）\",\n"
+                    + "    \"videoLink\": \"视频链接（必须从候选列表原样复制，一个字都不能改）\",\n"
+                    + "    \"platform\": \"B站\",\n"
+                    + "    \"recommendReason\": \"推荐理由（结合知识点与UP主权威性、播放量说明）\"\n"
+                    + "  }\n"
+                    + "]\n"
+                    + "硬性要求：\n"
+                    + "1. videoLink 只能从候选列表原样复制，严禁编造、拼接或修改任何链接\n"
+                    + "2. 优先选择标题与知识点强相关、播放量高、UP主权威（如大学官方账号、名师）的视频\n"
+                    + "3. 只输出JSON格式，不要包含其他解释性文本\n";
+
+            String response = aiService.generateResponseWithContext(
+                    "你是一个专业的课程推荐助手，只能基于给定的真实视频候选做推荐，绝对不能编造链接",
+                    prompt);
+            log.info("AI 精选返回的原始响应长度: {}", response == null ? 0 : response.length());
+
+            if (response == null || response.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            List<Map<String, Object>> parsed = parseCourseJsonArray(response);
+            if (parsed == null || parsed.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return parsed.stream().limit(limit).collect(Collectors.toList());
+        } catch (Exception e) {
+            log.error("AI 精选候选视频失败: {}", e.getMessage(), e);
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 后置校验：不在真实候选集合中的链接一律替换为对应主题的B站搜索页链接
+     */
+    private void validateAndFixLinks(List<Map<String, Object>> courses, List<Map<String, Object>> candidates) {
+        for (Map<String, Object> course : courses) {
+            Object linkObj = course.get("videoLink");
+            String link = linkObj == null ? "" : String.valueOf(linkObj);
+            if (!bilibiliVideoSearchService.isRealCandidateLink(link, candidates)) {
+                String name = String.valueOf(course.getOrDefault("name", "大学课程"));
+                String fixed = bilibiliVideoSearchService.searchPageUrl(name);
+                log.warn("AI 返回的链接不在真实候选中（{}），已替换为B站搜索页链接: {}", link, fixed);
+                course.put("videoLink", fixed);
+            }
+        }
+    }
+
+    /**
+     * 将真实搜索候选直接转换为课程推荐条目（AI 失败时的兜底）
+     */
+    private Map<String, Object> toCourseFromCandidate(Map<String, Object> candidate) {
+        Map<String, Object> course = new HashMap<>();
+        course.put("name", candidate.get("title"));
+        course.put("desc", candidate.get("description"));
+        course.put("videoLink", candidate.get("url"));
+        course.put("platform", "B站");
+        course.put("recommendReason", String.format("B站真实检索结果，UP主: %s，播放量: %s",
+                candidate.get("author"), candidate.get("play")));
+        return course;
+    }
+
+    /**
+     * 解析 AI 返回的课程 JSON 数组（含容错处理）
+     */
+    private List<Map<String, Object>> parseCourseJsonArray(String response) {
+        try {
+            String processedResponse = response;
             // 先移除可能的代码块标记
             processedResponse = processedResponse.replaceAll("^```json", "");
             processedResponse = processedResponse.replaceAll("^```", "");
             processedResponse = processedResponse.replaceAll("```$", "");
-            
+
             // 移除开头和结尾的反引号
             while (processedResponse.startsWith("`")) {
                 processedResponse = processedResponse.substring(1);
-                log.info("移除开头的反引号");
             }
             while (processedResponse.endsWith("`")) {
                 processedResponse = processedResponse.substring(0, processedResponse.length() - 1);
-                log.info("移除结尾的反引号");
             }
-            
-            // 去除首尾空白字符
             processedResponse = processedResponse.trim();
-            
-            log.info("预处理后的AI响应: '{}'", processedResponse);
-            
+
             // 尝试修复JSON格式问题
             String fixedResponse = fixJsonFormat(processedResponse);
             if (!fixedResponse.equals(processedResponse)) {
-                log.info("修复后的JSON响应: '{}'", fixedResponse);
                 processedResponse = fixedResponse;
             }
-            
-            // 再次检查并移除可能的开头反引号
-            while (processedResponse.startsWith("`")) {
-                processedResponse = processedResponse.substring(1);
-                log.info("再次移除开头的反引号");
-            }
-            
+
             // 确保响应以 [ 或 { 开头，否则尝试提取有效的JSON部分
             if (!(processedResponse.startsWith("[") || processedResponse.startsWith("{"))) {
-                log.info("响应不是有效的JSON开头，尝试提取有效的JSON部分");
                 String extractedJson = extractValidJson(processedResponse);
                 if (!extractedJson.isEmpty()) {
-                    log.info("提取到有效的JSON部分: '{}'", extractedJson);
                     processedResponse = extractedJson;
                 }
             }
-            
-            // 解析AI返回的JSON
+
             ObjectMapper objectMapper = new ObjectMapper();
-            // 配置ObjectMapper以更宽容地处理JSON格式
             objectMapper.configure(JsonParser.Feature.ALLOW_UNQUOTED_FIELD_NAMES, true);
             objectMapper.configure(JsonParser.Feature.ALLOW_SINGLE_QUOTES, true);
             objectMapper.configure(JsonParser.Feature.ALLOW_TRAILING_COMMA, true);
-            
-            List<Map<String, Object>> courses = objectMapper.readValue(processedResponse, new TypeReference<>() {
+
+            return objectMapper.readValue(processedResponse, new TypeReference<>() {
             });
-            
-            // 处理返回的课程数据，确保字段完整
-            for (int i = 0; i < courses.size(); i++) {
-                Map<String, Object> course = courses.get(i);
-                // 确保必要字段存在
-                if (!course.containsKey("id")) {
-                    course.put("id", i + 1);
-                }
-                if (!course.containsKey("code")) {
-                    course.put("code", "#" + java.util.UUID.randomUUID().toString().substring(0, 8));
-                }
-                if (!course.containsKey("platform")) {
-                    String videoLink = (String) course.get("videoLink");
-                    if (videoLink != null) {
-                        if (videoLink.contains("bilibili.com")) {
-                            course.put("platform", "B站");
-                        } else if (videoLink.contains("icourse163.org")) {
-                            course.put("platform", "中国大学MOOC");
-                        } else if (videoLink.contains("zhihuishu.com")) {
-                            course.put("platform", "智慧树");
-                        } else {
-                            course.put("platform", "国内平台");
-                        }
-                    } else {
-                        course.put("platform", "国内平台");
-                    }
-                }
-                if (!course.containsKey("recommendReason")) {
-                    course.put("recommendReason", "基于您的知识点推荐");
-                }
-            }
-            
-            return courses;
         } catch (Exception e) {
-            log.error("解析AI返回的JSON失败: {}", e.getMessage(), e);
-            log.error("AI返回的原始响应: '{}'", response);
-            log.error("预处理后的响应: '{}'", processedResponse);
-            
-            // 尝试使用更简单的方法解析，或者返回默认推荐
+            log.error("解析AI返回的课程JSON失败: {}", e.getMessage());
             try {
-                // 尝试提取有效的JSON部分
-                String extractedJson = extractValidJson(processedResponse);
+                String extractedJson = extractValidJson(response);
                 if (!extractedJson.isEmpty()) {
-                    log.info("尝试解析提取的JSON: '{}'", extractedJson);
                     ObjectMapper objectMapper = new ObjectMapper();
-                    List<Map<String, Object>> courses = objectMapper.readValue(extractedJson, new TypeReference<>() {
+                    return objectMapper.readValue(extractedJson, new TypeReference<>() {
                     });
-                    return courses;
                 }
             } catch (Exception ex) {
-                log.error("尝试提取有效JSON失败: {}", ex.getMessage());
+                log.error("提取有效JSON失败: {}", ex.getMessage());
             }
-            
             return Collections.emptyList();
         }
     }

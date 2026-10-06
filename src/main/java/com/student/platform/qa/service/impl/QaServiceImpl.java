@@ -14,6 +14,7 @@ import com.student.platform.qa.entity.*;
 import com.student.platform.qa.mapper.*;
 import com.student.platform.qa.service.AiService;
 import com.student.platform.qa.service.QaService;
+import com.student.platform.qa.service.util.BilibiliVideoSearchService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -38,6 +39,7 @@ public class QaServiceImpl implements QaService {
     private final UserMapper userMapper;
     private final RedisTemplate<String, Object> redisTemplate;
     private final AiService aiService;
+    private final BilibiliVideoSearchService bilibiliVideoSearchService;
 
     @Override
     public List<QaResponse> getHistory(Long userId) {
@@ -1260,8 +1262,32 @@ public class QaServiceImpl implements QaService {
             }
             
             Map result = new HashMap<>();
-            
-            // 构建AI提示词
+
+            // 联网真实搜索：从最近学习情况提取知识点关键词，再调用B站搜索接口获取真实视频候选
+            List<Map<String, Object>> videoCandidates = Collections.emptyList();
+            List<String> keywords = extractKeywordsFromContext(recentQaContext, hasQaHistory);
+            if (!keywords.isEmpty()) {
+                videoCandidates = bilibiliVideoSearchService.searchByKeywords(keywords, 4);
+                log.info("B站真实搜索获得候选视频 {} 条，关键词: {}", videoCandidates.size(), keywords);
+            }
+            final List<Map<String, Object>> candidates = videoCandidates;
+            final Set<String> realUrls = new HashSet<>();
+            for (Map<String, Object> c : candidates) {
+                realUrls.add(String.valueOf(c.get("url")));
+            }
+
+            // 构建AI提示词（注入真实候选，强制链接只能原样引用）
+            StringBuilder candidateText = new StringBuilder();
+            if (!candidates.isEmpty()) {
+                candidateText.append("以下是通过B站搜索接口真实检索到的视频候选（链接真实有效）：\n\n");
+                for (int i = 0; i < candidates.size(); i++) {
+                    Map<String, Object> c = candidates.get(i);
+                    candidateText.append(String.format("[%d] 标题: %s | UP主: %s | 播放量: %s | 时长: %s | 链接: %s%n    简介: %s%n",
+                            i + 1, c.get("title"), c.get("author"), c.get("play"), c.get("duration"),
+                            c.get("url"), c.get("description")));
+                }
+            }
+
             String jsonPrompt = "基于用户最近的学习情况，生成一个课程推荐的JSON数据结构，包含以下内容：\n" +
                     "{\n" +
                     "  \"categories\": [\n" +
@@ -1289,7 +1315,7 @@ public class QaServiceImpl implements QaService {
                     "          \"up_name\": \"UP主名称\",\n" +
                     "          \"institution\": \"机构信息\",\n" +
                     "          \"platform\": \"Bilibili\",\n" +
-                    "          \"video_url\": \"UP主主页链接\",\n" +
+                    "          \"video_url\": \"视频链接\",\n" +
                     "          \"cover_url\": \"封面图片链接\",\n" +
                     "          \"series\": [\n" +
                     "            {\n" +
@@ -1308,17 +1334,17 @@ public class QaServiceImpl implements QaService {
                     "      \"scenario\": \"场景描述\",\n" +
                     "      \"suggestion\": \"建议内容\"\n" +
                     "    }\n" +
-                    "  ],\n" +
-                    "  \"note\": \"cover_url字段暂为空，因搜索结果中未提供具体的课程封面图片链接。部分series的url字段为空，因该系列包含多个视频，建议访问UP主主页查看完整合集。\"\n" +
+                    "  ]\n" +
                     "}\n" +
-                    "要求：\n" +
-                    "1. 推荐的课程必须来自中国大陆可访问的平台，如智慧树、中国大学MOOC、国家高等教育智慧教育平台、B站等\n" +
-                    "2. 每个类别至少包含2个课程\n" +
-                    "3. 选择建议至少包含4个不同场景\n" +
-                    "4. 直接返回JSON格式，不要包含其他解释性文本\n" +
-                    "5. 基于用户最近的学习情况生成个性化推荐\n" +
-                    "\n" +
-                    "用户最近的学习情况：\n" + recentQaContext;
+                    "硬性要求：\n" +
+                    "1. 所有 video_url 和 series[].url 只能从下方候选列表中原样复制，严禁编造、拼接或修改任何链接\n" +
+                    "2. 若候选不足，宁可少推荐几个课程，也不要输出任何不在候选列表中的链接\n" +
+                    "3. 优先选择播放量高、UP主权威（如大学官方账号、名师）、标题与用户学习内容强相关的候选\n" +
+                    "4. 每个类别至少包含2个课程（候选足够时）\n" +
+                    "5. 选择建议至少包含4个不同场景\n" +
+                    "6. 直接返回JSON格式，不要包含其他解释性文本\n" +
+                    "\n" + candidateText +
+                    "\n用户最近的学习情况：\n" + recentQaContext;
             
             // 调用AI服务生成推荐
             String aiResponse = aiService.generateResponseWithContext(recentQaContext, jsonPrompt);
@@ -1334,33 +1360,33 @@ public class QaServiceImpl implements QaService {
                 return getDefaultCourseRecommendations();
             }
             
-            // 验证并处理视频链接（仅做基本验证，保留AI推荐的原始链接）
+            // 强制校验视频链接：不在真实候选集合中的链接一律替换为对应主题的B站搜索页链接
             if (result.containsKey("categories")) {
                 List<Map<String, Object>> categories = (List<Map<String, Object>>) result.get("categories");
                 for (Map<String, Object> category : categories) {
                     if (category.containsKey("courses")) {
                         List<Map<String, Object>> courses = (List<Map<String, Object>>) category.get("courses");
                         for (Map<String, Object> course : courses) {
-                            // 验证官方平台课程的视频链接
+                            // 校验课程视频链接
                             if (course.containsKey("video_url")) {
                                 String videoUrl = (String) course.get("video_url");
-                                if (videoUrl != null && !videoUrl.isEmpty()) {
-                                    // 仅清理URL中的多余字符，保留AI推荐的原始链接
-                                    String cleanedUrl = cleanUrl(videoUrl);
-                                    course.put("video_url", cleanedUrl);
-                                    log.debug("课程 {} 的视频链接: {}", course.get("name"), cleanedUrl);
+                                String fixedUrl = enforceRealUrl(videoUrl, realUrls, course);
+                                if (!fixedUrl.equals(videoUrl)) {
+                                    log.warn("课程 {} 的链接不在真实候选中（{}），已替换为: {}", course.get("name"), videoUrl, fixedUrl);
+                                    course.put("video_url", fixedUrl);
                                 }
                             }
-                            // 验证B站课程的系列链接
+                            // 校验B站课程的系列链接
                             if (course.containsKey("series")) {
                                 List<Map<String, Object>> series = (List<Map<String, Object>>) course.get("series");
                                 for (Map<String, Object> seriesItem : series) {
                                     if (seriesItem.containsKey("url")) {
                                         String seriesUrl = (String) seriesItem.get("url");
-                                        if (seriesUrl != null && !seriesUrl.isEmpty()) {
-                                            // 仅清理URL中的多余字符，保留AI推荐的原始链接
-                                            String cleanedUrl = cleanUrl(seriesUrl);
-                                            seriesItem.put("url", cleanedUrl);
+                                        String fixedUrl = enforceRealUrl(seriesUrl, realUrls, seriesItem);
+                                        if (!fixedUrl.equals(seriesUrl)) {
+                                            log.warn("系列 {} 的链接不在真实候选中（{}），已替换为: {}",
+                                                    seriesItem.get("name"), seriesUrl, fixedUrl);
+                                            seriesItem.put("url", fixedUrl);
                                         }
                                     }
                                 }
@@ -1473,6 +1499,47 @@ public class QaServiceImpl implements QaService {
         }
     }
     
+    /**
+     * 从学习上下文中提取知识点关键词（用于B站真实搜索）
+     */
+    private List<String> extractKeywordsFromContext(String context, boolean hasQaHistory) {
+        if (!hasQaHistory || context == null || context.isEmpty()) {
+            return Collections.emptyList();
+        }
+        try {
+            String prompt = "请从以下学习内容中提取3个最核心的知识点关键词（用于在B站搜索教学视频），"
+                    + "用逗号分隔，只返回关键词本身，不要任何解释：\n" + context;
+            String response = aiService.generateResponseWithContext(
+                    "你是一个知识点提取助手，专门从学习内容中提取核心知识点关键词", prompt);
+            if (response == null || response.isEmpty()) {
+                return Collections.emptyList();
+            }
+            return Arrays.stream(response.split("[,，、\n]"))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty() && s.length() <= 30)
+                    .limit(3)
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("提取知识点关键词失败: {}", e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    /**
+     * 强制链接真实：候选集合中的链接原样保留；B站搜索页链接保留；其余替换为主题搜索页链接
+     */
+    private String enforceRealUrl(String url, Set<String> realUrls, Map<String, Object> owner) {
+        if (url != null && !url.isEmpty() && realUrls.contains(url)) {
+            return url;
+        }
+        if (url != null && url.startsWith("https://search.bilibili.com/")) {
+            return url;
+        }
+        String keyword = String.valueOf(owner.getOrDefault("name",
+                owner.getOrDefault("up_name", "大学课程")));
+        return bilibiliVideoSearchService.searchPageUrl(keyword);
+    }
+
     /**
      * 生成上下文的哈希值，用于缓存键
      * @param context 上下文内容
