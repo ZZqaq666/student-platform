@@ -1,406 +1,644 @@
 package com.student.platform.qa.service.impl;
 
+import com.student.platform.common.exception.BusinessException;
+import com.student.platform.qa.service.SeniorAiService;
 import com.student.platform.qa.service.SeniorService;
 import com.student.platform.qa.util.RedisUtil;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * 学长学姐答疑服务。
+ *
+ * 与旧实现的关键差异（旧实现是一套「假闭环」）：
+ * 1. 发布问题 / 提交追问不再把作者硬编码为 'u-current' / '我'，改为绑定真实登录用户；
+ * 2. 发布后异步调用大模型生成学长回答，追问也会触发同一位学长继续回复；
+ * 3. 点赞写入 senior_answer_like，按用户维度判断是否点过赞，不再是全局标志位；
+ * 4. 采纳回答校验提问人身份，并回写学长答疑次数与评分；
+ * 5. 列表支持学科过滤，并返回真实分页元信息。
+ */
+@Slf4j
 @Service
+@RequiredArgsConstructor
 public class SeniorServiceImpl implements SeniorService {
 
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
-    
-    @Autowired
-    private RedisUtil redisUtil;
+    /** 学长「在线」判定窗口：最近 N 小时内有答疑活动 */
+    private static final int ONLINE_WINDOW_HOURS = 168;
+
+    private static final DateTimeFormatter FOLLOW_UP_TIME_FORMATTER =
+            DateTimeFormatter.ofPattern("MM-dd HH:mm");
+
+    private final JdbcTemplate jdbcTemplate;
+    private final RedisUtil redisUtil;
+    private final SeniorAiService seniorAiService;
 
     @Override
     public Map<String, Object> getStats() {
-        // 获取活跃学长学姐数量
-        String seniorCountSql = "SELECT COUNT(*) FROM senior WHERE online = true";
-        int seniorCount = jdbcTemplate.queryForObject(seniorCountSql, Integer.class);
-        
-        // 获取累计问答数量
-        String questionCountSql = "SELECT COUNT(*) FROM senior_question";
-        int totalQuestions = jdbcTemplate.queryForObject(questionCountSql, Integer.class);
-        
-        // 获取已解决问题数量
-        String solvedCountSql = "SELECT COUNT(*) FROM senior_question WHERE solved = true";
-        int solvedCount = jdbcTemplate.queryForObject(solvedCountSql, Integer.class);
-        
-        // 计算问题解决率
-        int solvedRate = totalQuestions > 0 ? (int) ((double) solvedCount / totalQuestions * 100) : 0;
-        
-        // 获取平均满意度（取学长评分的平均值）
-        String avgRatingSql = "SELECT AVG(rating) FROM senior WHERE rating > 0";
-        Double avgRating = jdbcTemplate.queryForObject(avgRatingSql, Double.class);
-        if (avgRating == null) {
-            avgRating = 0.0;
-        }
-        
-        Map<String, Object> stats = new java.util.HashMap<>();
-        stats.put("seniorCount", seniorCount);
-        stats.put("totalQuestions", totalQuestions);
+        Integer seniorCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior WHERE updated_at >= DATE_SUB(NOW(), INTERVAL ? HOUR)",
+                Integer.class, ONLINE_WINDOW_HOURS);
+        Integer totalQuestions = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_question", Integer.class);
+        Integer solvedCount = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_question WHERE solved = 1", Integer.class);
+        Integer totalAnswers = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_answer", Integer.class);
+
+        int safeTotal = totalQuestions == null ? 0 : totalQuestions;
+        int safeSolved = solvedCount == null ? 0 : solvedCount;
+        int solvedRate = safeTotal > 0 ? (int) Math.round(safeSolved * 100.0 / safeTotal) : 0;
+
+        Double avgRating = jdbcTemplate.queryForObject(
+                "SELECT AVG(rating) FROM senior WHERE rating > 0", Double.class);
+
+        Map<String, Object> stats = new HashMap<>();
+        stats.put("seniorCount", seniorCount == null ? 0 : seniorCount);
+        stats.put("totalQuestions", safeTotal);
+        stats.put("totalAnswers", totalAnswers == null ? 0 : totalAnswers);
         stats.put("solvedRate", solvedRate);
-        stats.put("avgRating", Math.round(avgRating * 10) / 10.0);
-        
+        stats.put("avgRating", avgRating == null ? 0.0 : Math.round(avgRating * 10) / 10.0);
         return stats;
     }
 
     @Override
     public List<Map<String, Object>> getSeniors() {
-        String sql = "SELECT id, name, grade, major, subject, tags, answer_count as answerCount, rating, certified, online FROM senior";
+        String sql = "SELECT id, name, grade, major, subject, tags,"
+                + " answer_count AS answerCount, rating, certified,"
+                + " (updated_at >= DATE_SUB(NOW(), INTERVAL " + ONLINE_WINDOW_HOURS + " HOUR)) AS online,"
+                + " DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS lastActiveAt"
+                + " FROM senior ORDER BY answer_count DESC";
         List<Map<String, Object>> seniors = jdbcTemplate.queryForList(sql);
-        
-        // 处理tags字段，转换为数组
         for (Map<String, Object> senior : seniors) {
-            String tags = (String) senior.get("tags");
-            if (tags != null) {
-                senior.put("tags", tags.split(","));
-            } else {
-                senior.put("tags", new String[0]);
-            }
+            senior.put("tags", splitTags(senior.get("tags")));
         }
-        
         return seniors;
     }
 
     @Override
     public Map<String, Object> getSeniorById(String id) {
-        String sql = "SELECT id, name, grade, major, subject, tags, answer_count as answerCount, rating, certified, online FROM senior WHERE id = ?";
-        Map<String, Object> senior = jdbcTemplate.queryForMap(sql, id);
-        
-        // 处理tags字段
-        String tags = (String) senior.get("tags");
-        if (tags != null) {
-            senior.put("tags", tags.split(","));
-        } else {
-            senior.put("tags", new String[0]);
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, name, grade, major, subject, tags,"
+                        + " answer_count AS answerCount, rating, certified,"
+                        + " (updated_at >= DATE_SUB(NOW(), INTERVAL " + ONLINE_WINDOW_HOURS + " HOUR)) AS online,"
+                        + " DATE_FORMAT(updated_at, '%Y-%m-%d %H:%i') AS lastActiveAt"
+                        + " FROM senior WHERE id = ?",
+                id);
+        if (rows.isEmpty()) {
+            throw new BusinessException(404, "学长学姐不存在");
         }
-        
+        Map<String, Object> senior = rows.get(0);
+        senior.put("tags", splitTags(senior.get("tags")));
         return senior;
     }
 
     @Override
-    public List<Map<String, Object>> getQuestions(String seniorId, String filter, String sort, int page, int pageSize) {
-        // 生成缓存键
-        String cacheKey = "senior:questions:" + (seniorId != null ? seniorId : "all") + ":" + (filter != null ? filter : "all") + ":" + (sort != null ? sort : "created") + ":" + page + ":" + pageSize;
-        
-        // 尝试从缓存中获取
-        try {
-            List<Map<String, Object>> cachedQuestions = (List<Map<String, Object>>) redisUtil.get(cacheKey);
-            if (cachedQuestions != null) {
-                return cachedQuestions;
-            }
-        } catch (Exception e) {
-            // 缓存读取失败，继续执行数据库查询
-        }
-        
-        StringBuilder sql = new StringBuilder();
-        sql.append("SELECT q.id, q.title, q.content, q.category, q.author_id as authorId, q.author, q.created_at as createdAt, q.views, q.likes, q.solved, q.accepted_answer_id as acceptedAnswerId, q.images");
-        sql.append(" FROM senior_question q");
-        
-        List<Object> params = new ArrayList<>();
-        
-        // 如果指定了学长ID，需要通过关联表过滤
-        if (seniorId != null && !seniorId.isEmpty()) {
-            sql.append(" JOIN senior_question_mentor qm ON q.id = qm.question_id");
-            sql.append(" WHERE qm.senior_id = ?");
-            params.add(seniorId);
-        }
-        
-        // 应用过滤条件
-        if (filter != null && !"all".equals(filter)) {
-            if (!params.isEmpty()) {
-                sql.append(" AND");
-            } else {
-                sql.append(" WHERE");
-            }
-            
-            switch (filter) {
-                case "unsolved":
-                    sql.append(" q.solved = false");
-                    break;
-                case "solved":
-                    sql.append(" q.solved = true");
-                    break;
-                case "hot":
-                    // 使用likes字段代替hot_score，避免字段不存在的错误
-                    sql.append(" q.likes >= 5");
-                    break;
-            }
-        }
-        
-        // 应用排序
-        sql.append(" ORDER BY");
-        if ("likes".equals(sort)) {
-            sql.append(" q.likes DESC");
+    public Map<String, Object> getQuestions(String seniorId, String category, String filter, String sort,
+                                            int page, int pageSize, Long currentUserId) {
+        String cacheKey = buildQuestionsCacheKey(seniorId, category, filter, sort, page, pageSize);
+
+        List<Map<String, Object>> questions = readCache(cacheKey);
+        if (questions == null) {
+            questions = queryQuestions(seniorId, category, filter, sort, page, pageSize);
+            writeCache(cacheKey, questions);
         } else {
-            // 默认按创建时间降序，包括"latest"、"time"排序
-            sql.append(" q.created_at DESC");
+            questions = copyQuestions(questions);
         }
-        
-        // 分页
-        sql.append(" LIMIT ? OFFSET ?");
-        params.add(pageSize);
-        params.add((page - 1) * pageSize);
-        
-        List<Map<String, Object>> questions = jdbcTemplate.queryForList(sql.toString(), params.toArray());
-        
-        // 为每个问题加载相关数据
-        for (Map<String, Object> question : questions) {
-            String questionId = (String) question.get("id");
-            
-            // 加载学长ID列表
-            List<Map<String, Object>> mentors = jdbcTemplate.queryForList(
-                "SELECT senior_id FROM senior_question_mentor WHERE question_id = ?", questionId
-            );
-            List<String> mentorIds = new ArrayList<>();
-            for (Map<String, Object> mentor : mentors) {
-                mentorIds.add((String) mentor.get("senior_id"));
-            }
-            question.put("mentorIds", mentorIds);
-            
-            // 加载回答列表
-            List<Map<String, Object>> answers = jdbcTemplate.queryForList(
-                "SELECT id, author_id as authorId, author_name as authorName, certified, badge, content, time, likes, liked_by_current_user as likedByCurrentUser FROM senior_answer WHERE question_id = ? ORDER BY created_at DESC", 
-                questionId
-            );
-            question.put("answers", answers);
-            
-            // 加载追问列表
-            List<Map<String, Object>> followUps = jdbcTemplate.queryForList(
-                "SELECT id, author_id as authorId, author, time, content FROM senior_follow_up WHERE question_id = ? ORDER BY created_at DESC", 
-                questionId
-            );
-            question.put("followUps", followUps);
-            
-            // 加载标签
-            List<Map<String, Object>> tags = jdbcTemplate.queryForList(
-                "SELECT st.name FROM senior_tag st JOIN senior_question_tag qt ON st.id = qt.tag_id WHERE qt.question_id = ?", 
-                questionId
-            );
-            List<String> tagNames = new ArrayList<>();
-            for (Map<String, Object> tag : tags) {
-                tagNames.add((String) tag.get("name"));
-            }
-            question.put("tags", tagNames);
-        }
-        
-        // 缓存结果，设置10分钟过期
-        try {
-            redisUtil.set(cacheKey, questions, 10, TimeUnit.MINUTES);
-        } catch (Exception e) {
-            // 缓存写入失败，不影响返回结果
-        }
-        
-        return questions;
-    }
 
-    @Override
-    public Map<String, Object> getQuestionById(String id) {
-        // 直接根据ID查询问题
-        String sql = "SELECT id, title, content, category, author_id as authorId, author, created_at as createdAt, views, likes, solved, accepted_answer_id as acceptedAnswerId, images FROM senior_question WHERE id = ?";
-        Map<String, Object> question = jdbcTemplate.queryForMap(sql, id);
-        
-        // 加载学长ID列表
-        List<Map<String, Object>> mentors = jdbcTemplate.queryForList(
-            "SELECT senior_id FROM senior_question_mentor WHERE question_id = ?", id
-        );
-        List<String> mentorIds = new ArrayList<>();
-        for (Map<String, Object> mentor : mentors) {
-            mentorIds.add((String) mentor.get("senior_id"));
-        }
-        question.put("mentorIds", mentorIds);
-        
-        // 加载回答列表
-        List<Map<String, Object>> answers = jdbcTemplate.queryForList(
-            "SELECT id, author_id as authorId, author_name as authorName, certified, badge, content, time, likes, liked_by_current_user as likedByCurrentUser FROM senior_answer WHERE question_id = ? ORDER BY created_at DESC", 
-            id
-        );
-        question.put("answers", answers);
-        
-        // 加载追问列表
-        List<Map<String, Object>> followUps = jdbcTemplate.queryForList(
-            "SELECT id, author_id as authorId, author, time, content FROM senior_follow_up WHERE question_id = ? ORDER BY created_at DESC", 
-            id
-        );
-        question.put("followUps", followUps);
-        
-        // 加载标签
-        List<Map<String, Object>> tags = jdbcTemplate.queryForList(
-            "SELECT st.name FROM senior_tag st JOIN senior_question_tag qt ON st.id = qt.tag_id WHERE qt.question_id = ?", 
-            id
-        );
-        List<String> tagNames = new ArrayList<>();
-        for (Map<String, Object> tag : tags) {
-            tagNames.add((String) tag.get("name"));
-        }
-        question.put("tags", tagNames);
-        
-        return question;
-    }
+        int total = queryQuestionsCount(seniorId, category, filter);
+        markLikedAnswers(questions, currentUserId);
 
-    @Override
-    public Map<String, Object> publishQuestion(Map<String, Object> data) {
-        // 输入验证
-        if (data == null) {
-            throw new IllegalArgumentException("请求数据不能为空");
-        }
-        
-        String title = (String) data.get("title");
-        if (title == null || title.trim().isEmpty()) {
-            throw new IllegalArgumentException("问题标题不能为空");
-        }
-        
-        String content = (String) data.get("content");
-        if (content == null || content.trim().isEmpty()) {
-            throw new IllegalArgumentException("问题内容不能为空");
-        }
-        
-        String category = (String) data.get("category");
-        if (category == null || category.trim().isEmpty()) {
-            throw new IllegalArgumentException("问题分类不能为空");
-        }
-        
-        // 清理输入，防止XSS攻击
-        title = title.trim();
-        content = content.trim();
-        category = category.trim();
-        
-        String id = "q-" + UUID.randomUUID().toString().substring(0, 8);
-        List<String> tags = (List<String>) data.get("tags");
-        List<String> mentorIds = (List<String>) data.get("mentorIds");
-        
-        // 插入问题
-        String sql = "INSERT INTO senior_question (id, title, content, category, author_id, author, created_at, created_at_ms) VALUES (?, ?, ?, ?, ?, ?, NOW(), ?)";
-        jdbcTemplate.update(sql, id, title, content, category, "u-current", "我", System.currentTimeMillis());
-        
-        // 插入问题-学长关联
-        if (mentorIds != null && !mentorIds.isEmpty()) {
-            for (String mentorId : mentorIds) {
-                jdbcTemplate.update(
-                    "INSERT INTO senior_question_mentor (question_id, senior_id) VALUES (?, ?)", 
-                    id, mentorId
-                );
-            }
-        }
-        
-        // 插入标签
-        if (tags != null && !tags.isEmpty()) {
-            for (String tagName : tags) {
-                // 查找或创建标签
-                List<Map<String, Object>> tagResult = jdbcTemplate.queryForList(
-                    "SELECT id FROM senior_tag WHERE name = ?", tagName
-                );
-                int tagId;
-                if (tagResult.isEmpty()) {
-                    // 创建新标签
-                    jdbcTemplate.update("INSERT INTO senior_tag (name) VALUES (?)", tagName);
-                    tagResult = jdbcTemplate.queryForList("SELECT id FROM senior_tag WHERE name = ?", tagName);
-                    tagId = (int) tagResult.get(0).get("id");
-                } else {
-                    tagId = (int) tagResult.get(0).get("id");
-                }
-                
-                // 插入问题-标签关联
-                jdbcTemplate.update(
-                    "INSERT INTO senior_question_tag (question_id, tag_id) VALUES (?, ?)", 
-                    id, tagId
-                );
-            }
-        }
-        
-        // 清除相关缓存
-        try {
-            // 清除所有问题列表缓存
-            redisUtil.delete(redisUtil.keys("senior:questions:*"));
-        } catch (Exception e) {
-            // 缓存清除失败，不影响返回结果
-        }
-        
-        Map<String, Object> result = new java.util.HashMap<>();
-        result.put("id", id);
-        result.put("title", title);
-        result.put("content", content);
-        result.put("category", category);
-        result.put("mentorIds", mentorIds);
-        result.put("tags", tags);
-        
+        Map<String, Object> result = new HashMap<>();
+        result.put("list", questions);
+        result.put("total", total);
+        result.put("page", page);
+        result.put("pageSize", pageSize);
         return result;
     }
 
     @Override
-    public void likeAnswer(String answerId) {
-        // 切换点赞状态
-        Map<String, Object> answer = jdbcTemplate.queryForMap(
-            "SELECT liked_by_current_user FROM senior_answer WHERE id = ?", answerId
+    public Map<String, Object> getQuestionById(String id, Long currentUserId) {
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, title, content, category, author_id AS authorId, author,"
+                        + " DATE_FORMAT(created_at, '%Y-%m-%d %H:%i') AS createdAt, views, likes, solved,"
+                        + " accepted_answer_id AS acceptedAnswerId, images,"
+                        + " ai_status AS aiStatus, ai_senior_id AS aiSeniorId"
+                        + " FROM senior_question WHERE id = ?",
+                id);
+        if (rows.isEmpty()) {
+            throw new BusinessException(404, "问题不存在");
+        }
+
+        Map<String, Object> question = rows.get(0);
+        jdbcTemplate.update("UPDATE senior_question SET views = views + 1 WHERE id = ?", id);
+        question.put("views", toInt(question.get("views")) + 1);
+
+        question.put("mentorIds", loadMentorIds(id));
+        question.put("answers", loadAnswers(id));
+        question.put("followUps", loadFollowUps(id));
+        question.put("tags", loadTagNames(id));
+        markLikedAnswers(List.of(question), currentUserId);
+        return question;
+    }
+
+    @Override
+    public Map<String, Object> publishQuestion(Map<String, Object> data, Long userId, String displayName) {
+        if (data == null) {
+            throw new BusinessException(400, "请求数据不能为空");
+        }
+        if (userId == null) {
+            throw new BusinessException(401, "用户未登录");
+        }
+
+        String title = requireText(data.get("title"), "问题标题不能为空");
+        String content = requireText(data.get("content"), "问题内容不能为空");
+        String category = requireText(data.get("category"), "问题分类不能为空");
+        if (title.length() > 200) {
+            title = title.substring(0, 200);
+        }
+        if (content.length() > 4000) {
+            content = content.substring(0, 4000);
+        }
+
+        String authorName = displayName == null || displayName.isBlank() ? "同学" : displayName;
+        String questionId = "q-" + UUID.randomUUID().toString().substring(0, 8);
+
+        jdbcTemplate.update(
+                "INSERT INTO senior_question (id, title, content, category, author_id, author,"
+                        + " created_at, created_at_ms, ai_status, ai_senior_id)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, NOW(), ?, 'generating', ?)",
+                questionId, title, content, category, String.valueOf(userId), authorName,
+                System.currentTimeMillis(), seniorAiService.matchSeniorId(category)
         );
-        boolean liked = (boolean) answer.get("liked_by_current_user");
-        
-        if (liked) {
-            // 取消点赞
+
+        saveTags(questionId, data.get("tags"));
+
+        evictQuestionsCache();
+        // 异步生成学长回答：不阻塞发帖响应
+        seniorAiService.generateAnswerAsync(questionId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", questionId);
+        result.put("title", title);
+        result.put("content", content);
+        result.put("category", category);
+        result.put("authorId", String.valueOf(userId));
+        result.put("author", authorName);
+        result.put("aiStatus", SeniorAiService.STATUS_GENERATING);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> likeAnswer(String answerId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(401, "用户未登录");
+        }
+
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_answer WHERE id = ?", Integer.class, answerId);
+        if (exists == null || exists == 0) {
+            throw new BusinessException(404, "回答不存在");
+        }
+
+        Integer liked = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_answer_like WHERE answer_id = ? AND user_id = ?",
+                Integer.class, answerId, userId);
+        boolean alreadyLiked = liked != null && liked > 0;
+
+        if (alreadyLiked) {
             jdbcTemplate.update(
-                "UPDATE senior_answer SET likes = likes - 1, liked_by_current_user = false WHERE id = ?", 
-                answerId
-            );
+                    "DELETE FROM senior_answer_like WHERE answer_id = ? AND user_id = ?", answerId, userId);
+            jdbcTemplate.update(
+                    "UPDATE senior_answer SET likes = GREATEST(likes - 1, 0) WHERE id = ?", answerId);
         } else {
-            // 点赞
             jdbcTemplate.update(
-                "UPDATE senior_answer SET likes = likes + 1, liked_by_current_user = true WHERE id = ?", 
-                answerId
-            );
+                    "INSERT INTO senior_answer_like (id, answer_id, user_id) VALUES (?, ?, ?)"
+                            + " ON DUPLICATE KEY UPDATE id = id",
+                    "l-" + UUID.randomUUID().toString().substring(0, 8), answerId, userId);
+            jdbcTemplate.update("UPDATE senior_answer SET likes = likes + 1 WHERE id = ?", answerId);
         }
-        
-        // 清除相关缓存
-        try {
-            // 清除所有问题列表缓存
-            redisUtil.delete(redisUtil.keys("senior:questions:*"));
-        } catch (Exception e) {
-            // 缓存清除失败，不影响返回结果
-        }
+
+        evictQuestionsCache();
+
+        Integer likes = jdbcTemplate.queryForObject(
+                "SELECT likes FROM senior_answer WHERE id = ?", Integer.class, answerId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("liked", !alreadyLiked);
+        result.put("likes", likes == null ? 0 : likes);
+        return result;
     }
 
     @Override
-    public void acceptAnswer(String questionId, String answerId) {
-        // 更新问题状态
-        jdbcTemplate.update(
-            "UPDATE senior_question SET solved = true, accepted_answer_id = ? WHERE id = ?", 
-            answerId, questionId
-        );
-        
-        // 清除相关缓存
-        try {
-            // 清除所有问题列表缓存
-            redisUtil.delete(redisUtil.keys("senior:questions:*"));
-        } catch (Exception e) {
-            // 缓存清除失败，不影响返回结果
+    public void acceptAnswer(String questionId, String answerId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(401, "用户未登录");
         }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, author_id AS authorId, solved FROM senior_question WHERE id = ?", questionId);
+        if (rows.isEmpty()) {
+            throw new BusinessException(404, "问题不存在");
+        }
+
+        String authorId = String.valueOf(rows.get(0).get("authorId"));
+        if (!String.valueOf(userId).equals(authorId)) {
+            throw new BusinessException(403, "只有提问者本人可以采纳回答");
+        }
+        if (toInt(rows.get(0).get("solved")) == 1) {
+            throw new BusinessException(400, "该问题已采纳过回答");
+        }
+
+        Integer belongs = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_answer WHERE id = ? AND question_id = ?",
+                Integer.class, answerId, questionId);
+        if (belongs == null || belongs == 0) {
+            throw new BusinessException(400, "该回答不属于这个问题");
+        }
+
+        jdbcTemplate.update(
+                "UPDATE senior_question SET solved = 1, accepted_answer_id = ? WHERE id = ?",
+                answerId, questionId);
+
+        // 采纳后回写学长答疑数据，让「评分 / 答疑次数」随真实反馈变化
+        String seniorId = jdbcTemplate.query(
+                "SELECT senior_id FROM senior_answer WHERE id = ?",
+                resultSet -> resultSet.next() ? resultSet.getString("senior_id") : null,
+                answerId);
+        if (seniorId != null && !seniorId.isBlank()) {
+            jdbcTemplate.update(
+                    "UPDATE senior SET answer_count = answer_count + 1,"
+                            + " rating = LEAST(rating + 0.1, 5.0), updated_at = NOW() WHERE id = ?",
+                    seniorId);
+        }
+
+        evictQuestionsCache();
     }
 
     @Override
-    public void submitFollowUp(String questionId, String content) {
-        String id = "f-" + UUID.randomUUID().toString().substring(0, 8);
-        
-        // 插入追问
+    public Map<String, Object> submitFollowUp(String questionId, String content, Long userId, String displayName) {
+        if (userId == null) {
+            throw new BusinessException(401, "用户未登录");
+        }
+        if (content == null || content.isBlank()) {
+            throw new BusinessException(400, "追问内容不能为空");
+        }
+
+        Integer exists = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM senior_question WHERE id = ?", Integer.class, questionId);
+        if (exists == null || exists == 0) {
+            throw new BusinessException(404, "问题不存在");
+        }
+
+        String authorName = displayName == null || displayName.isBlank() ? "同学" : displayName;
+        String followUpId = "f-" + UUID.randomUUID().toString().substring(0, 8);
+
         jdbcTemplate.update(
-            "INSERT INTO senior_follow_up (id, question_id, author_id, author, time, content) VALUES (?, ?, ?, ?, ?, ?)", 
-            id, questionId, "u-current", "我", "刚刚", content
+                "INSERT INTO senior_follow_up (id, question_id, author_id, author, time, content, ai_status)"
+                        + " VALUES (?, ?, ?, ?, ?, ?, 'generating')",
+                followUpId, questionId, String.valueOf(userId), authorName,
+                LocalDateTime.now().format(FOLLOW_UP_TIME_FORMATTER), content.trim()
         );
-        
-        // 清除相关缓存
+
+        evictQuestionsCache();
+        // 同一位学长继续回复这条追问
+        seniorAiService.generateFollowUpReplyAsync(questionId, followUpId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", followUpId);
+        result.put("questionId", questionId);
+        result.put("content", content.trim());
+        result.put("author", authorName);
+        result.put("aiStatus", SeniorAiService.STATUS_GENERATING);
+        return result;
+    }
+
+    @Override
+    public Map<String, Object> regenerateAnswer(String questionId, Long userId) {
+        if (userId == null) {
+            throw new BusinessException(401, "用户未登录");
+        }
+
+        List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                "SELECT id, author_id AS authorId FROM senior_question WHERE id = ?", questionId);
+        if (rows.isEmpty()) {
+            throw new BusinessException(404, "问题不存在");
+        }
+        if (!String.valueOf(userId).equals(String.valueOf(rows.get(0).get("authorId")))) {
+            throw new BusinessException(403, "只有提问者本人可以重新生成回答");
+        }
+
+        jdbcTemplate.update(
+                "UPDATE senior_question SET ai_status = 'generating' WHERE id = ?", questionId);
+        jdbcTemplate.update(
+                "UPDATE senior_follow_up SET ai_status = 'none' WHERE question_id = ? AND ai_status = 'failed'",
+                questionId);
+
+        evictQuestionsCache();
+        seniorAiService.generateAnswerAsync(questionId);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("id", questionId);
+        result.put("aiStatus", SeniorAiService.STATUS_GENERATING);
+        return result;
+    }
+
+    // ------------------------------------------------------------------ 查询辅助
+
+    private List<Map<String, Object>> queryQuestions(String seniorId, String category, String filter,
+                                                     String sort, int page, int pageSize) {
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT q.id, q.title, q.content, q.category, q.author_id AS authorId, q.author,"
+                + " DATE_FORMAT(q.created_at, '%Y-%m-%d %H:%i') AS createdAt, q.views, q.likes,"
+                + " q.solved, q.accepted_answer_id AS acceptedAnswerId, q.images,"
+                + " q.answer_count AS answerCount,"
+                + " q.ai_status AS aiStatus, q.ai_senior_id AS aiSeniorId,"
+                + " s.name AS aiSeniorName"
+                + " FROM senior_question q"
+                + " LEFT JOIN senior s ON q.ai_senior_id = s.id");
+
+        List<Object> params = new ArrayList<>();
+        List<String> conditions = new ArrayList<>();
+
+        if (seniorId != null && !seniorId.isBlank()) {
+            sql.append(" JOIN senior_question_mentor qm ON q.id = qm.question_id");
+            conditions.add("qm.senior_id = ?");
+            params.add(seniorId);
+        }
+        if (category != null && !category.isBlank() && !"all".equals(category)) {
+            conditions.add("q.category = ?");
+            params.add(category);
+        }
+        appendFilterCondition(filter, conditions);
+
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+
+        if ("likes".equals(sort)) {
+            sql.append(" ORDER BY q.likes DESC, q.created_at DESC");
+        } else {
+            sql.append(" ORDER BY q.created_at DESC");
+        }
+        sql.append(" LIMIT ? OFFSET ?");
+        params.add(pageSize);
+        params.add(Math.max(0, (page - 1) * pageSize));
+
+        List<Map<String, Object>> questions = jdbcTemplate.queryForList(sql.toString(), params.toArray());
+        for (Map<String, Object> question : questions) {
+            String questionId = String.valueOf(question.get("id"));
+            question.put("mentorIds", loadMentorIds(questionId));
+            question.put("answers", loadAnswers(questionId));
+            question.put("followUps", loadFollowUps(questionId));
+            question.put("tags", loadTagNames(questionId));
+        }
+        return questions;
+    }
+
+    private int queryQuestionsCount(String seniorId, String category, String filter) {
+        StringBuilder sql = new StringBuilder("SELECT COUNT(*) FROM senior_question q");
+        List<Object> params = new ArrayList<>();
+        List<String> conditions = new ArrayList<>();
+
+        if (seniorId != null && !seniorId.isBlank()) {
+            sql.append(" JOIN senior_question_mentor qm ON q.id = qm.question_id");
+            conditions.add("qm.senior_id = ?");
+            params.add(seniorId);
+        }
+        if (category != null && !category.isBlank() && !"all".equals(category)) {
+            conditions.add("q.category = ?");
+            params.add(category);
+        }
+        appendFilterCondition(filter, conditions);
+
+        if (!conditions.isEmpty()) {
+            sql.append(" WHERE ").append(String.join(" AND ", conditions));
+        }
+
+        Integer total = jdbcTemplate.queryForObject(sql.toString(), Integer.class, params.toArray());
+        return total == null ? 0 : total;
+    }
+
+    private void appendFilterCondition(String filter, List<String> conditions) {
+        if (filter == null || "all".equals(filter)) {
+            return;
+        }
+        switch (filter) {
+            case "unsolved" -> conditions.add("q.solved = 0");
+            case "solved" -> conditions.add("q.solved = 1");
+            case "hot" -> conditions.add("q.likes >= 5");
+            default -> { /* 未知过滤条件忽略 */ }
+        }
+    }
+
+    private List<Map<String, Object>> loadAnswers(String questionId) {
+        return jdbcTemplate.queryForList(
+                "SELECT a.id, a.author_id AS authorId, a.author_name AS authorName, a.certified,"
+                        + " a.badge, a.content, a.time, a.likes, a.senior_id AS seniorId, a.source,"
+                        + " CASE WHEN a.id = q.accepted_answer_id THEN 1 ELSE 0 END AS accepted,"
+                        + " 0 AS likedByMe"
+                        + " FROM senior_answer a JOIN senior_question q ON a.question_id = q.id"
+                        + " WHERE a.question_id = ?"
+                        + " ORDER BY a.created_at ASC",
+                questionId);
+    }
+
+    private List<String> loadMentorIds(String questionId) {
+        List<Map<String, Object>> mentors = jdbcTemplate.queryForList(
+                "SELECT senior_id FROM senior_question_mentor WHERE question_id = ?", questionId);
+        List<String> mentorIds = new ArrayList<>();
+        for (Map<String, Object> mentor : mentors) {
+            mentorIds.add(String.valueOf(mentor.get("senior_id")));
+        }
+        return mentorIds;
+    }
+
+    private List<Map<String, Object>> loadFollowUps(String questionId) {
+        return jdbcTemplate.queryForList(
+                "SELECT id, author_id AS authorId, author, time, content,"
+                        + " ai_status AS aiStatus FROM senior_follow_up"
+                        + " WHERE question_id = ? ORDER BY created_at ASC",
+                questionId);
+    }
+
+    private List<String> loadTagNames(String questionId) {
+        List<Map<String, Object>> tags = jdbcTemplate.queryForList(
+                "SELECT st.name FROM senior_tag st JOIN senior_question_tag qt ON st.id = qt.tag_id"
+                        + " WHERE qt.question_id = ?",
+                questionId);
+        List<String> names = new ArrayList<>();
+        for (Map<String, Object> tag : tags) {
+            names.add(String.valueOf(tag.get("name")));
+        }
+        return names;
+    }
+
+    /**
+     * 按当前登录用户标记「我是否点过赞」。
+     * 缓存中不含该字段（否则会跨用户污染），每次返回前单独补一次查询。
+     */
+    private void markLikedAnswers(List<Map<String, Object>> questions, Long currentUserId) {
+        Set<String> likedAnswerIds = new HashSet<>();
+        if (currentUserId != null) {
+            likedAnswerIds.addAll(jdbcTemplate.queryForList(
+                    "SELECT answer_id FROM senior_answer_like WHERE user_id = ?",
+                    String.class, currentUserId));
+        }
+
+        for (Map<String, Object> question : questions) {
+            Object answers = question.get("answers");
+            if (!(answers instanceof List<?> answerList)) {
+                continue;
+            }
+            for (Object item : answerList) {
+                if (item instanceof Map<?, ?> answerMap) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> answer = (Map<String, Object>) answerMap;
+                    answer.put("likedByMe", likedAnswerIds.contains(String.valueOf(answer.get("id"))));
+                }
+            }
+        }
+    }
+
+    private void saveTags(String questionId, Object rawTags) {
+        if (!(rawTags instanceof List<?> tags) || tags.isEmpty()) {
+            return;
+        }
+        for (Object item : tags) {
+            if (item == null) {
+                continue;
+            }
+            String tagName = String.valueOf(item).trim();
+            if (tagName.isEmpty()) {
+                continue;
+            }
+
+            List<Map<String, Object>> tagResult = jdbcTemplate.queryForList(
+                    "SELECT id FROM senior_tag WHERE name = ?", tagName);
+            int tagId;
+            if (tagResult.isEmpty()) {
+                jdbcTemplate.update("INSERT INTO senior_tag (name) VALUES (?)", tagName);
+                Integer generated = jdbcTemplate.queryForObject(
+                        "SELECT id FROM senior_tag WHERE name = ?", Integer.class, tagName);
+                tagId = generated == null ? 0 : generated;
+            } else {
+                tagId = toInt(tagResult.get(0).get("id"));
+            }
+            jdbcTemplate.update(
+                    "INSERT IGNORE INTO senior_question_tag (question_id, tag_id) VALUES (?, ?)",
+                    questionId, tagId);
+        }
+    }
+
+    // ------------------------------------------------------------------ 缓存辅助
+
+    private String buildQuestionsCacheKey(String seniorId, String category, String filter, String sort,
+                                          int page, int pageSize) {
+        return "senior:questions:" + (seniorId == null ? "all" : seniorId)
+                + ":" + (category == null ? "all" : category)
+                + ":" + (filter == null ? "all" : filter)
+                + ":" + (sort == null ? "latest" : sort)
+                + ":" + page + ":" + pageSize;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> readCache(String cacheKey) {
         try {
-            // 清除所有问题列表缓存
+            Object cached = redisUtil.get(cacheKey);
+            if (cached instanceof List<?> list) {
+                return (List<Map<String, Object>>) list;
+            }
+        } catch (Exception e) {
+            log.warn("读取答疑列表缓存失败：{}", e.getMessage());
+        }
+        return null;
+    }
+
+    private void writeCache(String cacheKey, List<Map<String, Object>> questions) {
+        try {
+            redisUtil.set(cacheKey, questions, 10, TimeUnit.MINUTES);
+        } catch (Exception e) {
+            log.warn("写入答疑列表缓存失败：{}", e.getMessage());
+        }
+    }
+
+    /**
+     * 缓存命中的列表对象是共享引用，直接改动会污染缓存，
+     * 这里做一层拷贝（含 answers 子列表），保证 likedByMe 只作用于本次响应。
+     */
+    private List<Map<String, Object>> copyQuestions(List<Map<String, Object>> cached) {
+        List<Map<String, Object>> copy = new ArrayList<>();
+        for (Map<String, Object> question : cached) {
+            Map<String, Object> questionCopy = new HashMap<>(question);
+            Object answers = questionCopy.get("answers");
+            if (answers instanceof List<?> answerList) {
+                List<Map<String, Object>> answerCopy = new ArrayList<>();
+                for (Object item : answerList) {
+                    if (item instanceof Map<?, ?> map) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> typed = (Map<String, Object>) map;
+                        answerCopy.add(new HashMap<>(typed));
+                    }
+                }
+                questionCopy.put("answers", answerCopy);
+            }
+            copy.add(questionCopy);
+        }
+        return copy;
+    }
+
+    private void evictQuestionsCache() {
+        try {
             redisUtil.delete(redisUtil.keys("senior:questions:*"));
         } catch (Exception e) {
-            // 缓存清除失败，不影响返回结果
+            log.warn("清除答疑列表缓存失败：{}", e.getMessage());
         }
+    }
+
+    // ------------------------------------------------------------------ 工具方法
+
+    private String requireText(Object value, String message) {
+        String text = value == null ? null : String.valueOf(value).trim();
+        if (text == null || text.isEmpty()) {
+            throw new BusinessException(400, message);
+        }
+        return text;
+    }
+
+    private int toInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        try {
+            return Integer.parseInt(String.valueOf(value));
+        } catch (NumberFormatException e) {
+            return 0;
+        }
+    }
+
+    private String[] splitTags(Object value) {
+        if (value == null) {
+            return new String[0];
+        }
+        String text = String.valueOf(value).trim();
+        if (text.isEmpty()) {
+            return new String[0];
+        }
+        return text.split(",");
     }
 }
