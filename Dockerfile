@@ -12,4 +12,6 @@ FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
+# 安全：JWT 签名密钥必须在运行时通过环境变量注入，切勿写死在镜像里。
+# 启动示例：docker run -e JWT_SECRET="<不少于32字节的强随机字符串>" -p 8080:8080 app.jar
 ENTRYPOINT ["java", "-jar", "app.jar"]

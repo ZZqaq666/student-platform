@@ -1,13 +1,12 @@
 package com.student.platform.common.util;
 
+import com.student.platform.common.config.JwtSecretProvider;
 import io.jsonwebtoken.*;
-import io.jsonwebtoken.security.Keys;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
@@ -17,14 +16,17 @@ import java.util.function.Function;
 @Component
 public class JwtUtil {
 
-    @Value("${jwt.secret}")
-    private String secret;
+    private final JwtSecretProvider secretProvider;
 
     @Value("${jwt.expiration:86400000}")
     private Long expiration;
 
     @Value("${jwt.refresh-expiration:604800000}")
     private Long refreshExpiration;
+
+    public JwtUtil(JwtSecretProvider secretProvider) {
+        this.secretProvider = secretProvider;
+    }
 
     private static final String CLAIM_KEY_USER_ID = "userId";
 
@@ -37,8 +39,7 @@ public class JwtUtil {
     private static final String TOKEN_TYPE_REFRESH = "refresh";
 
     private SecretKey getSigningKey() {
-        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
-        return Keys.hmacShaKeyFor(keyBytes);
+        return secretProvider.get();
     }
 
     public String generateToken(String username, Long userId, String role) {

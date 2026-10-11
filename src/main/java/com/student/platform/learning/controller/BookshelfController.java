@@ -22,7 +22,7 @@ public class BookshelfController {
 
     @GetMapping("/books")
     @Operation(summary = "获取所有书籍", description = "获取系统中所有可用的书籍")
-    public Result<List<BookDTO>> getAllBooks(@RequestParam(required = false) Long userId) {
+    public Result<List<BookDTO>> getAllBooks() {
         return Result.success(bookshelfService.getAllBooks());
     }
 
@@ -35,7 +35,6 @@ public class BookshelfController {
     @GetMapping("/books/search")
     @Operation(summary = "搜索书籍", description = "根据关键词搜索书籍")
     public Result<List<BookDTO>> searchBooks(
-            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String category,
             @RequestParam(required = false) String major,

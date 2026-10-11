@@ -35,7 +35,10 @@ spring:
       max-request-size: 20MB
 
 jwt:
-  secret: ${JWT_SECRET:change-me-dev-only-student-platform-jwt-secret-32-bytes-minimum}
+  # 必填：运行时必须通过环境变量 JWT_SECRET 注入不少于 32 字节的强密钥。
+  # 留空时开发环境会生成一次性随机密钥（重启后旧 token 失效），
+  # 若仍为曾经写死的弱默认值则会直接拒绝启动（见 JwtSecretProvider）。
+  secret: ${JWT_SECRET:}
   expiration: 86400000
 
 langchain4j:

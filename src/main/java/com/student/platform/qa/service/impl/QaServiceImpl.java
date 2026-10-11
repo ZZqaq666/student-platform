@@ -10,6 +10,7 @@ import com.student.platform.common.dto.ExamPaperResponse;
 import com.student.platform.common.dto.Question;
 import com.student.platform.common.dto.QaResponse;
 import com.student.platform.common.dto.QaSessionDTO;
+import com.student.platform.common.exception.BusinessException;
 import com.student.platform.qa.entity.*;
 import com.student.platform.qa.mapper.*;
 import com.student.platform.qa.service.AiService;
@@ -195,13 +196,19 @@ public class QaServiceImpl implements QaService {
             return new ArrayList<>();
         }
     }
-    public void deleteHistory(Long id) {
+    public void deleteHistory(Long id, Long currentUserId) {
         try {
             log.info("删除历史记录，ID: {}", id);
             
             // 先获取历史记录，以获取userId
             QaHistory history = qaHistoryMapper.selectById(id);
             if (history != null) {
+                // 越权防护：只允许删除属于自己的历史记录
+                if (history.getUserId() == null || !history.getUserId().equals(currentUserId)) {
+                    log.warn("越权删除被拒绝，记录ID: {}, 归属用户: {}, 当前用户: {}",
+                            id, history.getUserId(), currentUserId);
+                    throw new BusinessException(403, "无权删除该记录");
+                }
                 Long userId = history.getUserId();
                 
                 // 从Redis中删除缓存
@@ -227,6 +234,9 @@ public class QaServiceImpl implements QaService {
             // 从数据库中删除记录
             qaHistoryMapper.deleteById(id);
             log.info("历史记录删除成功，ID: {}", id);
+        } catch (BusinessException e) {
+            // 越权等受控异常原样透出，保留 403 语义
+            throw e;
         } catch (Exception e) {
             log.error("删除历史记录失败: {}", e.getMessage(), e);
             throw new RuntimeException("删除历史记录失败，请稍后重试");
@@ -1906,13 +1916,19 @@ public class QaServiceImpl implements QaService {
     }
 
     @Override
-    public void deleteExamQaHistory(Long id) {
+    public void deleteExamQaHistory(Long id, Long currentUserId) {
         try {
             log.info("删除考试准备Q&A历史记录，ID: {}", id);
             
             // 先获取历史记录，以获取userId
             ExamQaHistory history = examQaHistoryMapper.selectById(id);
             if (history != null) {
+                // 越权防护：只允许删除属于自己的历史记录
+                if (history.getUserId() == null || !history.getUserId().equals(currentUserId)) {
+                    log.warn("越权删除被拒绝，考试记录ID: {}, 归属用户: {}, 当前用户: {}",
+                            id, history.getUserId(), currentUserId);
+                    throw new BusinessException(403, "无权删除该记录");
+                }
                 Long userId = history.getUserId();
                 
                 // 从Redis中删除缓存
@@ -1938,6 +1954,9 @@ public class QaServiceImpl implements QaService {
             // 从数据库中删除记录
             examQaHistoryMapper.deleteById(id);
             log.info("考试准备Q&A历史记录删除成功，ID: {}", id);
+        } catch (BusinessException e) {
+            // 越权等受控异常原样透出，保留 403 语义
+            throw e;
         } catch (Exception e) {
             log.error("删除考试准备Q&A历史记录失败: {}", e.getMessage(), e);
             throw new RuntimeException("删除考试准备Q&A历史记录失败，请稍后重试");

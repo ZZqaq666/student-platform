@@ -4,7 +4,6 @@ import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jws;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.security.Keys;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -20,9 +19,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.filter.OncePerRequestFilter;
 
-import javax.crypto.SecretKey;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,10 +56,10 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/health"
     );
 
-    private final SecretKey secretKey;
+    private final JwtSecretProvider secretProvider;
 
-    public JwtAuthFilter(@Value("${jwt.secret}") String secret) {
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    public JwtAuthFilter(JwtSecretProvider secretProvider) {
+        this.secretProvider = secretProvider;
     }
 
     @Override
@@ -86,7 +83,7 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String token = authHeader.substring(7);
         try {
             Jws<Claims> claimsJws = Jwts.parser()
-                    .verifyWith(secretKey)
+                    .verifyWith(secretProvider.get())
                     .build()
                     .parseSignedClaims(token);
             Claims claims = claimsJws.getPayload();

@@ -1,6 +1,7 @@
 package com.student.platform.qa.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.student.platform.common.config.CurrentUserProvider;
 import com.student.platform.common.dto.QaRequest;
 import com.student.platform.common.dto.QaResponse;
 import com.student.platform.common.dto.QaResultDTO;
@@ -20,11 +21,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
-import jakarta.servlet.http.HttpServletRequest;
-import com.student.platform.user.config.UserIdInterceptor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import java.util.concurrent.CompletableFuture;
@@ -48,14 +44,26 @@ public class QaController {
     private final ContextService contextService;
     private final ConversationService conversationService;
     private final MessageService messageService;
-    private final com.student.platform.qa.mapper.UserMapper userMapper;
+    private final CurrentUserProvider currentUserProvider;
+
+    /**
+     * 安全基线：userId 一律取自 {@link CurrentUserProvider}（JwtAuthFilter 注入的 X-User-Id /
+     * SecurityContext），**绝不接受**请求参数或请求体传入的 userId，避免水平越权。
+     *
+     * 对于允许匿名使用的 AI 问答接口，取不到用户时返回 null（仅不落历史），而不是回落请求参数。
+     */
+    private Long currentUserIdOrNull() {
+        CurrentUserProvider.CurrentUser user = currentUserProvider.find();
+        return user == null ? null : user.id();
+    }
 
 
 
     @GetMapping("/history")
     @Operation(summary = "获取历史记录", description = "获取当前用户的问答历史记录")
-    public Result<List<QaResponse>> getHistory(@RequestParam("userId") Long userId) {
-        log.info("从请求参数获取到的userId: {}", userId);
+    public Result<List<QaResponse>> getHistory() {
+        Long userId = currentUserProvider.require().id();
+        log.info("获取问答历史，userId: {}", userId);
         try {
             List<QaResponse> histories = qaService.getHistory(userId);
             log.info("获取到的历史记录数量: {}", histories.size());
@@ -68,7 +76,8 @@ public class QaController {
 
     @GetMapping("/history/sessions")
     @Operation(summary = "获取历史会话列表（按sessionId聚合）", description = "获取用户的历史会话，同一sessionId的消息会被聚合到一起")
-    public Result<List<QaSessionDTO>> getHistorySessions(@RequestParam("userId") Long userId) {
+    public Result<List<QaSessionDTO>> getHistorySessions() {
+        Long userId = currentUserProvider.require().id();
         log.info("获取历史会话，userId: {}", userId);
         try {
             List<QaSessionDTO> sessions = qaService.getHistorySessions(userId);
@@ -82,7 +91,7 @@ public class QaController {
 
     @PostMapping("/history")
     @Operation(summary = "保存对话历史", description = "前端主动保存对话历史到数据库")
-    public Result<Void> saveHistory(HttpServletRequest httpRequest, @RequestBody Map<String, Object> request) {
+    public Result<Void> saveHistory(@RequestBody Map<String, Object> request) {
         try {
             String question = (String) request.get("question");
             String answer = (String) request.get("answer");
@@ -92,48 +101,8 @@ public class QaController {
                 return Result.error("问题和回答不能为空");
             }
 
-            Long userId = null;
-
-            // 首先从请求体中获取userId
-            Object userIdObj = request.get("userId");
-            if (userIdObj != null) {
-                if (userIdObj instanceof Long) {
-                    userId = (Long) userIdObj;
-                } else if (userIdObj instanceof Integer) {
-                    userId = ((Integer) userIdObj).longValue();
-                } else if (userIdObj instanceof String) {
-                    try {
-                        userId = Long.parseLong((String) userIdObj);
-                    } catch (NumberFormatException e) {
-                        log.warn("无法解析userId: {}", userIdObj);
-                    }
-                }
-            }
-
-            // 从UserIdInterceptor获取userId
-            if (userId == null) {
-                userId = (Long) httpRequest.getAttribute(UserIdInterceptor.USER_ID_ATTRIBUTE);
-            }
-
-            // 从认证上下文获取userId
-            if (userId == null) {
-                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                    try {
-                        com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                        if (user != null) {
-                            userId = user.getId();
-                        }
-                    } catch (Exception e) {
-                        log.error("从认证上下文获取用户信息失败: {}", e.getMessage());
-                    }
-                }
-            }
-
-            if (userId == null) {
-                return Result.error("用户未登录");
-            }
+            // 安全基线：userId 只认当前登录用户，忽略请求体中可能伪造的 userId 字段
+            Long userId = currentUserProvider.require().id();
 
             // 获取可选参数
             Long bookId = null;
@@ -191,7 +160,8 @@ public class QaController {
     @DeleteMapping("/history/{id}")
     @Operation(summary = "删除历史记录", description = "删除指定的问答历史记录")
     public Result<Void> deleteHistory(@PathVariable Long id) {
-        qaService.deleteHistory(id);
+        Long userId = currentUserProvider.require().id();
+        qaService.deleteHistory(id, userId);
         return Result.success();
     }
     
@@ -225,18 +195,8 @@ public class QaController {
         String context = buildSystemPrompt(request);
         
         // 步骤1.5：获取用户ID（优先从请求参数获取，否则从SecurityContext获取）
-        Long userId = request.getUserId();
-        if (userId == null) {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                if (user != null) {
-                    userId = user.getId();
-                }
-            }
-        }
-        
+        // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+        Long userId = currentUserIdOrNull();
         // 步骤2：创建StringBuilder用于收集完整的AI回答
         // 注意：流式响应会将回答分成多个片段发送，这里需要收集完整内容用于保存历史
         final Long finalUserId = userId;
@@ -352,7 +312,7 @@ public class QaController {
                         } else {
                             // 用户未登录或回答为空，不保存历史
                             log.warn("无法保存答疑历史：userId={}, 回答长度={}", 
-                                request.getUserId(), fullResponse.length());
+                                finalUserId, fullResponse.length());
                         }
                     } catch (Exception e) {
                         // 记录保存失败日志，但不中断流程
@@ -380,18 +340,8 @@ public class QaController {
         String response = aiService.generateResponseWithContext(context, request.getQuestion(), sessionId);
         
         // 保存历史记录
-        Long userId = request.getUserId();
-        if (userId == null) {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                if (user != null) {
-                    userId = user.getId();
-                }
-            }
-        }
-        
+        // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+        Long userId = currentUserIdOrNull();
         if (userId != null && response != null && !response.isEmpty()) {
             qaService.saveHistory(userId, sessionId, request.getQuestion(), response, context, request.getBookId(), request.getKnowledgeNodeId(), null);
             log.info("已保存非流式问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
@@ -402,7 +352,7 @@ public class QaController {
     
     @PostMapping("/save-processed-text")
     @Operation(summary = "保存处理后的文本", description = "保存前端处理后的文本数据到历史记录")
-    public Result<Void> saveProcessedText(HttpServletRequest httpRequest, @RequestBody Map<String, Object> request) {
+    public Result<Void> saveProcessedText(@RequestBody Map<String, Object> request) {
         try {
             String question = (String) request.get("question");
             String processedText = (String) request.get("processedText");
@@ -412,51 +362,8 @@ public class QaController {
                 return Result.error("问题和处理后的文本不能为空");
             }
             
-            Long userId = null;
-            
-            // 首先从请求体中获取userId
-            Object userIdObj = request.get("userId");
-            if (userIdObj != null) {
-                if (userIdObj instanceof Long) {
-                    userId = (Long) userIdObj;
-                } else if (userIdObj instanceof Integer) {
-                    userId = ((Integer) userIdObj).longValue();
-                } else if (userIdObj instanceof String) {
-                    try {
-                        userId = Long.parseLong((String) userIdObj);
-                    } catch (NumberFormatException e) {
-                        log.warn("无法解析userId: {}", userIdObj);
-                    }
-                }
-            }
-            
-            // 从UserIdInterceptor获取userId
-            if (userId == null) {
-                userId = (Long) httpRequest.getAttribute(UserIdInterceptor.USER_ID_ATTRIBUTE);
-            }
-            
-            // 从认证上下文获取userId
-            if (userId == null) {
-               Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                    // 这里需要从userDetails中获取userId，但是UserDetails没有userId属性
-                    // 所以我们需要从数据库中根据用户名查询用户
-                    try {
-                        // 直接注入UserMapper而不是使用SpringContextUtil
-                        com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                        if (user != null) {
-                            userId = user.getId();
-                        }
-                    } catch (Exception e) {
-                        log.error("从认证上下文获取用户信息失败: {}", e.getMessage());
-                    }
-                }
-            }
-            
-            if (userId == null) {
-                return Result.error("用户未登录");
-            }
+            // 安全基线：userId 只认当前登录用户，忽略请求体中可能伪造的 userId 字段
+            Long userId = currentUserProvider.require().id();
             
             String sessionId = (String) request.get("sessionId");
             qaService.saveProcessedText(question, processedText, subject, userId, sessionId);
@@ -491,9 +398,9 @@ public class QaController {
     @GetMapping("/courses/recommend")
     @Operation(summary = "获取推荐课程", description = "基于用户提问历史推荐网课")
     public CompletableFuture<Result<List<Map<String, Object>>>> getRecommendedCourses(
-        @RequestParam("userId") Long userId,
         @RequestParam(defaultValue = "5") Integer limit) {
         try {
+            Long userId = currentUserProvider.require().id();
             log.info("获取推荐课程，用户ID: {}, 限制: {}", userId, limit);
             
             return courseRecommendService.recommendCoursesByQuestionHistoryAsync(userId, limit)
@@ -511,9 +418,9 @@ public class QaController {
     @GetMapping("/courses/recommend/exam")
     @Operation(summary = "获取考试准备推荐课程", description = "基于用户考试准备Q&A历史推荐网课")
     public CompletableFuture<Result<List<Map<String, Object>>>> getExamRecommendedCourses(
-        @RequestParam("userId") Long userId,
         @RequestParam(defaultValue = "5") Integer limit) {
         try {
+            Long userId = currentUserProvider.require().id();
             log.info("获取考试准备推荐课程，用户ID: {}, 限制: {}", userId, limit);
             
             return courseRecommendService.recommendCoursesByExamQaHistoryAsync(userId, limit)
@@ -533,9 +440,7 @@ public class QaController {
     public Result<String> askImageQuestion(
             @RequestParam("image") MultipartFile image, 
             @RequestParam(value = "question", required = false) String question,
-            @RequestParam(value = "userId", required = false) Long userIdParam,
-            @RequestParam(value = "sessionId", required = false) String sessionId,
-            HttpServletRequest httpRequest) {
+            @RequestParam(value = "sessionId", required = false) String sessionId) {
         try {
             log.info("处理图片问答请求，图片大小: {}KB", image.getSize() / 1024);
             
@@ -557,20 +462,8 @@ public class QaController {
             String response = aiService.generateResponseFromImage(image, sanitizedQuestion);
             
             // 保存历史记录
-            Long userId = userIdParam;
-            if (userId == null) {
-                userId = (Long) httpRequest.getAttribute(UserIdInterceptor.USER_ID_ATTRIBUTE);
-            }
-            if (userId == null) {
-                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                    com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                    if (user != null) {
-                        userId = user.getId();
-                    }
-                }
-            }
+            // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+            Long userId = currentUserIdOrNull();
             if (userId != null && response != null && !response.isEmpty()) {
                 qaService.saveHistory(userId, sessionId, sanitizedQuestion != null ? sanitizedQuestion : "[图片提问]", response, null, null, null, null);
                 log.info("已保存图片问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
@@ -588,9 +481,7 @@ public class QaController {
     public Flux<SseMessage> askImageQuestionStream(
             @RequestParam("image") MultipartFile image, 
             @RequestParam(value = "question", required = false) String question,
-            @RequestParam(value = "userId", required = false) Long userIdParam,
-            @RequestParam(value = "sessionId", required = false) String sessionId,
-            HttpServletRequest httpRequest) {
+            @RequestParam(value = "sessionId", required = false) String sessionId) {
         log.info("处理流式图片问答请求，图片大小: {}KB", image.getSize() / 1024);
         
         // 验证图片大小
@@ -608,20 +499,8 @@ public class QaController {
         String sanitizedQuestion = question != null ? sanitizeInput(question) : null;
         
         // 获取用户ID
-        Long userId = userIdParam;
-        if (userId == null) {
-            userId = (Long) httpRequest.getAttribute(UserIdInterceptor.USER_ID_ATTRIBUTE);
-        }
-        if (userId == null) {
-            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-            if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                if (user != null) {
-                    userId = user.getId();
-                }
-            }
-        }
+        // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+        Long userId = currentUserIdOrNull();
         final Long finalUserId = userId;
         final String finalQuestion = sanitizedQuestion != null ? sanitizedQuestion : "[图片提问]";
         final String finalSessionId = sessionId;
@@ -665,8 +544,9 @@ public class QaController {
     
     @GetMapping("/exam/qa/history")
     @Operation(summary = "获取考试准备Q&A历史记录", description = "获取当前用户的考试准备Q&A历史记录")
-    public Result<List<Map<String, Object>>> getExamQaHistory(@RequestParam("userId") Long userId) {
-        log.info("从请求参数获取到的userId: {}", userId);
+    public Result<List<Map<String, Object>>> getExamQaHistory() {
+        Long userId = currentUserProvider.require().id();
+        log.info("获取考试准备Q&A历史，userId: {}", userId);
         try {
             List<Map<String, Object>> histories = qaService.getExamQaHistory(userId);
             log.info("获取到的考试准备Q&A历史记录数量: {}", histories.size());
@@ -680,13 +560,14 @@ public class QaController {
     @DeleteMapping("/exam/qa/history/{id}")
     @Operation(summary = "删除考试准备Q&A历史记录", description = "删除指定的考试准备Q&A历史记录")
     public Result<Void> deleteExamQaHistory(@PathVariable Long id) {
-        qaService.deleteExamQaHistory(id);
+        Long userId = currentUserProvider.require().id();
+        qaService.deleteExamQaHistory(id, userId);
         return Result.success();
     }
     
     @PostMapping("/exam/qa/save")
     @Operation(summary = "保存考试准备Q&A历史记录", description = "保存考试准备Q&A历史记录到数据库")
-    public Result<Void> saveExamQaHistory(HttpServletRequest httpRequest, @RequestBody Map<String, Object> request) {
+    public Result<Void> saveExamQaHistory(@RequestBody Map<String, Object> request) {
         try {
             String question = (String) request.get("question");
             String answer = (String) request.get("answer");
@@ -696,51 +577,8 @@ public class QaController {
                 return Result.error("问题和回答不能为空");
             }
             
-            Long userId = null;
-            
-            // 首先从请求体中获取userId
-            Object userIdObj = request.get("userId");
-            if (userIdObj != null) {
-                if (userIdObj instanceof Long) {
-                    userId = (Long) userIdObj;
-                } else if (userIdObj instanceof Integer) {
-                    userId = ((Integer) userIdObj).longValue();
-                } else if (userIdObj instanceof String) {
-                    try {
-                        userId = Long.parseLong((String) userIdObj);
-                    } catch (NumberFormatException e) {
-                        log.warn("无法解析userId: {}", userIdObj);
-                    }
-                }
-            }
-            
-            // 从UserIdInterceptor获取userId
-            if (userId == null) {
-                userId = (Long) httpRequest.getAttribute(UserIdInterceptor.USER_ID_ATTRIBUTE);
-            }
-            
-            // 从认证上下文获取userId
-            if (userId == null) {
-               Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-                if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-                    UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-                    // 这里需要从userDetails中获取userId，但是UserDetails没有userId属性
-                    // 所以我们需要从数据库中根据用户名查询用户
-                    try {
-                        // 直接注入UserMapper而不是使用SpringContextUtil
-                        com.student.platform.qa.entity.User user = userMapper.findByUsername(userDetails.getUsername());
-                        if (user != null) {
-                            userId = user.getId();
-                        }
-                    } catch (Exception e) {
-                        log.error("从认证上下文获取用户信息失败: {}", e.getMessage());
-                    }
-                }
-            }
-            
-            if (userId == null) {
-                return Result.error("用户未登录");
-            }
+            // 安全基线：userId 只认当前登录用户，忽略请求体中可能伪造的 userId 字段
+            Long userId = currentUserProvider.require().id();
             
             String sessionId = (String) request.get("sessionId");
             qaService.saveExamQaHistory(question, answer, subject, userId, sessionId);

@@ -20,6 +20,7 @@ import org.springframework.util.StringUtils;
 import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
@@ -38,6 +39,38 @@ public class ExerciseServiceImpl implements ExerciseService {
     private static final String QUESTION_TYPE_SINGLE_CHOICE = "SINGLE_CHOICE";
     private static final String QUESTION_TYPE_MULTIPLE_CHOICE = "MULTIPLE_CHOICE";
     private static final String MASTER_STATUS_MASTERED = "MASTERED";
+
+    /**
+     * 错题列表可排序列白名单（键为外部可传值，值为真实数据库列名）。
+     * 前端 sortBy 只能命中白名单内的键，命中不了则回落 created_at，
+     * 从而杜绝把任意字符串拼进 SQL ORDER BY 造成注入。
+     */
+    private static final Map<String, String> WRONG_BOOK_SORT_COLUMNS = Map.ofEntries(
+            Map.entry("created_at", "created_at"),
+            Map.entry("updated_at", "updated_at"),
+            Map.entry("last_attempt_at", "last_attempt_at"),
+            Map.entry("next_review_at", "next_review_at"),
+            Map.entry("wrong_count", "wrong_count"),
+            Map.entry("correct_count", "correct_count"),
+            Map.entry("review_count", "review_count"),
+            Map.entry("priority", "priority"),
+            Map.entry("difficulty", "difficulty"),
+            // 兼容前端驼峰写法
+            Map.entry("createdAt", "created_at"),
+            Map.entry("updatedAt", "updated_at"),
+            Map.entry("lastAttemptAt", "last_attempt_at"),
+            Map.entry("nextReviewAt", "next_review_at"),
+            Map.entry("wrongCount", "wrong_count"),
+            Map.entry("correctCount", "correct_count"),
+            Map.entry("reviewCount", "review_count")
+    );
+
+    /**
+     * 单页最大条数，防止 pageSize 被放大后一次性拖垮数据库。
+     * 注意：错题列表目前由前端「全量拉取 + 本地切片」渲染（见 WrongBook.vue），
+     * 这里取 1000 兼顾防护与兼容；后续若改为服务端真分页，可下调并与前端对齐。
+     */
+    private static final int MAX_PAGE_SIZE = 1000;
     private static final String MASTER_STATUS_MASTERING = "MASTERING";
     private static final String MASTER_STATUS_NOT_MASTERED = "NOT_MASTERED";
     private static final int MASTER_THRESHOLD = 3;
@@ -481,13 +514,22 @@ public class ExerciseServiceImpl implements ExerciseService {
                 .isNull("next_review_at");
         }
 
-        String sortField = StringUtils.hasText(request.getSortBy()) ? request.getSortBy() : "created_at";
-        String sortDirection = "DESC".equalsIgnoreCase(request.getSortDirection()) ? "DESC" : "ASC";
-        queryWrapper.orderByDesc(sortField);
+        // 排序列走白名单映射，未命中的一律回落到 created_at（不可把外部字符串直接拼进 SQL）
+        String sortField = WRONG_BOOK_SORT_COLUMNS.getOrDefault(request.getSortBy(), "created_at");
+        boolean desc = !"ASC".equalsIgnoreCase(request.getSortDirection());
+        if (desc) {
+            queryWrapper.orderByDesc(sortField);
+        } else {
+            queryWrapper.orderByAsc(sortField);
+        }
 
-        int pageNum = request.getPageNum() != null ? request.getPageNum() : 1;
-        int pageSize = request.getPageSize() != null ? request.getPageSize() : 20;
-        queryWrapper.last("LIMIT " + ((pageNum - 1) * pageSize) + ", " + pageSize);
+        // 分页参数强校验：修正非正数，并限制单页上限；用 long 计算 offset 避免整数溢出导致负 offset
+        int pageNum = request.getPageNum() != null && request.getPageNum() > 0 ? request.getPageNum() : 1;
+        int pageSize = request.getPageSize() != null && request.getPageSize() > 0
+                ? Math.min(request.getPageSize(), MAX_PAGE_SIZE)
+                : 20;
+        long offset = (long) (pageNum - 1) * pageSize;
+        queryWrapper.last("LIMIT " + offset + ", " + pageSize);
 
         List<WrongBook> wrongBooks = wrongBookMapper.selectList(queryWrapper);
         return wrongBooks.stream()

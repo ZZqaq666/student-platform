@@ -1,5 +1,6 @@
 package com.student.platform.learning.controller;
 
+import com.student.platform.common.config.CurrentUserProvider;
 import com.student.platform.common.dto.*;
 import com.student.platform.common.result.Result;
 import com.student.platform.learning.entity.Book;
@@ -30,11 +31,15 @@ public class BookController {
     private final BookshelfService bookshelfService;
     private final BookMapper bookMapper;
     private final BookKnowledgePointService bookKnowledgePointService;
+    private final CurrentUserProvider currentUserProvider;
 
-    public BookController(BookshelfService bookshelfService, BookMapper bookMapper, BookKnowledgePointService bookKnowledgePointService) {
+    public BookController(BookshelfService bookshelfService, BookMapper bookMapper,
+                          BookKnowledgePointService bookKnowledgePointService,
+                          CurrentUserProvider currentUserProvider) {
         this.bookshelfService = bookshelfService;
         this.bookMapper = bookMapper;
         this.bookKnowledgePointService = bookKnowledgePointService;
+        this.currentUserProvider = currentUserProvider;
         log.info("BookController initialized with bookKnowledgePointService: {}", bookKnowledgePointService != null ? "OK" : "NULL");
     }
 
@@ -300,9 +305,10 @@ public class BookController {
     })
     @PostMapping("/add")
     public Result<java.util.Map<String, Object>> addBooks(
-            @Parameter(description = "用户ID", required = true) @RequestParam Long userId,
             @Parameter(description = "书籍列表", required = true) @RequestBody java.util.Map<String, java.util.List<BookDTO>> request
     ) {
+        // 安全基线：书籍一律加入当前登录用户的书架，不接受请求参数指定 userId
+        Long userId = currentUserProvider.require().id();
         log.debug("批量添加教材, userId: {}, request: {}", userId, request);
         try {
             java.util.Map<String, Object> result = bookshelfService.addBooks(userId, request);

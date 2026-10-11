@@ -9,10 +9,9 @@ public class UserIdInterceptor implements HandlerInterceptor {
 
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler) throws Exception {
+        // 安全基线：userId 只认 JwtAuthFilter 注入的 X-User-Id 请求头（该头由过滤器注入且优先级最高）。
+        // 绝不能从 URL 参数兜底取值，否则攻击者可用 ?userId=xxx 直接冒用他人身份。
         String userIdStr = request.getHeader("X-User-Id");
-        if (userIdStr == null || userIdStr.isEmpty()) {
-            userIdStr = request.getParameter("userId");
-        }
 
         if (userIdStr != null && !userIdStr.isEmpty()) {
             try {

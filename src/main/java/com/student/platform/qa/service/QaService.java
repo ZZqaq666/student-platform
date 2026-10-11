@@ -38,7 +38,7 @@ public interface QaService {
      * 
      * @param id 历史记录ID
      */
-    void deleteHistory(Long id);
+    void deleteHistory(Long id, Long currentUserId);
     
     /**
      * 保存处理后的文本数据到历史记录
@@ -118,7 +118,7 @@ public interface QaService {
      * 
      * @param id 历史记录ID
      */
-    void deleteExamQaHistory(Long id);
+    void deleteExamQaHistory(Long id, Long currentUserId);
     
     /**
      * 保存考试Q&A历史记录
