@@ -5,17 +5,17 @@ import java.util.List;
 
 public interface NoteService {
 
-    List<NoteDTO> getAllNotes();
+    List<NoteDTO> getAllNotes(Long userId);
 
-    List<NoteDTO> getNotesByBook(Long bookId);
+    List<NoteDTO> getNotesByBook(Long userId, Long bookId);
 
-    List<NoteDTO> getNotesByChapter(Long chapterId);
+    List<NoteDTO> getNotesByChapter(Long userId, Long chapterId);
 
-    NoteDTO createNote(NoteDTO noteDTO);
+    NoteDTO createNote(Long userId, NoteDTO noteDTO);
 
-    NoteDTO updateNote(Long noteId, NoteDTO noteDTO);
+    NoteDTO updateNote(Long userId, Long noteId, NoteDTO noteDTO);
 
-    boolean deleteNote(Long noteId);
+    boolean deleteNote(Long userId, Long noteId);
 
-    NoteDTO getNoteById(Long noteId);
+    NoteDTO getNoteById(Long userId, Long noteId);
 }

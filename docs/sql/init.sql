@@ -252,3 +252,22 @@ CREATE TABLE IF NOT EXISTS `distributed_lock` (
     `expire_time` datetime NOT NULL,
     PRIMARY KEY (`lock_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Distributed lock table';
+
+-- ============================================================
+-- 学习笔记表（2026-10-11 新增，笔记功能后端真实化）
+-- 说明：笔记按 user_id 隔离，user_id 由 JwtAuthFilter 注入的
+--       X-User-Id 头经 UserIdInterceptor 解析后写入
+-- ============================================================
+CREATE TABLE IF NOT EXISTS `note` (
+  `id`         bigint       NOT NULL AUTO_INCREMENT,
+  `user_id`    bigint       NOT NULL COMMENT '所属用户',
+  `book_id`    bigint       NOT NULL COMMENT '教材ID',
+  `chapter_id` bigint       DEFAULT NULL COMMENT '关联章节(可选)',
+  `title`      varchar(200) NOT NULL,
+  `content`    longtext,
+  `created_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_user_book` (`user_id`, `book_id`),
+  KEY `idx_chapter` (`chapter_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='学习笔记';
