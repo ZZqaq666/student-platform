@@ -118,6 +118,10 @@ function getDisplayImages(images) {
       >
         <header class="question-top">
           <span class="category-chip" :class="`cat-${question.category}`">{{ question.categoryText }}</span>
+          <span v-if="question.aiStatus === 'generating'" class="ai-chip generating">
+            <i class="ai-dot" />{{ question.aiSeniorName ? `${question.aiSeniorName} 正在解答` : '学长正在解答' }}
+          </span>
+          <span v-else-if="question.aiStatus === 'failed'" class="ai-chip failed">解答失败，可重试</span>
           <span class="time">{{ question.createdAt }}</span>
         </header>
 
@@ -201,6 +205,44 @@ function getDisplayImages(images) {
 
 .filter-select {
   width: 108px;
+}
+
+.ai-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+
+.ai-chip.generating {
+  color: #0f766e;
+  background: #e3f7f2;
+}
+
+.ai-chip.failed {
+  color: #b42318;
+  background: #fdeceb;
+}
+
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #14b8a6;
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 .status-card {

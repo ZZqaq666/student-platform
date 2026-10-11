@@ -622,6 +622,13 @@ export const apiService = {
         return Promise.reject(new Error('问题ID不能为空'));
       }
       return request.post(`/senior/questions/${questionId}/follow-up`, { content });
+    },
+    // AI 生成失败后重新请求学长解答
+    regenerateAnswer: (questionId) => {
+      if (!questionId || questionId === 'undefined') {
+        return Promise.reject(new Error('问题ID不能为空'));
+      }
+      return request.post(`/senior/questions/${questionId}/regenerate`);
     }
   },
   

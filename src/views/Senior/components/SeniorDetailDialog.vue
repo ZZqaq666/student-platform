@@ -29,6 +29,7 @@ const props = defineProps({
 const emit = defineEmits([
   'update:modelValue',
   'retry',
+  'regenerate',
   'toggle-like',
   'accept-answer',
   'submit-follow-up'
@@ -75,8 +76,31 @@ const canAccept = computed(() => {
   return String(props.question.authorId) === String(props.currentUserId) && !props.question.acceptedAnswerId
 })
 
+/** 学长正在生成回答 */
+const isGenerating = computed(() => props.question?.aiStatus === 'generating')
+
+/** 生成失败，提问者可重试 */
+const isFailed = computed(() => props.question?.aiStatus === 'failed')
+
+/** 当前用户是否为提问者（决定能否重试生成） */
+const isOwner = computed(
+  () => !!props.question && String(props.question.authorId) === String(props.currentUserId)
+)
+
+const pendingFollowUpCount = computed(() => {
+  const followUps = props.question?.followUps
+  if (!Array.isArray(followUps)) {
+    return 0
+  }
+  return followUps.filter((item) => item.aiStatus === 'generating').length
+})
+
 function retry() {
   emit('retry')
+}
+
+function regenerate() {
+  emit('regenerate', props.question.id)
 }
 
 function toggleLike(answerId) {
@@ -152,6 +176,17 @@ function renderAnswerContent(content) {
 
       <section class="answer-section">
         <h4 class="section-title">回答（{{ answerCount }}）</h4>
+
+        <div v-if="isGenerating" class="answer-state generating">
+          <span class="ai-dot" />
+          <span>学长正在组织答案，稍等片刻就会出现在下面</span>
+        </div>
+
+        <div v-else-if="isFailed && isOwner" class="answer-state failed">
+          <span>这次没能生成回答，可以再试一次</span>
+          <el-button size="small" type="primary" plain @click="regenerate">重新生成</el-button>
+        </div>
+
         <article v-for="answer in orderedAnswers" :key="answer.id" class="answer-card">
           <div class="answer-head">
             <div class="head-left">
@@ -168,10 +203,10 @@ function renderAnswerContent(content) {
             <button
               class="flat-btn"
               type="button"
-              :class="{ active: answer.likedByCurrentUser }"
+              :class="{ active: answer.likedByMe }"
               @click="toggleLike(answer.id)"
             >
-              {{ answer.likedByCurrentUser ? '已点赞' : '点赞' }}（{{ answer.likes }}）
+              {{ answer.likedByMe ? '已点赞' : '点赞' }}（{{ answer.likes }}）
             </button>
 
             <button
@@ -187,7 +222,7 @@ function renderAnswerContent(content) {
           </footer>
         </article>
 
-        <p v-if="!orderedAnswers.length" class="no-answer">暂无人工回复，欢迎继续追问</p>
+        <p v-if="!orderedAnswers.length && !isGenerating" class="no-answer">暂无回复，欢迎继续追问</p>
       </section>
 
       <section class="follow-up-section">
@@ -201,6 +236,9 @@ function renderAnswerContent(content) {
           placeholder="可继续补充你的问题背景或验证情况"
         />
         <div class="follow-up-actions">
+          <span v-if="pendingFollowUpCount" class="follow-up-hint">
+            <i class="ai-dot" />{{ pendingFollowUpCount }} 条追问等待学长回复
+          </span>
           <el-button type="primary" @click="submitFollowUp">提交追问</el-button>
         </div>
 
@@ -549,7 +587,58 @@ function renderAnswerContent(content) {
 .follow-up-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: 10px;
   margin-top: 10px;
+}
+
+.follow-up-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #0f766e;
+}
+
+.answer-state {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+
+.answer-state.generating {
+  color: #0f766e;
+  background: #f0fbf8;
+  border: 1px solid #d5f0e8;
+}
+
+.answer-state.failed {
+  color: #b42318;
+  background: #fff6f5;
+  border: 1px solid #f6d9d6;
+  justify-content: space-between;
+}
+
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #14b8a6;
+  animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes ai-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.25;
+  }
 }
 
 .follow-up-list {

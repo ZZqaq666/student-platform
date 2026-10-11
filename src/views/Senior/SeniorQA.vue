@@ -1,5 +1,5 @@
 <script setup>
-import { computed } from 'vue'
+import { computed, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import SeniorHeader from './components/SeniorHeader.vue'
@@ -46,13 +46,30 @@ const {
   retryLoadDetail,
   toggleAnswerLike,
   acceptAnswer,
-  submitFollowUp
+  submitFollowUp,
+  regenerateAnswer,
+  stopPolling
 } = useSeniorQA()
 
 const isSubmittingQuestion = computed(() => askState.value === UI_STATES.LOADING)
 
+// 离开页面时停止 AI 状态轮询，避免定时器泄漏
+onUnmounted(() => {
+  stopPolling()
+})
+
 function goHome() {
   router.push('/')
+}
+
+async function handleRegenerate(questionId) {
+  const result = await regenerateAnswer(questionId)
+  if (!result.ok) {
+    ElMessage.error(result.message)
+    return
+  }
+
+  ElMessage.success(result.message)
 }
 
 async function handleAskSubmit(payload) {
@@ -143,6 +160,7 @@ function handleSubmitFollowUp(content) {
       :question="activeQuestion"
       :current-user-id="currentUser.id"
       @retry="retryLoadDetail"
+      @regenerate="handleRegenerate"
       @toggle-like="handleToggleLike"
       @accept-answer="handleAcceptAnswer"
       @submit-follow-up="handleSubmitFollowUp"
