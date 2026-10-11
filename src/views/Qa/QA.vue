@@ -325,7 +325,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { streamingApiService } from '@/api/streaming'
 import { apiService } from '@/api/api'
-import { processAiResponse, processLatexOnly, markdownToPlainText } from '@/utils/markdown/aiResponse'
+import { processAiResponse, processLatexOnly, markdownToPlainText, sanitizeText } from '@/utils/markdown/aiResponse'
 import { ElMessageBox } from 'element-plus'
 
 const router = useRouter(); const route = useRoute()
@@ -980,7 +980,7 @@ const startTypingEffect = (aiMsg, full) => {
     
     // 显示下一个字符（纯文本，无Markdown符号）
     const partialText = (aiMsg._plainContent || '').substring(0, current + step);
-    aiMsg.displayContent = partialText;
+    aiMsg.displayContent = sanitizeText(partialText);
     
     // 打字过程中自动滚动到底部
     scrollToBottom();

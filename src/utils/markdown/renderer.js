@@ -1,6 +1,7 @@
 import MarkdownIt from 'markdown-it'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import DOMPurify from 'dompurify'
 
 const md = new MarkdownIt({
   html: true,
@@ -69,6 +70,7 @@ export function renderMarkdown(text) {
   })
   
   result = md.render(result)
-  
-  return result
+
+  // 最终消毒：html:true 允许内嵌 HTML 解析，但必须清除脚本/事件处理器等危险内容
+  return DOMPurify.sanitize(result)
 }

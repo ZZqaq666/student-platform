@@ -1,5 +1,6 @@
 import { ref } from 'vue'
 import { apiService } from '@/api/api'
+import DOMPurify from 'dompurify'
 
 // 学习模态数据域：目录树操作 / 阅读区 / 文本选择提问 / 学习进度
 // 注意：loadNotes 通过依赖注入传入（笔记域在编排层晚于本域创建，用闭包延迟解引用避免循环依赖）
@@ -10,6 +11,11 @@ export function useStudy({ router, showToast, books, chapters, loadNotes }) {
   const currentChapter = ref(null)
   const selectedChapter = ref(null)
   const currentContent = ref('')
+
+  // 章节正文以 HTML 形式渲染，统一在此处消毒，清除脚本/事件处理器等危险内容
+  const setCurrentContent = (raw) => {
+    currentContent.value = raw ? DOMPurify.sanitize(raw) : ''
+  }
 
   // 目录搜索
   const searchKeyword = ref('')
@@ -39,7 +45,7 @@ export function useStudy({ router, showToast, books, chapters, loadNotes }) {
   const selectChapter = (chapter) => {
     currentChapter.value = chapter
     selectedChapter.value = chapter
-    currentContent.value = chapter.content || ''
+    setCurrentContent(chapter.content)
     showSearchResults.value = false
   }
 
@@ -139,11 +145,11 @@ export function useStudy({ router, showToast, books, chapters, loadNotes }) {
       const lastChapter = chapters.findChapterById(lastChapterId, chapters.chapterTree.value)
       if (lastChapter) {
         selectedChapter.value = lastChapter
-        currentContent.value = lastChapter.content || ''
+        setCurrentContent(lastChapter.content)
       } else {
         // 如果找不到章节，默认显示第一章
         selectedChapter.value = chapters.chapterTree.value[0]
-        currentContent.value = chapters.chapterTree.value[0].content || ''
+        setCurrentContent(chapters.chapterTree.value[0].content)
       }
     } else if (chapters.chapterTree.value.length > 0) {
       // 没有学习记录，显示第一章

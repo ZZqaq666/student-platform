@@ -22,9 +22,15 @@
           >
         </div>
       </div>
-      <button class="add-textbook-btn" @click="addTextbook">
-        添加大学教材
-      </button>
+      <div class="header-actions">
+        <button class="my-notes-btn" @click="openMyNotesModal">
+          <span class="btn-icon">📝</span>
+          我的笔记
+        </button>
+        <button class="add-textbook-btn" @click="addTextbook">
+          添加大学教材
+        </button>
+      </div>
     </div>
   </div>
 </template>
@@ -32,5 +38,7 @@
 <script setup>
 import { inject } from 'vue'
 
-const { isDarkMode, toggleDarkMode, searchQuery, searchBooks, addTextbook, backToHome } = inject('bookshelfCtx')
+const {
+  isDarkMode, toggleDarkMode, searchQuery, searchBooks, addTextbook, backToHome, openMyNotesModal
+} = inject('bookshelfCtx')
 </script>

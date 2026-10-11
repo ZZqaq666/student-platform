@@ -237,6 +237,7 @@ import { useRouter, useRoute } from 'vue-router'
 import api from '@/api/api'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
+import DOMPurify from 'dompurify'
 
 const router = useRouter(); const route = useRoute()
 
@@ -480,7 +481,7 @@ const renderKaTeX = (text) => {
   result = result.replace(/\$\$([\s\S]*?)\$\$/g, (m, f) => tryRenderDisplay(f) || m);
   result = result.replace(/\$([^$\n]+?)\$/g, (m, f) => tryRender(f) || m);
 
-  return result;
+  return result ? DOMPurify.sanitize(result) : result;
 }
 
 /* ========== 数据获取 ========== */

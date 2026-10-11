@@ -5385,3 +5385,299 @@
 .dark-mode .chapter-content .example strong {
   color: #64b5f6;
 }
+
+/* ===== 「我的笔记」入口按钮（页头搜索栏右侧） ===== */
+.search-wrapper .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.search-wrapper .search-container {
+  margin-right: -290px;
+}
+
+.my-notes-btn {
+  padding: 12px 24px;
+  background: linear-gradient(90deg, #6366f1 0%, #4f46e5 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-family: 'Microsoft YaHei', sans-serif;
+  white-space: nowrap;
+  z-index: 10;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.my-notes-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.my-notes-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 6px rgba(99, 102, 241, 0.2);
+}
+
+/* ===== 笔记删除二次确认层（浮于笔记模态之上） ===== */
+.note-confirm-overlay {
+  z-index: 1600;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm-note-title {
+  margin: 12px 0 0;
+  font-size: 14px;
+  color: #6b7280;
+  text-align: center;
+  word-break: break-all;
+}
+
+.dark-mode .confirm-note-title {
+  color: #9ca3af;
+}
+
+.dark-mode .confirm-modal {
+  background: #1f2937;
+}
+
+.dark-mode .confirm-header {
+  background: #374151;
+  border-bottom-color: #4b5563;
+}
+
+.dark-mode .confirm-title {
+  color: #f9fafb;
+}
+
+.dark-mode .confirm-message {
+  color: #cbd5e1;
+}
+
+.dark-mode .confirm-btn.cancel {
+  background: #4b5563;
+  color: #e5e7eb;
+  border-color: #6b7280;
+}
+
+.dark-mode .confirm-btn.cancel:hover {
+  background: #6b7280;
+}
+
+/* ===== 跨书笔记总览模态 ===== */
+.my-notes-modal {
+  max-width: 900px;
+  width: 90%;
+  height: 640px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  padding: 24px 28px;
+}
+
+.my-notes-modal .modal-header {
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+}
+
+.my-notes-search {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.my-notes-search-input {
+  width: 100%;
+  padding: 10px 36px 10px 16px;
+  border: 2px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'Microsoft YaHei', sans-serif;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.my-notes-search-input:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.my-notes-search .clear-btn {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: none;
+  color: #6b7280;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.my-notes-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.my-notes-group {
+  margin-bottom: 20px;
+}
+
+.my-notes-group-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 4px;
+  margin-bottom: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.my-notes-group-title .group-count {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 500;
+  color: #fff;
+  background: #6366f1;
+  border-radius: 10px;
+  padding: 2px 8px;
+}
+
+.my-notes-item {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.my-notes-item:hover {
+  border-color: #6366f1;
+  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+}
+
+.my-notes-item.opening {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.my-notes-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.my-notes-item-chapter {
+  margin-bottom: 6px;
+}
+
+.my-notes-item-preview {
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.5;
+  margin-bottom: 8px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.my-notes-item-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.my-notes-open {
+  color: #6366f1;
+}
+
+.dark-mode .my-notes-modal {
+  background: #1f2937;
+}
+
+.dark-mode .my-notes-search-input {
+  background: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark-mode .my-notes-search-input:focus {
+  border-color: #818cf8;
+}
+
+.dark-mode .my-notes-group-title {
+  color: #e5e7eb;
+  border-bottom-color: #374151;
+}
+
+.dark-mode .my-notes-item {
+  background: #374151;
+  border-color: #4b5563;
+}
+
+.dark-mode .my-notes-item:hover {
+  border-color: #818cf8;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.dark-mode .my-notes-item-title {
+  color: #f9fafb;
+}
+
+.dark-mode .my-notes-item-preview {
+  color: #9ca3af;
+}
+
+.dark-mode .my-notes-item-meta {
+  color: #9ca3af;
+}
+
+.dark-mode .my-notes-open {
+  color: #818cf8;
+}
+
+.dark-mode .my-notes-search .clear-btn {
+  color: #9ca3af;
+}
+
+/* ===== 笔记模态布局修复 =====
+   原样式：.note-content 固定 height:600px + overflow:hidden，
+   当右侧编辑列（章节选择器 + 标题 + 工具栏 + 文本域 + 预览 + 操作区）总高超过 600px 时，
+   底部「保存 / 取消」操作区被裁掉 —— 元素仍在 DOM 里但画不出来，真实鼠标点不到，
+   导致保存链路根本走不通。改为纵向弹性布局 + 允许文本域收缩，保证操作区始终可见可点。 */
+.note-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.note-content {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+.note-content-textarea {
+  min-height: 0;
+}

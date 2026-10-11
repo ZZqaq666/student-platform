@@ -57,7 +57,7 @@
                   <div class="note-item-preview">{{ getNotePreview(note.content) }}</div>
                   <div class="note-item-meta">
                     <span class="note-date">{{ formatNoteDate(note.updatedAt || note.createdAt) }}</span>
-                    <button class="delete-note-btn" @click.stop="deleteNote(note.id)">×</button>
+                    <button class="delete-note-btn" @click.stop="requestDeleteNote(note.id)">×</button>
                   </div>
                 </div>
               </div>
@@ -135,18 +135,22 @@
         </div>
       </div>
     </div>
+
+    <!-- 删除确认层（置于笔记模态之上） -->
+    <NoteDeleteConfirm />
   </div>
 </template>
 
 <script setup>
 import { inject } from 'vue'
+import NoteDeleteConfirm from './NoteDeleteConfirm.vue'
 
 const {
   isDarkMode,
   showNoteModal, closeNoteModal, currentNote,
   showExportOptions, exportNotes,
   noteSearchQuery, searchNotes, clearNoteSearch, filteredNotes, noteLoading,
-  openNoteDetail, deleteNote, createNewNote,
+  openNoteDetail, requestDeleteNote, createNewNote,
   getNotePreview, formatNoteDate,
   chapterTree, getChapterTitleById, selectedNoteChapterId,
   noteTitle, insertMarkdown, insertSelectedText, selectedText,

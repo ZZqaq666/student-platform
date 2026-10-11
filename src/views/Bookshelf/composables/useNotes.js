@@ -77,6 +77,33 @@ export function useNotes({ showToast, study, chapters }) {
     }
   }
 
+  // 删除确认弹窗状态（页面内二次确认，替代原生 confirm）
+  const showDeleteNoteConfirm = ref(false)
+  const pendingDeleteNote = ref(null)
+
+  // 将左侧列表中当前选中的笔记滚动到可视区域
+  const focusActiveNoteItem = () => {
+    const activeItem = document.querySelector('.note-item.active')
+    if (activeItem && typeof activeItem.scrollIntoView === 'function') {
+      activeItem.scrollIntoView({ block: 'nearest' })
+    }
+  }
+
+  // 保存成功后联动：刷新列表 → 选中该笔记 → 滚动定位（不关闭模态）
+  const applySavedNote = async (savedNote) => {
+    await loadNotes()
+
+    const savedId = String(savedNote?.id ?? '')
+    const matched = notes.value.find(note => String(note.id) === savedId)
+    const target = matched || savedNote
+
+    if (target) {
+      openNoteDetail(target)
+      await nextTick()
+      focusActiveNoteItem()
+    }
+  }
+
   // 创建笔记
   const createNote = async () => {
     if (!study.studyBook.value || !noteTitle.value.trim()) {
@@ -93,10 +120,12 @@ export function useNotes({ showToast, study, chapters }) {
         chapterId: selectedNoteChapterId.value || study.currentChapter.value?.id
       })
 
-      if (response.code === 200) {
+      if (response.code === 200 && response.data) {
         showToast('笔记创建成功')
-        await loadNotes()
-        closeNoteModal()
+        // 行为变更：保存后不再关闭模态，而是刷新列表并选中刚创建的笔记
+        await applySavedNote(response.data)
+      } else {
+        showToast('创建笔记失败', false)
       }
     } catch (error) {
       console.error('创建笔记失败:', error)
@@ -121,10 +150,12 @@ export function useNotes({ showToast, study, chapters }) {
         chapterId: selectedNoteChapterId.value || currentNote.value.chapterId
       })
 
-      if (response.code === 200) {
+      if (response.code === 200 && response.data) {
         showToast('笔记更新成功')
-        await loadNotes()
-        closeNoteModal()
+        // 行为变更：保存后不再关闭模态，而是刷新列表并保持选中该笔记
+        await applySavedNote(response.data)
+      } else {
+        showToast('更新笔记失败', false)
       }
     } catch (error) {
       console.error('更新笔记失败:', error)
@@ -134,10 +165,32 @@ export function useNotes({ showToast, study, chapters }) {
     }
   }
 
+  // 请求删除笔记：先弹出页面内确认框，确认后才真正删除
+  const requestDeleteNote = (noteId) => {
+    const target = notes.value.find(note => String(note.id) === String(noteId))
+    pendingDeleteNote.value = target || { id: noteId, title: noteTitle.value || '未命名笔记' }
+    showDeleteNoteConfirm.value = true
+  }
+
+  // 取消删除（仅关闭确认层，不影响笔记模态）
+  const cancelDeleteNote = () => {
+    showDeleteNoteConfirm.value = false
+    pendingDeleteNote.value = null
+  }
+
+  // 确认删除
+  const confirmDeleteNote = async () => {
+    const noteId = pendingDeleteNote.value?.id
+    if (!noteId) {
+      cancelDeleteNote()
+      return
+    }
+    await deleteNote(noteId)
+    cancelDeleteNote()
+  }
+
   // 删除笔记
   const deleteNote = async (noteId) => {
-    if (!confirm('确定要删除这条笔记吗？')) return
-
     noteLoading.value = true
     try {
       const response = await apiService.note.deleteNote(noteId)
@@ -178,6 +231,9 @@ export function useNotes({ showToast, study, chapters }) {
   // 关闭笔记模态框
   const closeNoteModal = () => {
     showNoteModal.value = false
+    // 关闭笔记模态时一并收起删除确认层，避免残留悬浮层
+    showDeleteNoteConfirm.value = false
+    pendingDeleteNote.value = null
     currentNote.value = null
     noteTitle.value = ''
     noteContent.value = ''
@@ -296,7 +352,10 @@ export function useNotes({ showToast, study, chapters }) {
     showNoteModal, notes, currentNote, noteContent, noteTitle, noteLoading,
     noteSearchQuery, selectedNoteChapterId, showNotePreview, showExportOptions, noteTextarea,
     filteredNotes,
-    loadNotes, createNote, updateNote, deleteNote, openNoteDetail, createNewNote, closeNoteModal,
+    showDeleteNoteConfirm, pendingDeleteNote,
+    loadNotes, createNote, updateNote,
+    requestDeleteNote, confirmDeleteNote, cancelDeleteNote, deleteNote,
+    openNoteDetail, createNewNote, closeNoteModal,
     searchNotes, clearNoteSearch,
     insertMarkdown, insertSelectedText, exportNotes,
     getNotePreview, renderMarkdownPreview, formatNoteDate

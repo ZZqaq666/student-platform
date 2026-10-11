@@ -28,6 +28,9 @@
   <!-- 笔记模态框 -->
   <NoteModal />
 
+  <!-- 跨书笔记总览模态框 -->
+  <MyNotesModal />
+
   <!-- 编辑书籍模态框 -->
   <EditBookModal />
 </template>
@@ -48,6 +51,7 @@ import { useChapters } from './composables/useChapters'
 import { useBookDetail } from './composables/useBookDetail'
 import { useStudy } from './composables/useStudy'
 import { useNotes } from './composables/useNotes'
+import { useAllNotes } from './composables/useAllNotes'
 import { useAddTextbook } from './composables/useAddTextbook'
 import { useEditBook } from './composables/useEditBook'
 
@@ -60,6 +64,7 @@ import ConfirmDeleteModal from './components/ConfirmDeleteModal.vue'
 import BookDetailModal from './components/BookDetailModal.vue'
 import StudyModal from './components/StudyModal.vue'
 import NoteModal from './components/NoteModal.vue'
+import MyNotesModal from './components/MyNotesModal.vue'
 import EditBookModal from './components/EditBookModal.vue'
 
 const router = useRouter()
@@ -115,12 +120,22 @@ const {
   showNoteModal, notes, currentNote, noteContent, noteTitle, noteLoading,
   noteSearchQuery, selectedNoteChapterId, showNotePreview, showExportOptions, noteTextarea,
   filteredNotes,
-  loadNotes, createNote, updateNote, deleteNote, openNoteDetail, createNewNote, closeNoteModal,
+  showDeleteNoteConfirm, pendingDeleteNote,
+  loadNotes, createNote, updateNote,
+  requestDeleteNote, confirmDeleteNote, cancelDeleteNote, deleteNote,
+  openNoteDetail, createNewNote, closeNoteModal,
   searchNotes, clearNoteSearch,
   insertMarkdown, insertSelectedText, exportNotes,
   getNotePreview, renderMarkdownPreview, formatNoteDate
 } = useNotes({ showToast, study: { studyBook, currentChapter, selectedText }, chapters })
 Object.assign(notesApi, { loadNotes })
+
+// 跨书笔记总览域：依赖 study.startStudy（打开学习模态）与 notes.openNoteDetail（选中笔记）
+const {
+  showMyNotesModal, allNotes, allNotesLoading, allNotesSearchQuery,
+  filteredAllNotes, groupedAllNotes, openingNoteId,
+  loadAllNotes, openMyNotesModal, closeMyNotesModal, openNoteFromOverview
+} = useAllNotes({ showToast, books, startStudy, openNoteDetail })
 
 const {
   showAddTextbookModal, textbookSearchQuery,
@@ -197,6 +212,13 @@ provide('bookshelfCtx', {
   searchNotes, clearNoteSearch, insertMarkdown, insertSelectedText, exportNotes,
   getNotePreview, renderMarkdownPreview, formatNoteDate,
   getChapterTitleById: chapters.getChapterTitleById,
+  // 笔记删除二次确认
+  showDeleteNoteConfirm, pendingDeleteNote,
+  requestDeleteNote, confirmDeleteNote, cancelDeleteNote,
+  // 跨书笔记总览
+  showMyNotesModal, allNotes, allNotesLoading, allNotesSearchQuery,
+  filteredAllNotes, groupedAllNotes, openingNoteId,
+  loadAllNotes, openMyNotesModal, closeMyNotesModal, openNoteFromOverview,
   // 编辑书籍
   showEditBookModal, editBookForm, editLoading, saveBookChanges
 })

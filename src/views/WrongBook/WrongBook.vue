@@ -406,10 +406,12 @@ const editForm = reactive({
 const fetchWrongBookList = async () => {
   loading.value = true
   try {
+    // 后端限制了单页上限 MAX_PAGE_SIZE=1000，这里保持一致；
+    // 数据是由后端全量返回后本地切片，故取该上限值即可
     const requestData = {
       ...filterForm,
       pageNum: 1,
-      pageSize: 10000
+      pageSize: 1000
     }
 
     const response = await api.post('/exercise/wrong-book/filter', requestData)
