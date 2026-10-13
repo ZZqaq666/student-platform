@@ -77,7 +77,12 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public Flux<SseMessage> generateStreamResponseWithContext(String context, String question, String sessionId) {
-        return generateStreamResponseWithContextInternal(context, question, sessionId);
+        return generateStreamResponseWithContextInternal(context, question, sessionId, null);
+    }
+
+    @Override
+    public Flux<SseMessage> generateStreamResponseWithContext(String context, String question, String sessionId, Long userId) {
+        return generateStreamResponseWithContextInternal(context, question, sessionId, userId);
     }
 
     @Override
@@ -99,6 +104,12 @@ public class AiServiceImpl implements AiService {
     }
 
     public String generateResponseWithContext(String context, String question, String sessionId) {
+        // 无用户归属的调用（服务内部批量任务）一律不缓存，见 buildCacheKey
+        return generateResponseWithContext(context, question, sessionId, null);
+    }
+
+    @Override
+    public String generateResponseWithContext(String context, String question, String sessionId, Long userId) {
         try {
             log.info("生成 AI 响应，会话ID：{}", sessionId);
 
@@ -108,7 +119,7 @@ public class AiServiceImpl implements AiService {
             }
 
             String fullContext = buildSessionContext(context, question, sessionId);
-            String cacheKey = buildCacheKey(sessionId, question);
+            String cacheKey = buildCacheKey(userId, sessionId, question);
             String cachedResponse = aiCacheManager.get(cacheKey);
             
             if (cachedResponse != null) {
@@ -131,6 +142,10 @@ public class AiServiceImpl implements AiService {
     }
 
     public Flux<SseMessage> generateStreamResponseWithContextInternal(String context, String question, String sessionId) {
+        return generateStreamResponseWithContextInternal(context, question, sessionId, null);
+    }
+
+    public Flux<SseMessage> generateStreamResponseWithContextInternal(String context, String question, String sessionId, Long userId) {
         try {
             log.info("生成 AI 流式响应，会话ID：{}", sessionId);
 
@@ -140,7 +155,7 @@ public class AiServiceImpl implements AiService {
             }
 
             String fullContext = buildSessionContext(context, question, sessionId);
-            String cacheKey = buildCacheKey(sessionId, question);
+            String cacheKey = buildCacheKey(userId, sessionId, question);
             String cachedResponse = aiCacheManager.get(cacheKey);
             
             Flux<SseMessage> responseFlux;
@@ -151,15 +166,14 @@ public class AiServiceImpl implements AiService {
             } else {
                 String prompt = buildPrompt(fullContext, question);
 
-                if (streamingChatModel != null) {
-                    responseFlux = createStreamWithModel(prompt, cacheKey, sessionId, question);
-                } else {
-                    log.warn("AI模型未初始化，使用模拟响应");
-                    String mockResponse = "这是一个模拟的 AI 流式响应：" + prompt;
-                    aiCacheManager.put(cacheKey, mockResponse);
-                    updateSessionMessages(sessionId, question, mockResponse);
-                    responseFlux = createCachedStream(mockResponse);
+                if (streamingChatModel == null) {
+                    // 原先这里会把 prompt 拼成"这是一个模拟的 AI 流式响应："当答案返回，
+                    // 还写进缓存：用户看到的是自己被回声，且这个假答案会被后续请求长期命中。
+                    // 模型没配好属于部署故障，必须显式失败。
+                    log.error("AI 模型未初始化，拒绝以模拟回答冒充 AI 结果");
+                    return Flux.just(SseMessage.error("AI 服务未正确配置，请检查 DEEPSEEK_API_KEY。"));
                 }
+                responseFlux = createStreamWithModel(prompt, cacheKey, sessionId, question);
             }
             
             // 返回响应流（sessionId通过SseMessage对象的字段传递，不在消息内容中）
@@ -454,8 +468,42 @@ public class AiServiceImpl implements AiService {
         return sessionContext.toString();
     }
 
-    private String buildCacheKey(String sessionId, String question) {
-        return (sessionId != null ? sessionId + ":" : "") + question.trim();
+    /**
+     * 构造 AI 回答缓存键。
+     *
+     * 两点必须成立：
+     * 1) 含用户维度。原键只有 sessionId + question，而 sessionId 由前端持久化复用，
+     *    两个用户问出同一句话就会互相命中对方的回答（跨用户串台）。
+     * 2) userId 缺失时返回 null，读写一并跳过。服务内部的批量/提取类调用没有用户
+     *    上下文，其 prompt 里往往已拼了该用户最近问答，宁可不缓存也不能共用一个键。
+     *
+     * 问题正文参与哈希而不进键名，避免键长随提问长度无界增长。
+     */
+    private String buildCacheKey(Long userId, String sessionId, String question) {
+        if (userId == null) {
+            return null;
+        }
+        String raw = (sessionId != null ? sessionId + ":" : "")
+                + (question != null ? question.trim() : "");
+        String digest = sha256Hex(raw);
+        return digest == null ? null : userId + ":" + digest;
+    }
+
+    private String sha256Hex(String raw) {
+        try {
+            byte[] digest = java.security.MessageDigest.getInstance("SHA-256")
+                    .digest(raw.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte b : digest) {
+                hex.append(Character.forDigit((b >> 4) & 0xF, 16));
+                hex.append(Character.forDigit(b & 0xF, 16));
+            }
+            return hex.toString();
+        } catch (java.security.NoSuchAlgorithmException e) {
+            // SHA-256 是 JDK 必备算法；真拿不到就退化为不缓存
+            log.error("计算缓存键失败，本次不缓存: {}", e.getMessage());
+            return null;
+        }
     }
 
     /**

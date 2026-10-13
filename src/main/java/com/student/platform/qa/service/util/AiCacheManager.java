@@ -1,148 +1,64 @@
 package com.student.platform.qa.service.util;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * AI 缓存管理器
- * 负责 AI 服务缓存的创建、获取、清理和淘汰等操作
+ * AI 回答缓存。
+ *
+ * 此前是进程内 ConcurrentHashMap（"分布式缓存"名不副实）：多实例各存一套、
+ * 重启即失、且每次 put 都要全表扫描清理过期项并按时间戳挑一个淘汰（O(n)）。
+ * 换成 Redis 后过期交给 TTL，不再有扫描与淘汰逻辑。
+ *
+ * 键必须由调用方保证含用户维度（见 AiServiceImpl#buildCacheKey），否则不同用户
+ * 的问答会互相命中——那正是原来串台的成因。
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class AiCacheManager {
 
-    @Value("${ai.cache.max-size:1000}")
-    private int maxCacheSize;
+    private static final String KEY_PREFIX = "ai:answer:";
 
     @Value("${ai.cache.expiry-hours:24}")
     private int cacheExpiryHours;
 
-    private final Map<String, CacheItem> cache = new ConcurrentHashMap<>();
+    private final StringRedisTemplate stringRedisTemplate;
 
     /**
-     * 缓存项
-     */
-    private class CacheItem {
-        private final String content;
-        private final Instant createdAt;
-
-        public CacheItem(String content) {
-            this.content = content;
-            this.createdAt = Instant.now();
-        }
-
-        public String getContent() {
-            return content;
-        }
-
-        public boolean isExpired() {
-            return Instant.now().isAfter(createdAt.plus(Duration.ofHours(cacheExpiryHours)));
-        }
-
-        public Instant getCreatedAt() {
-            return createdAt;
-        }
-    }
-
-    /**
-     * 从缓存中获取内容
-     * @param key 缓存键
-     * @return 缓存的内容，如果缓存不存在或已过期则返回null
+     * key 为 null 表示"本次调用没有用户归属，不缓存"，读写一并跳过。
      */
     public String get(String key) {
-        CacheItem item = cache.get(key);
-        if (item != null) {
-            if (item.isExpired()) {
-                cache.remove(key);
-                log.info("缓存项已过期并移除: {}", key);
-                return null;
-            }
-            log.info("从缓存中获取响应: {}", key);
-            return item.getContent();
+        if (key == null) {
+            return null;
         }
-        return null;
+        try {
+            String value = stringRedisTemplate.opsForValue().get(KEY_PREFIX + key);
+            if (value != null) {
+                log.debug("命中 AI 回答缓存: {}", key);
+            }
+            return value;
+        } catch (Exception e) {
+            // 缓存不是正确性依赖：Redis 抖动时退化为"没有缓存"，不能让问答失败
+            log.warn("读取 AI 回答缓存失败，按未命中处理: {}", e.getMessage());
+            return null;
+        }
     }
 
-    /**
-     * 添加内容到缓存
-     * @param key 缓存键
-     * @param content 缓存内容
-     */
     public void put(String key, String content) {
-        // 清理过期缓存
-        cleanupExpiredCache();
-
-        // 检查缓存大小，达到上限则移除最旧的缓存项
-        if (cache.size() >= maxCacheSize) {
-            evictOldestCacheItem();
+        if (key == null || content == null || content.isBlank()) {
+            return;
         }
-
-        cache.put(key, new CacheItem(content));
-        log.info("缓存响应: {}, 当前缓存大小: {}", key, cache.size());
-    }
-
-    /**
-     * 清理过期的缓存项
-     */
-    public void cleanupExpiredCache() {
-        List<String> expiredKeys = new ArrayList<>();
-        for (Map.Entry<String, CacheItem> entry : cache.entrySet()) {
-            if (entry.getValue().isExpired()) {
-                expiredKeys.add(entry.getKey());
-            }
+        try {
+            stringRedisTemplate.opsForValue().set(
+                    KEY_PREFIX + key, content, Duration.ofHours(Math.max(1, cacheExpiryHours)));
+        } catch (Exception e) {
+            log.warn("写入 AI 回答缓存失败，忽略: {}", e.getMessage());
         }
-
-        for (String key : expiredKeys) {
-            cache.remove(key);
-        }
-
-        if (!expiredKeys.isEmpty()) {
-            log.info("清理过期缓存项: {} 个", expiredKeys.size());
-        }
-    }
-
-    /**
-     * 移除最旧的缓存项
-     */
-    public void evictOldestCacheItem() {
-        String oldestKey = null;
-        Instant oldestTime = Instant.now();
-
-        for (Map.Entry<String, CacheItem> entry : cache.entrySet()) {
-            Instant createdAt = entry.getValue().getCreatedAt();
-            if (createdAt.isBefore(oldestTime)) {
-                oldestTime = createdAt;
-                oldestKey = entry.getKey();
-            }
-        }
-
-        if (oldestKey != null) {
-            cache.remove(oldestKey);
-            log.info("缓存达到上限，移除最旧的缓存项: {}", oldestKey);
-        }
-    }
-
-    /**
-     * 获取当前缓存大小
-     * @return 缓存大小
-     */
-    public int size() {
-        return cache.size();
-    }
-
-    /**
-     * 清空缓存
-     */
-    public void clear() {
-        cache.clear();
-        log.info("缓存已清空");
     }
 }

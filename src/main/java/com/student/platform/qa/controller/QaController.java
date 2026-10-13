@@ -269,7 +269,7 @@ public class QaController {
             // 标记是否是第一个消息
             final boolean[] isFirstMessage = {true};
             
-            aiService.generateStreamResponseWithContext(fullContext, request.getQuestion(), currentSessionId).subscribe(
+            aiService.generateStreamResponseWithContext(fullContext, request.getQuestion(), currentSessionId, finalUserId).subscribe(
                 // onNext: 处理每个流式消息片段
                 message -> {
                     // 如果是数据消息（AI回答内容），则收集到fullResponse中
@@ -358,7 +358,7 @@ public class QaController {
             // 非流式提问必然要等 AI 出完整答案，但不该由 Tomcat 请求线程去等：
             // 交给 MVC 异步，容器线程立刻归还，等待发生在专用的有界池上。
             return CompletableFuture.supplyAsync(() -> {
-                String response = aiService.generateResponseWithContext(context, request.getQuestion(), sessionId);
+                String response = aiService.generateResponseWithContext(context, request.getQuestion(), sessionId, userId);
 
                 // 保存历史记录
                 // 安全基线：只认当前登录用户（游客为 null，仅不落历史）

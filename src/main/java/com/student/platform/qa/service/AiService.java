@@ -52,6 +52,15 @@ public interface AiService {
      * @return AI回答内容
      */
     String generateResponseWithContext(String context, String question, String sessionId);
+
+    /**
+     * 带用户归属的版本：AI 回答缓存键必须含 userId，否则不同用户会互相命中对方的回答。
+     * userId 传 null 表示无用户上下文，此时读写缓存一并跳过。
+     *
+     * 注意：身份必须在进入异步线程前由调用方取出并传进来，SecurityContext 与
+     * RequestContextHolder 都是 ThreadLocal，到工作线程上已经取不到。
+     */
+    String generateResponseWithContext(String context, String question, String sessionId, Long userId);
     
     /**
      * 生成基于上下文的流式响应
@@ -71,6 +80,11 @@ public interface AiService {
      * @return Flux流，包含SSE消息
      */
     Flux<SseMessage> generateStreamResponseWithContext(String context, String question, String sessionId);
+
+    /**
+     * 带用户归属的流式版本，缓存键含 userId；userId 为 null 时不缓存。
+     */
+    Flux<SseMessage> generateStreamResponseWithContext(String context, String question, String sessionId, Long userId);
     
     /**
      * 生成基于上下文的流式响应（带完成回调）
