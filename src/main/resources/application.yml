@@ -28,12 +28,6 @@ spring:
           max-active: 8
           max-idle: 8
           min-idle: 0
-  rabbitmq:
-    host: ${RABBIT_HOST:localhost}
-    port: ${RABBIT_PORT:5672}
-    username: ${RABBIT_USER:guest}
-    password: ${RABBIT_PASS:guest}
-    virtual-host: ${RABBIT_VHOST:/}
   servlet:
     multipart:
       max-file-size: 20MB

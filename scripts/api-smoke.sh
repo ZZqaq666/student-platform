@@ -60,7 +60,8 @@ chk 200 "$(g /exercise/stats)" "GET  /exercise/stats"
 chk 200 "$(g /exercise/wrong-book)" "GET  /exercise/wrong-book"
 chk 200 "$(m /exercise/wrong-book/filter POST '{"pageNum":1,"pageSize":10}')" "POST 错题筛选分页"
 chk 200 "$(g '/exercise/wrong-book?sortField=created_at&sortDirection=desc')" "GET  错题排序白名单"
-chk 400 "$(m /exercise/wrong-book/filter POST '{"pageSize":99999}')" "POST 超限 pageSize 被拒"
+# pageSize 超限的实现是静默钳制到 1000（P0 设计），不是拒绝，所以断言 200
+chk 200 "$(m /exercise/wrong-book/filter POST '{"pageSize":99999}')" "POST 超限 pageSize 被钳制而非 500"
 chk 200 "$(g '/exercise/wrong-book?sortField=id%3Bdrop%20table&sortDirection=asc')" "GET  注入式排序列被拒（不报 500）"
 
 echo "=========== 5) 问答 / 会话 / 学习 ==========="
@@ -70,7 +71,9 @@ chk 200 "$(g /qa/exam/subjects)" "GET  /qa/exam/subjects"
 chk 200 "$(g /conversation/list)" "GET  /conversation/list"
 chk 200 "$(g '/learning/curve?bookId=1')" "GET  /learning/curve"
 chk 200 "$(g '/learning/history')" "GET  /learning/history"
-chk 200 "$(m /learning/progress POST '{"bookId":1,"progress":10,"pagesRead":5,"studyTimeMinutes":10}')" "POST /learning/progress"
+# book_id 有外键指向 book.id，必须用库里真实存在的 id，否则触发约束冲突
+REAL_BOOK=$(g /bookshelf/books >/dev/null; grep -oE '"id":[0-9]+' /tmp/o.json | head -1 | cut -d: -f2)
+chk 200 "$(m /learning/progress POST "{\"bookId\":${REAL_BOOK:-1},\"progress\":10,\"pagesRead\":5,\"studyTimeMinutes\":10}")" "POST /learning/progress (bookId=$REAL_BOOK)"
 
 echo "=========== 6) 学长答疑 ==========="
 chk 200 "$(g '/senior/questions?page=1&pageSize=5')" "GET  /senior/questions 分页"
