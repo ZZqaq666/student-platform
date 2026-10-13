@@ -1,5 +1,6 @@
 import { ref, computed, nextTick } from 'vue'
 import { apiService } from '@/api/api'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
 import { getNotePreview, renderMarkdownPreview } from '../utils/markdown'
 import { formatNoteDate } from '../utils/formatters'
 
@@ -48,8 +49,14 @@ export function useNotes({ showToast, study, chapters }) {
         })
       }
     } catch (error) {
+      if (!MOCK_FALLBACK_ENABLED) {
+        console.error('加载笔记失败:', error)
+        notes.value = []
+        showToast('笔记加载失败，请稍后重试', false)
+        return
+      }
       console.error('加载笔记失败，使用mock数据:', error)
-      // 使用mock数据作为回退
+      // 仅开发演示允许回退到 mock 笔记
       notes.value = [
         {
           id: 'note_1',

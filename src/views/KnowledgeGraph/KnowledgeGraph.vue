@@ -347,6 +347,7 @@ import { ref, computed, onMounted, reactive, nextTick, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import api, { apiService } from '@/api/api'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
 
 const router = useRouter()
 const route = useRoute()
@@ -769,6 +770,18 @@ const applyBookSwitch = async () => {
     console.warn('从后端获取知识图谱失败:', error.message)
   } finally {
     isLoadingGraph.value = false
+  }
+
+  if (!MOCK_FALLBACK_ENABLED) {
+    // 后端没有这本图谱时，生产环境显示空图谱并明确提示，
+    // 不能套用内置的假节点——用户会以为那是真知识点
+    graphData.nodes = []
+    graphData.links = []
+    graphKey.value++
+    currentBook.value = target
+    showBookPanel.value = false
+    ElMessage.error('该教材的知识图谱数据尚未生成')
+    return
   }
 
   const preset = getGraphForBook(target)

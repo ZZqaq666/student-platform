@@ -234,7 +234,9 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage } from 'element-plus'
 import api from '@/api/api'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
 import katex from 'katex'
 import 'katex/dist/katex.min.css'
 import DOMPurify from 'dompurify'
@@ -508,7 +510,15 @@ const fetchExercises = async () => {
       if (r.code===200) exercises.value=r.data.map(convertExerciseFormat)
     }
   } catch(e) { console.error(e) }
-  if (!exercises.value.length) exercises.value = generateMock()
+  if (!exercises.value.length) {
+    // 注意这里原本无条件造 5 道假题：接口成功但返回空列表时也会触发，
+    // 生产环境等于凭空捏造题库。现在只有开发演示允许兜底。
+    if (MOCK_FALLBACK_ENABLED) {
+      exercises.value = generateMock()
+    } else {
+      ElMessage.error('暂无可用习题，请稍后重试')
+    }
+  }
 }
 
 const generateMock = () => {

@@ -326,7 +326,8 @@ import { useAuthStore } from '@/stores/auth'
 import { streamingApiService } from '@/api/streaming'
 import { apiService } from '@/api/api'
 import { processAiResponse, processLatexOnly, markdownToPlainText, sanitizeText } from '@/utils/markdown/aiResponse'
-import { ElMessageBox } from 'element-plus'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
+import { ElMessage, ElMessageBox } from 'element-plus'
 
 const router = useRouter(); const route = useRoute()
 
@@ -682,8 +683,14 @@ const fetchBooks = async () => {
       return;
     }
   } catch (e) {
+    console.error('获取教材列表失败:', e)
   }
-  books.value = MOCK_BOOKS
+  if (MOCK_FALLBACK_ENABLED) {
+    books.value = MOCK_BOOKS
+  } else {
+    books.value = []
+    ElMessage.error('教材列表加载失败，请稍后重试')
+  }
   loading.value.books = false
 }
 const fetchChapters = async (id) => {

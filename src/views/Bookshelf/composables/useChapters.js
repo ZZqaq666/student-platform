@@ -1,5 +1,7 @@
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { apiService } from '@/api/api'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
 
 // 章节树数据域：详情弹窗完整目录与学习模态共用
 export function useChapters() {
@@ -42,8 +44,14 @@ export function useChapters() {
       // 默认展开所有章节
       expandAllChapters(chapterTree.value)
     } catch (error) {
+      if (!MOCK_FALLBACK_ENABLED) {
+        console.error('获取章节树失败:', error)
+        chapterTree.value = []
+        ElMessage.error('章节加载失败，请稍后重试')
+        return
+      }
       console.error('获取章节树失败，使用mock数据:', error)
-      // 使用mock数据作为回退
+      // 仅开发演示允许回退到 mock 章节树
       chapterTree.value = [
         {
           id: 'chapter_1',

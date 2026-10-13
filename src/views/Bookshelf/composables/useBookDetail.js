@@ -1,5 +1,7 @@
 import { ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { apiService } from '@/api/api'
+import { MOCK_FALLBACK_ENABLED } from '@/utils/mockFallback'
 
 // 书籍详情弹窗数据域（含推荐书籍/用户评价）
 export function useBookDetail({ chapters, updateLastClicked }) {
@@ -46,12 +48,23 @@ export function useBookDetail({ chapters, updateLastClicked }) {
           bookRecommendations.value.recommendedBooks.length === 0 ||
           !bookRecommendations.value.userReviews ||
           bookRecommendations.value.userReviews.length === 0) {
+        if (!MOCK_FALLBACK_ENABLED) {
+          // 接口成功但没有推荐数据：生产环境显示空状态，不编造书目与评价
+          bookRecommendations.value = { recommendedBooks: [], userReviews: [] }
+          return
+        }
         console.log('后端返回的推荐数据为空，使用mock数据:', bookRecommendations.value)
         bookRecommendations.value = generateMockRecommendations(bookId)
       }
     } catch (error) {
+      if (!MOCK_FALLBACK_ENABLED) {
+        console.error('获取书籍推荐失败:', error)
+        bookRecommendations.value = { recommendedBooks: [], userReviews: [] }
+        ElMessage.error('推荐加载失败，请稍后重试')
+        return
+      }
       console.error('获取书籍推荐失败，使用mock数据:', error)
-      // 使用mock数据作为回退
+      // 仅开发演示允许回退到 mock 推荐
       bookRecommendations.value = generateMockRecommendations(bookId)
     } finally {
       recommendationsLoading.value = false
