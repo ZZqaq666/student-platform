@@ -166,6 +166,14 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(401, "刷新令牌无效或已过期");
         }
 
+        // /auth/refresh 在 JwtAuthFilter 白名单里，过滤器不会替我们查吊销名单，
+        // 所以这里必须自己查——否则登出与被轮换掉的刷新令牌依然能续期。
+        // Redis 不可用时按已吊销处理（fail-closed），与 JwtAuthFilter 保持一致。
+        String currentTokenId = jwtUtil.extractTokenId(refreshToken);
+        if (isTokenRevoked(currentTokenId)) {
+            throw new BusinessException(401, "刷新令牌已失效，请重新登录");
+        }
+
         String username = jwtUtil.extractUsername(refreshToken);
         Long userId = jwtUtil.extractUserId(refreshToken);
 
@@ -184,8 +192,7 @@ public class UserServiceImpl implements UserService {
 
         // 轮换：旧刷新令牌一次性使用，换出新令牌后立即作废，
         // 被复制走的旧令牌再用来续期就会命中吊销名单。
-        jwtBlacklist.revoke(jwtUtil.extractTokenId(refreshToken),
-                jwtUtil.getExpirationTime(refreshToken));
+        jwtBlacklist.revoke(currentTokenId, jwtUtil.getExpirationTime(refreshToken));
 
         log.info("令牌刷新成功, userId: {}, username: {}", user.getId(), user.getUsername());
 
@@ -234,7 +241,22 @@ public class UserServiceImpl implements UserService {
         }
     }
 
+    /**
+     * 吊销名单查询。Redis 不可用时按已吊销处理（fail-closed），
+     * 与 JwtAuthFilter 的策略保持一致，否则登出在故障期间形同虚设。
+     */
+    private boolean isTokenRevoked(String tokenId) {
+        try {
+            return jwtBlacklist.isRevoked(tokenId);
+        } catch (Exception e) {
+            log.error("查询令牌吊销名单失败，按已吊销处理: {}", e.getMessage());
+            return true;
+        }
+    }
+
     private long getExpirationTime() {
-        return 24 * 60 * 60 * 1000;
+        // 与令牌真实 exp 同源。原先硬编码 24 小时，而 jwt.expiration 已改为
+        // 15 分钟，导致返回给前端的 expiry 比令牌实际寿命多出 96 倍。
+        return jwtUtil.getAccessTokenTtlMillis();
     }
 }

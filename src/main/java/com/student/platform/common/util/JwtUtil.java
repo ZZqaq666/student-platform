@@ -171,6 +171,11 @@ public class JwtUtil {
         }
     }
 
+    /** 访问令牌有效期（毫秒）。响应体里的 expiry 必须与令牌真实 exp 同源。 */
+    public long getAccessTokenTtlMillis() {
+        return expiration;
+    }
+
     public long getExpirationTime(String token) {
         try {
             Date expiration = extractExpiration(token);
