@@ -811,7 +811,7 @@ const sendQuestion = async (text) => {
         // 最长等待30秒，超过则强制完成
         setTimeout(() => {
           clearInterval(waitForTyping);
-          if (!aiMsg.status === 'success') {
+          if (aiMsg.status !== 'success') {
             aiMsg.status='success';
             isSending.value=false;
           }
@@ -931,7 +931,7 @@ const retry = async (aiMsg) => {
         }
         const checkComplete = setInterval(()=>{
           if(!typingTimer && aiMsg.displayContent?.length >= full.length){
-            aiMsg.displayContent=markdownToPlainText(full);
+            aiMsg.displayContent=sanitizeText(markdownToPlainText(full));
             aiMsg.status='success';
             isSending.value=false;
             clearInterval(checkComplete);
@@ -966,7 +966,7 @@ const startTypingEffect = (aiMsg, full) => {
     
     if (remaining <= 0) {
       // 打字完成，直接用纯文本，不做任何Markdown转换（避免闪烁）
-      aiMsg.displayContent = aiMsg._plainContent || '';
+      aiMsg.displayContent = sanitizeText(aiMsg._plainContent || '');
       aiMsg._plainContent = null;
       typingTimer = null;
       // 打字完成后也滚动到底部
@@ -1035,7 +1035,7 @@ const submitImageQuestion = async () => {
         if (msg.content) {
           fullContent += msg.content
           aiMsg.status = 'typing'
-          aiMsg.displayContent = fullContent.substring(0, (aiMsg.displayContent?.length || 0) + 1)
+          aiMsg.displayContent = sanitizeText(fullContent.substring(0, (aiMsg.displayContent?.length || 0) + 1))
           if (!typingTimer) {
             startTypingEffect(aiMsg, fullContent)
           }
@@ -1047,7 +1047,7 @@ const submitImageQuestion = async () => {
           // 与文本问答一致：让打字机自然打完，避免回答瞬间全量蹦出（观感像非流式）
           if (!typingTimer) {
             // 打字机未运行（回答极短）时直接显示
-            aiMsg.displayContent = markdownToPlainText(fullContent)
+            aiMsg.displayContent = sanitizeText(markdownToPlainText(fullContent))
             aiMsg.status = 'success'
             isSending.value = false
           } else {
@@ -1065,7 +1065,7 @@ const submitImageQuestion = async () => {
               clearInterval(waitForTyping)
               if (aiMsg.status !== 'success') {
                 stopTyping()
-                aiMsg.displayContent = markdownToPlainText(fullContent)
+                aiMsg.displayContent = sanitizeText(markdownToPlainText(fullContent))
                 aiMsg.status = 'success'
                 isSending.value = false
               }

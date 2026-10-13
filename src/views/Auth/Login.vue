@@ -171,7 +171,6 @@ const handleLogin = async () => {
         const expiry = Date.now() + 10 * 24 * 60 * 60 * 1000
         localStorage.setItem('rememberedUser', JSON.stringify({
           username: loginForm.value.username,
-          password: loginForm.value.password,
           expiry
         }))
       } else {

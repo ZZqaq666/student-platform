@@ -255,11 +255,13 @@ export function processAiResponse(text) {
             finalHtml = finalHtml.replace(new RegExp(`__PRESERVED_BLOCK_${index}__`, 'g'), block);
         });
 
-        return finalHtml;
+        // html:true + linkify 会在 md.render 之后才产出原始 HTML 与链接，
+        // 因此必须在渲染之后再消毒一次（入口的 sanitize 拦不住 markdown 语法构造出的载荷）。
+        return DOMPurify.sanitize(finalHtml);
     } catch (error) {
         console.error('处理AI响应失败:', error);
-        // 如果处理失败，返回原始文本
-        return text || '';
+        // 处理失败时也不能把原文当 HTML 直接交给 v-html
+        return DOMPurify.sanitize(text || '');
     }
 }
 
