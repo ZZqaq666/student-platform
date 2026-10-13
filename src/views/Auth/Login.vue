@@ -165,6 +165,7 @@ const handleLogin = async () => {
     if (res.code === 200) {
       const authStore = useAuthStore()
       authStore.setToken(res.data.token, res.data.expiry)
+      authStore.setRefreshToken(res.data.refreshToken)
       authStore.setUser(res.data.user)
       localStorage.setItem('userName', loginForm.value.username)
       if (loginForm.value.remember) {

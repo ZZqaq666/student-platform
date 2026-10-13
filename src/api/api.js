@@ -74,14 +74,13 @@ api.interceptors.request.use(
       config.headers['Content-Type'] = 'application/json';
     }
     
-    // 对于认证相关的路径，不添加token
-    if (token && !config.url.includes('/auth/')) {
-      // 检查token是否过期
-      if (!authStore.checkAuth()) {
-        // token过期，清除token并跳转到登录页
-        router.push('/login');
-        return Promise.reject(new Error('Token已过期'));
-      }
+    // 匿名接口不带令牌；/auth/logout 必须带，否则后端拿不到 jti 无法吊销
+    const anonymousAuth = ['/auth/login', '/auth/register', '/auth/refresh'];
+    const isAnonymous = anonymousAuth.some(path => config.url.includes(path));
+
+    if (token && !isAnonymous) {
+      // 不在本地预判过期：过期交给服务端返回 401，由响应拦截器静默续期后重放。
+      // 原先在这里直接踢回登录页，access 令牌一过期就会打断用户操作。
       config.headers.Authorization = `Bearer ${token}`;
       
       // 添加userId到查询参数
@@ -93,7 +92,7 @@ api.interceptors.request.use(
         config.params.userId = userId;
       }
     } else {
-      // 对于认证相关的路径，确保不添加Authorization头
+      // 匿名接口确保不带 Authorization 头
       delete config.headers.Authorization;
     }
     return config;
@@ -102,6 +101,40 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+
+// 访问令牌有效期只有 15 分钟，过期后在这里静默续期；并发请求共用同一次刷新。
+let refreshPromise = null;
+
+function refreshTokensOnce() {
+  if (!refreshPromise) {
+    refreshPromise = axios.post('/api/auth/refresh', {
+      refreshToken: localStorage.getItem('refreshToken')
+    }).then(res => {
+      const data = res.data?.data;
+      if (!data?.token) return null;
+      const authStore = useAuthStore();
+      authStore.setToken(data.token, data.expiry);
+      // 后端已轮换，旧刷新令牌同时作废，必须用返回值覆盖本地副本
+      authStore.setRefreshToken(data.refreshToken);
+      return data.token;
+    }).catch(() => null).finally(() => {
+      refreshPromise = null;
+    });
+  }
+  return refreshPromise;
+}
+
+async function retryAfterRefresh(config) {
+  if (!config || config._retriedAfterRefresh || config.url.includes('/auth/')) return null;
+  if (!localStorage.getItem('refreshToken')) return null;
+
+  const newToken = await refreshTokensOnce();
+  if (!newToken) return null;
+
+  config._retriedAfterRefresh = true;
+  config.headers.Authorization = `Bearer ${newToken}`;
+  return api(config);
+}
 
 // 响应拦截器
 api.interceptors.response.use(
@@ -113,7 +146,7 @@ api.interceptors.response.use(
     // For regular responses, return just the data
     return response.data;
   },
-  error => {
+  async error => {
     // 统一错误处理
     console.error('API Error:', error);
     
@@ -126,13 +159,18 @@ api.interceptors.response.use(
         case 400:
           errorMessage = error.response.data?.message || '请求参数错误';
           break;
-        case 401:
+        case 401: {
+          // 先用刷新令牌续期并重放一次，避免 15 分钟的短令牌把用户踢下线
+          const replayed = await retryAfterRefresh(error.config);
+          if (replayed) return replayed;
+
           errorMessage = '未授权，请重新登录';
           // 跳转到登录页
           const authStore = useAuthStore();
           authStore.logout();
           router.push('/login');
           break;
+        }
         case 403:
           errorMessage = '权限不足，无法访问';
           break;
@@ -351,7 +389,9 @@ export const apiService = {
   auth: {
     login: (data) => request.post('/auth/login', data),
     register: (data) => request.post('/auth/register', data),
-    validate: () => request.get('/auth/validate')
+    validate: () => request.get('/auth/validate'),
+    // 同时提交刷新令牌，让后端把这一对令牌都吊销
+    logout: (refreshToken) => request.post('/auth/logout', { refreshToken })
   },
   
   // 个人书架相关

@@ -77,6 +77,8 @@
 import { computed, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import { apiService } from '@/api/api'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const route = useRoute()
@@ -107,10 +109,15 @@ const navLinks = [
   { path: '/senior', label: '学长答疑', icon: '👨‍🎓' },
 ]
 
-const confirmLogout = () => {
+const confirmLogout = async () => {
   showLogoutModal.value = false
-  localStorage.removeItem('token')
-  localStorage.removeItem('userName')
+  try {
+    // 让后端把这一对令牌记进吊销名单，否则令牌泄露后无法作废
+    await apiService.auth.logout(localStorage.getItem('refreshToken'))
+  } catch (e) {
+    console.warn('登出接口调用失败，仍继续清理本地凭证:', e?.message)
+  }
+  useAuthStore().logout()
   localStorage.removeItem('rememberedUser')
   token.value = null
   router.replace('/login')
