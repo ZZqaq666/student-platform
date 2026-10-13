@@ -197,8 +197,9 @@ public class ExerciseServiceImpl implements ExerciseService {
             return Collections.emptyList();
         }
 
+        Map<Long, Exercise> exerciseById = prefetchExercises(wrongBooks);
         return wrongBooks.stream()
-                .map(this::convertToWrongBookDTO)
+                .map(wrongBook -> convertToWrongBookDTO(wrongBook, exerciseById.get(wrongBook.getExerciseId())))
                 .collect(Collectors.toList());
     }
 
@@ -423,14 +424,39 @@ public class ExerciseServiceImpl implements ExerciseService {
         );
     }
 
-    private WrongBookDTO convertToWrongBookDTO(WrongBook wrongBook) {
-        if (wrongBook == null) {
-            return null;
+    /**
+     * 一次批量取回错题涉及的题目。
+     * 原先每条错题都要 selectById 一次，错题越多查询越多（N+1）。
+     */
+    private Map<Long, Exercise> prefetchExercises(List<WrongBook> wrongBooks) {
+        List<Long> exerciseIds = wrongBooks.stream()
+                .map(WrongBook::getExerciseId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
+
+        if (exerciseIds.isEmpty()) {
+            return Collections.emptyMap();
         }
 
-        Exercise exercise = null;
-        if (wrongBook.getExerciseId() != null) {
-            exercise = exerciseMapper.selectById(wrongBook.getExerciseId());
+        return exerciseMapper.selectBatchIds(exerciseIds).stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.toMap(Exercise::getId, exercise -> exercise, (a, b) -> a));
+    }
+
+    private WrongBookDTO convertToWrongBookDTO(WrongBook wrongBook) {
+        Exercise exercise = wrongBook != null && wrongBook.getExerciseId() != null
+                ? exerciseMapper.selectById(wrongBook.getExerciseId())
+                : null;
+        return convertToWrongBookDTO(wrongBook, exercise);
+    }
+
+    /**
+     * 列表路径传入预先批量取回的题目，避免逐条 selectById 造成 N+1。
+     */
+    private WrongBookDTO convertToWrongBookDTO(WrongBook wrongBook, Exercise exercise) {
+        if (wrongBook == null) {
+            return null;
         }
 
         Integer daysUntilReview = null;
@@ -533,8 +559,9 @@ public class ExerciseServiceImpl implements ExerciseService {
         queryWrapper.last("LIMIT " + offset + ", " + pageSize);
 
         List<WrongBook> wrongBooks = wrongBookMapper.selectList(queryWrapper);
+        Map<Long, Exercise> exerciseById = prefetchExercises(wrongBooks);
         return wrongBooks.stream()
-                .map(this::convertToWrongBookDTO)
+                .map(wrongBook -> convertToWrongBookDTO(wrongBook, exerciseById.get(wrongBook.getExerciseId())))
                 .collect(Collectors.toList());
     }
 

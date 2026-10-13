@@ -47,6 +47,8 @@ public class BookshelfServiceImpl implements BookshelfService {
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_DISABLED = "DISABLED";
     private static final String ROLE_ADMIN = "ADMIN";
+    /** 目录单次返回上限：全量 selectList 没有 LIMIT，数据量增长会直接打满内存 */
+    private static final int BOOK_LIST_MAX_SIZE = 2000;
 
     @Override
     public List<BookDTO> getAllBooks() {
@@ -54,7 +56,15 @@ public class BookshelfServiceImpl implements BookshelfService {
         try {
             QueryWrapper<Book> queryWrapper = new QueryWrapper<>();
             queryWrapper.eq("status", STATUS_ACTIVE);
+            // 按 id 升序保证截断结果稳定：否则每次查询可能返回不同子集，
+            // 叠加上前端 5 分钟缓存会让"书忽隐忽现"极难排查
+            queryWrapper.orderByAsc("id");
+            queryWrapper.last("LIMIT " + BOOK_LIST_MAX_SIZE);
             List<Book> books = bookMapper.selectList(queryWrapper);
+
+            if (books.size() >= BOOK_LIST_MAX_SIZE) {
+                log.warn("书籍目录已达单次返回上限 {}，其余书籍需通过搜索获取", BOOK_LIST_MAX_SIZE);
+            }
 
             if (CollectionUtils.isEmpty(books)) {
                 return Collections.emptyList();

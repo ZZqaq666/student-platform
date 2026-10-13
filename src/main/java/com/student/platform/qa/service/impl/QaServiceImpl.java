@@ -84,6 +84,8 @@ public class QaServiceImpl implements QaService {
                     
                     // 限制用户历史记录列表长度
                     redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+                    // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+                    redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
                     
                     log.info("历史记录已缓存到Redis");
                 } else {
@@ -1027,6 +1029,8 @@ public class QaServiceImpl implements QaService {
             
             // 限制用户历史记录列表长度（保留最近100条）
             redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+            // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+            redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
             
             log.info("Redis缓存成功，历史记录ID: {}", history.getId());
         } catch (Exception e) {
@@ -1076,6 +1080,8 @@ public class QaServiceImpl implements QaService {
             redisTemplate.opsForValue().set(processedTextKey, sanitizedProcessedText, java.time.Duration.ofHours(24));
             redisTemplate.opsForList().leftPush(userHistoryListKey, history.getId());
             redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+            // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+            redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
             
             log.info("Redis缓存成功，历史记录ID: {}", history.getId());
         } catch (Exception e) {
@@ -1881,6 +1887,8 @@ public class QaServiceImpl implements QaService {
                     
                     // 限制用户历史记录列表长度
                     redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+                    // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+                    redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
                     
                     log.info("考试准备Q&A历史记录已缓存到Redis");
                 } else {
@@ -2014,6 +2022,8 @@ public class QaServiceImpl implements QaService {
             
             // 限制用户历史记录列表长度（保留最近100条）
             redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+            // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+            redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
             
             log.info("Redis缓存成功，考试准备Q&A历史记录ID: {}", history.getId());
         } catch (Exception e) {
@@ -2064,6 +2074,8 @@ public class QaServiceImpl implements QaService {
             redisTemplate.opsForValue().set(answerKey, sanitizedAnswer, java.time.Duration.ofHours(24));
             redisTemplate.opsForList().leftPush(userHistoryListKey, history.getId());
             redisTemplate.opsForList().trim(userHistoryListKey, 0, 99);
+            // 索引列表与成员同生命周期，否则只 trim 不 expire 会永久驻留
+            redisTemplate.expire(userHistoryListKey, java.time.Duration.ofHours(24));
             
             log.info("Redis缓存成功，考试准备Q&A历史记录ID: {}", history.getId());
         } catch (Exception e) {
