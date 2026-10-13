@@ -1,5 +1,6 @@
 package com.student.platform.qa.controller;
 
+import com.student.platform.common.config.CurrentUserProvider;
 import com.student.platform.qa.entity.Conversation;
 import com.student.platform.qa.entity.Message;
 import com.student.platform.qa.service.ConversationService;
@@ -8,12 +9,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import com.student.platform.qa.entity.User;
-import com.student.platform.qa.mapper.UserMapper;
 
 import java.util.HashMap;
 import java.util.List;
@@ -31,7 +27,7 @@ public class ConversationController {
 
     private final ConversationService conversationService;
     private final MessageService messageService;
-    private final UserMapper userMapper;
+    private final CurrentUserProvider currentUserProvider;
 
     /**
      * 获取用户的所有会话列表
@@ -169,15 +165,8 @@ public class ConversationController {
      * 获取当前登录用户ID
      */
     private Long getCurrentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.isAuthenticated() && !(authentication.getPrincipal() instanceof String)) {
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            User user = userMapper.findByUsername(userDetails.getUsername());
-            if (user != null) {
-                return user.getId();
-            }
-        }
-        return null;
+        CurrentUserProvider.CurrentUser currentUser = currentUserProvider.find();
+        return currentUser != null ? currentUser.id() : null;
     }
 
     /**

@@ -1,4 +1,4 @@
-package com.student.platform.qa.entity;
+package com.student.platform.common.entity;
 
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;

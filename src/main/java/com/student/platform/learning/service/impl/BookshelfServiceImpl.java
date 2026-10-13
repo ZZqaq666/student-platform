@@ -8,7 +8,7 @@ import com.student.platform.common.dto.UserBookDTO;
 import com.student.platform.common.exception.BusinessException;
 import com.student.platform.learning.entity.Book;
 import com.student.platform.learning.entity.BookChapter;
-import com.student.platform.learning.entity.User;
+import com.student.platform.common.entity.User;
 import com.student.platform.learning.entity.UserBook;
 import com.student.platform.learning.mapper.BookMapper;
 import com.student.platform.learning.mapper.BookChapterMapper;

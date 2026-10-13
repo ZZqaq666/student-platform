@@ -10,6 +10,7 @@ import com.student.platform.common.dto.ExamPaperResponse;
 import com.student.platform.common.dto.Question;
 import com.student.platform.common.dto.QaResponse;
 import com.student.platform.common.dto.QaSessionDTO;
+import com.student.platform.common.entity.User;
 import com.student.platform.common.exception.BusinessException;
 import com.student.platform.qa.entity.*;
 import com.student.platform.qa.mapper.*;

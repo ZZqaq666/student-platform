@@ -2,6 +2,7 @@ package com.student.platform.exercise.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.student.platform.common.dto.*;
+import com.student.platform.common.entity.User;
 import com.student.platform.common.exception.BusinessException;
 import com.student.platform.exercise.entity.*;
 import com.student.platform.exercise.mapper.*;

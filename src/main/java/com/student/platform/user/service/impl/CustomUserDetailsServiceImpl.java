@@ -1,6 +1,6 @@
 package com.student.platform.user.service.impl;
 
-import com.student.platform.user.entity.User;
+import com.student.platform.common.entity.User;
 import com.student.platform.user.mapper.UserMapper;
 import com.student.platform.user.service.CustomUserDetailsService;
 import lombok.RequiredArgsConstructor;

@@ -3,7 +3,7 @@ package com.student.platform.qa.service.impl;
 import com.student.platform.common.exception.BusinessException;
 import com.student.platform.qa.service.SeniorAiService;
 import com.student.platform.qa.service.SeniorService;
-import com.student.platform.qa.util.RedisUtil;
+import com.student.platform.common.util.RedisUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;

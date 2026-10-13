@@ -5,7 +5,7 @@ import com.student.platform.common.dto.LoginRequest;
 import com.student.platform.common.dto.RegisterRequest;
 import com.student.platform.common.exception.BusinessException;
 import com.student.platform.common.util.JwtUtil;
-import com.student.platform.user.entity.User;
+import com.student.platform.common.entity.User;
 import com.student.platform.user.mapper.UserMapper;
 import com.student.platform.user.service.UserService;
 import lombok.RequiredArgsConstructor;

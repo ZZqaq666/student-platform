@@ -1,7 +1,7 @@
 package com.student.platform.learning.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
-import com.student.platform.learning.entity.User;
+import com.student.platform.common.entity.User;
 import org.apache.ibatis.annotations.Mapper;
 
 @Mapper
