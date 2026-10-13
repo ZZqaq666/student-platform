@@ -242,7 +242,7 @@ export function useBooks({ showToast }) {
       try {
         const response = await apiService.bookshelf.deleteBook(bookToDelete)
         if (response.code === 200) {
-          showToast('书籍删除成功')
+          showToast('已从书架移除')
           await fetchBooks()
         }
       } catch (error) {

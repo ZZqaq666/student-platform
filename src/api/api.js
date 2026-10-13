@@ -424,7 +424,9 @@ export const apiService = {
     getRelatedNodes: (bookId, signal) => request.get(`/books/${bookId}/related-nodes`, null, { signal }), // 获取书籍关联知识点
     getTextbooks: (params) => request.get('/bookshelf/books/search', params), // 获取教材列表
     addBooks: withCacheInvalidation((userId, data) => request.post(`/books/add?userId=${userId}`, data)), // 批量添加教材
-    deleteBook: withCacheInvalidation(bookId => request.delete(`/books/${bookId}`)) // 删除书籍
+    // 从当前用户书架移除。后端没有 DELETE /books/{id}：book 是无归属列的
+    // 全局共享目录，删除它会影响所有用户，个人书架上的删除本就该是解除关联
+    deleteBook: withCacheInvalidation(bookId => request.delete(`/bookshelf/my/${bookId}`))
   },
   
   // 练习系统相关
