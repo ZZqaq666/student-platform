@@ -45,6 +45,9 @@ public class JwtAuthFilter extends OncePerRequestFilter {
             "/auth/register",
             "/auth/refresh",
             "/auth/validate",
+            // 登出要能在 access 已过期时仍吊销携带的刷新令牌，故不走鉴权；
+            // 吊销只针对请求自带的令牌，无从伪造他人凭证
+            "/auth/logout",
             "/user/login",
             "/user/register",
             "/user/refresh",
@@ -58,9 +61,11 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     );
 
     private final JwtSecretProvider secretProvider;
+    private final JwtBlacklist jwtBlacklist;
 
-    public JwtAuthFilter(JwtSecretProvider secretProvider) {
+    public JwtAuthFilter(JwtSecretProvider secretProvider, JwtBlacklist jwtBlacklist) {
         this.secretProvider = secretProvider;
+        this.jwtBlacklist = jwtBlacklist;
     }
 
     @Override
@@ -88,6 +93,19 @@ public class JwtAuthFilter extends OncePerRequestFilter {
                     .build()
                     .parseSignedClaims(token);
             Claims claims = claimsJws.getPayload();
+
+            // refresh 令牌只能用于 /auth/refresh，不得当作访问凭证使用
+            if (!"access".equals(claims.get("type", String.class))) {
+                unauthorized(response, "令牌类型不正确");
+                return;
+            }
+
+            String tokenId = claims.getId();
+            if (tokenId == null || tokenId.isBlank() || isRevoked(tokenId)) {
+                unauthorized(response, "令牌已失效");
+                return;
+            }
+
             // 用 Number 接收，避免 jjwt 将小数字解析为 Integer 时 Long.class 强转失败
             Number userIdNum = claims.get("userId", Number.class);
             if (userIdNum == null) {
@@ -119,6 +137,16 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         } catch (JwtException e) {
             log.warn("Invalid JWT token: {}", e.getMessage());
             unauthorized(response, "Invalid JWT token");
+        }
+    }
+
+    private boolean isRevoked(String tokenId) {
+        try {
+            return jwtBlacklist.isRevoked(tokenId);
+        } catch (Exception e) {
+            // fail-closed：名单查不到就拒绝，否则 Redis 故障期间登出与轮换会静默失效
+            log.error("查询令牌吊销名单失败，按已失效处理: {}", e.getMessage());
+            return true;
         }
     }
 

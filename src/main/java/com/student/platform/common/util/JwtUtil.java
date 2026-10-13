@@ -96,6 +96,10 @@ public class JwtUtil {
         return (String) claims.get(CLAIM_KEY_ROLE);
     }
 
+    public String extractTokenId(String token) {
+        return extractClaim(token, Claims::getId);
+    }
+
     public Date extractExpiration(String token) {
         return extractClaim(token, Claims::getExpiration);
     }

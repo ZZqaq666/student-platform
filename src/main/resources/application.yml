@@ -39,7 +39,10 @@ jwt:
   # 留空时开发环境会生成一次性随机密钥（重启后旧 token 失效），
   # 若仍为曾经写死的弱默认值则会直接拒绝启动（见 JwtSecretProvider）。
   secret: ${JWT_SECRET:}
-  expiration: 86400000
+  # 访问令牌 15 分钟：它无法被主动作废以外的方式收回，签发越久风险窗口越大。
+  # 过期后由前端用刷新令牌静默续期（见 api.js 拦截器），不会打断用户操作。
+  expiration: 900000
+  refresh-expiration: 604800000
 
 app:
   cors:

@@ -1,11 +1,14 @@
 package com.student.platform.user.controller;
 
+import com.student.platform.common.config.JwtBlacklist;
 import com.student.platform.common.dto.AuthResponse;
 import com.student.platform.common.dto.LoginRequest;
 import com.student.platform.common.dto.RefreshTokenRequest;
 import com.student.platform.common.dto.RegisterRequest;
 import com.student.platform.common.result.Result;
+import com.student.platform.common.util.JwtUtil;
 import com.student.platform.user.service.UserService;
+import io.jsonwebtoken.JwtException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -16,6 +19,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -28,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+    private final JwtUtil jwtUtil;
+    private final JwtBlacklist jwtBlacklist;
 
     @Operation(
             summary = "用户注册",
@@ -94,7 +100,9 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "令牌无效或已过期")
     })
     @GetMapping("/validate")
-    public Result<AuthResponse> validate() {
+    public Result<AuthResponse> validate(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader
+    ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication == null || !authentication.isAuthenticated()) {
@@ -110,12 +118,23 @@ public class AuthController {
 
         log.info("令牌验证成功: {}", username);
 
+        // 返回令牌自身的到期时间。原先写死 now+24h，前端据此判断续期时机会一直误判。
+        long expiry = 0L;
+        String token = extractBearer(authHeader);
+        if (token != null) {
+            try {
+                expiry = jwtUtil.extractExpiration(token).getTime();
+            } catch (JwtException | IllegalArgumentException e) {
+                log.warn("令牌验证成功但无法解析到期时间: {}", e.getMessage());
+            }
+        }
+
         AuthResponse authResponse = AuthResponse.builder()
                 .username(username)
                 .user(AuthResponse.UserInfo.builder()
                         .username(username)
                         .build())
-                .expiry(System.currentTimeMillis() + 24 * 60 * 60 * 1000)
+                .expiry(expiry)
                 .build();
 
         return Result.success("令牌有效", authResponse);
@@ -123,18 +142,44 @@ public class AuthController {
 
     @Operation(
             summary = "用户登出",
-            description = "清除当前用户的认证信息"
+            description = "吊销当前访问令牌与随请求提交的刷新令牌"
     )
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "登出成功")
     })
     @PostMapping("/logout")
-    public Result<Void> logout() {
+    public Result<Void> logout(
+            @RequestHeader(value = HttpHeaders.AUTHORIZATION, required = false) String authHeader,
+            @RequestBody(required = false) RefreshTokenRequest request
+    ) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null) {
             log.info("用户登出: {}", authentication.getName());
             SecurityContextHolder.clearContext();
         }
+
+        // 访问令牌与刷新令牌都要吊销：access 有效期已压到分钟级，
+        // 只废 access 等于留下一个 7 天可用的续期凭证。
+        revokeQuietly(extractBearer(authHeader));
+        if (request != null) {
+            revokeQuietly(request.getRefreshToken());
+        }
         return Result.success("登出成功", null);
+    }
+
+    private void revokeQuietly(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        try {
+            jwtBlacklist.revoke(jwtUtil.extractTokenId(token), jwtUtil.getExpirationTime(token));
+        } catch (JwtException | IllegalArgumentException e) {
+            // 令牌本身已不可解析，无从吊销也不需吊销
+            log.debug("登出时令牌不可解析，跳过吊销: {}", e.getMessage());
+        }
+    }
+
+    private String extractBearer(String authHeader) {
+        return authHeader != null && authHeader.startsWith("Bearer ") ? authHeader.substring(7) : null;
     }
 }

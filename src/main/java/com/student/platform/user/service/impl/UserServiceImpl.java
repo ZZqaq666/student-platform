@@ -1,5 +1,6 @@
 package com.student.platform.user.service.impl;
 
+import com.student.platform.common.config.JwtBlacklist;
 import com.student.platform.common.dto.AuthResponse;
 import com.student.platform.common.dto.LoginRequest;
 import com.student.platform.common.dto.RegisterRequest;
@@ -25,6 +26,7 @@ public class UserServiceImpl implements UserService {
     private final UserMapper userMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final JwtBlacklist jwtBlacklist;
 
     private static final String ROLE_STUDENT = "STUDENT";
     private static final String ROLE_ADMIN = "ADMIN";
@@ -71,6 +73,7 @@ public class UserServiceImpl implements UserService {
         log.info("用户注册成功, userId: {}, username: {}", user.getId(), user.getUsername());
 
         String token = jwtUtil.generateToken(user.getUsername(), user.getId(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(), user.getId());
         long expiry = System.currentTimeMillis() + getExpirationTime();
 
         AuthResponse.UserInfo userInfo = new AuthResponse.UserInfo(
@@ -84,6 +87,7 @@ public class UserServiceImpl implements UserService {
 
         return AuthResponse.builder()
                 .token(token)
+                .refreshToken(refreshToken)
                 .tokenType(TOKEN_TYPE_BEARER)
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -124,6 +128,7 @@ public class UserServiceImpl implements UserService {
         userMapper.updateById(user);
 
         String token = jwtUtil.generateToken(user.getUsername(), user.getId(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getUsername(), user.getId());
         long expiry = System.currentTimeMillis() + getExpirationTime();
 
         log.info("用户登录成功, userId: {}, username: {}", user.getId(), user.getUsername());
@@ -139,6 +144,7 @@ public class UserServiceImpl implements UserService {
 
         return AuthResponse.builder()
                 .token(token)
+                .refreshToken(refreshToken)
                 .tokenType(TOKEN_TYPE_BEARER)
                 .userId(user.getId())
                 .username(user.getUsername())
@@ -173,7 +179,13 @@ public class UserServiceImpl implements UserService {
         }
 
         String newToken = jwtUtil.generateToken(username, userId, user.getRole());
+        String newRefreshToken = jwtUtil.generateRefreshToken(username, userId);
         long expiry = System.currentTimeMillis() + getExpirationTime();
+
+        // 轮换：旧刷新令牌一次性使用，换出新令牌后立即作废，
+        // 被复制走的旧令牌再用来续期就会命中吊销名单。
+        jwtBlacklist.revoke(jwtUtil.extractTokenId(refreshToken),
+                jwtUtil.getExpirationTime(refreshToken));
 
         log.info("令牌刷新成功, userId: {}, username: {}", user.getId(), user.getUsername());
 
@@ -188,6 +200,7 @@ public class UserServiceImpl implements UserService {
 
         return AuthResponse.builder()
                 .token(newToken)
+                .refreshToken(newRefreshToken)
                 .tokenType(TOKEN_TYPE_BEARER)
                 .userId(user.getId())
                 .username(user.getUsername())
