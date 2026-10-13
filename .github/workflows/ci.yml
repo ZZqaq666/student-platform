@@ -1,0 +1,45 @@
+name: Frontend CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node 20
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+        cache: npm
+
+    # 仓库同时存在 package-lock.json 与 pnpm-lock.yaml 且已漂移。
+    # CI 固定走 npm ci（锁文件一致性由它校验）；pnpm-lock.yaml 待清理。
+    - name: Install (npm ci)
+      run: npm ci
+
+    # 原来是 vitest run --passWithNoTests：没有测试也算通过，属于假绿。
+    # 现在 tests/ 下有真实用例，去掉 passWithNoTests 让空测试直接失败。
+    - name: Unit tests
+      run: npx vitest run --passWithNoTests=false
+
+    - name: Production build
+      run: npx vite build
+
+    - name: Assert mock fallback is tree-shaken out of the prod bundle
+      run: |
+        set -e
+        # 这些字符串只存在于开发兜底的假数据里；生产包里若仍出现，
+        # 说明后端故障时界面会渲染伪造内容。
+        for s in "华东师范大学数学系" "第一章 高等数学基础" "不定积分的概念"; do
+          if grep -rq "$s" dist/assets; then
+            echo "FAIL: 生产包中仍存在 mock 内容: $s"
+            exit 1
+          fi
+          echo "OK: 已摇出 $s"
+        done
