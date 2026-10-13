@@ -409,6 +409,8 @@ export const apiService = {
   bookshelf: {
     getAllBooks: (signal) => request.get('/bookshelf/books', null, { useCache: true, signal }), // 启用缓存
     getBookById: (id) => request.get(`/bookshelf/books/${id}`, null, { useCache: true }), // 启用缓存
+    // 共享目录编辑：后端只放行 ADMIN，改完必须失效列表缓存
+    updateBook: withCacheInvalidation((id, data) => request.put(`/bookshelf/books/${id}`, data)),
     searchBooks: (keyword, major, semester, courseType, signal) => request.get('/bookshelf/books/search', { keyword, major, semester, courseType }, { signal }), // 不缓存搜索结果
     getBooksBySubject: (subject) => request.get(`/bookshelf/books/subject/${subject}`, null, { useCache: true }), // 启用缓存
     getUserBooks: () => request.get('/bookshelf/my'), // 不缓存用户数据

@@ -10,7 +10,8 @@ export const useAuthStore = defineStore('auth', {
   getters: {
     currentUser: (state) => state.user,
     isLoggedIn: (state) => state.isAuthenticated,
-    userId: () => localStorage.getItem('userId')
+    userId: () => localStorage.getItem('userId'),
+    role: () => localStorage.getItem('userRole')
   },
   actions: {
     setToken(token, expiry) {
@@ -34,6 +35,11 @@ export const useAuthStore = defineStore('auth', {
       if (user && user.id) {
         localStorage.setItem('userId', String(user.id));
       }
+      // role 与 userId 同级持久化：user 对象本身不持久化，刷新后为 null，
+      // 而像「仅管理员可编辑目录」这类入口判断需要在刷新后依然可用
+      if (user && user.role) {
+        localStorage.setItem('userRole', String(user.role));
+      }
     },
     logout() {
       this.user = null;
@@ -45,6 +51,7 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('userId');
       localStorage.removeItem('userName');
+      localStorage.removeItem('userRole');
     },
     checkAuth() {
       const token = localStorage.getItem('token');
