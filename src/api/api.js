@@ -357,9 +357,9 @@ export const apiService = {
   // 个人书架相关
   bookshelf: {
     getAllBooks: (signal) => request.get('/bookshelf/books', null, { useCache: true, signal }), // 启用缓存
-    getBookById: (id) => request.get(`/bookshelf/books/${id}`, null, true), // 启用缓存
+    getBookById: (id) => request.get(`/bookshelf/books/${id}`, null, { useCache: true }), // 启用缓存
     searchBooks: (keyword, major, semester, courseType, signal) => request.get('/bookshelf/books/search', { keyword, major, semester, courseType }, { signal }), // 不缓存搜索结果
-    getBooksBySubject: (subject) => request.get(`/bookshelf/books/subject/${subject}`, null, true), // 启用缓存
+    getBooksBySubject: (subject) => request.get(`/bookshelf/books/subject/${subject}`, null, { useCache: true }), // 启用缓存
     getUserBooks: () => request.get('/bookshelf/my'), // 不缓存用户数据
     getUserBook: (bookId) => request.get(`/bookshelf/my/${bookId}`), // 不缓存用户数据
     addBookToShelf: (bookId) => request.post(`/bookshelf/my/${bookId}`),
