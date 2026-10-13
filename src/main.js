@@ -2,89 +2,11 @@ import { createApp } from 'vue'
 import App from './App.vue'
 import router from './router'
 import { createPinia } from 'pinia'
-import {
-  ElAlert,
-  ElAside,
-  ElButton,
-  ElCard,
-  ElCheckbox,
-  ElCol,
-  ElContainer,
-  ElDatePicker,
-  ElDialog,
-  ElDivider,
-  ElEmpty,
-  ElForm,
-  ElFormItem,
-  ElIcon,
-  ElImage,
-  ElInput,
-  ElInputNumber,
-  ElLoading,
-  ElMain,
-  ElMenu,
-  ElMenuItem,
-  ElOption,
-  ElPagination,
-  ElProgress,
-  ElRadio,
-  ElRadioButton,
-  ElRadioGroup,
-  ElRow,
-  ElSelect,
-  ElSkeleton,
-  ElTable,
-  ElTableColumn,
-  ElTabPane,
-  ElTabs,
-  ElTag,
-  ElUpload
-} from 'element-plus'
 import 'element-plus/dist/index.css'
 import 'katex/dist/katex.min.css'
 import './styles/global.css'
 
 const app = createApp(App)
-const elementComponents = [
-  ElAlert,
-  ElAside,
-  ElButton,
-  ElCard,
-  ElCheckbox,
-  ElCol,
-  ElContainer,
-  ElDatePicker,
-  ElDialog,
-  ElDivider,
-  ElEmpty,
-  ElForm,
-  ElFormItem,
-  ElIcon,
-  ElImage,
-  ElInput,
-  ElInputNumber,
-  ElMain,
-  ElMenu,
-  ElMenuItem,
-  ElOption,
-  ElPagination,
-  ElProgress,
-  ElRadio,
-  ElRadioButton,
-  ElRadioGroup,
-  ElRow,
-  ElSelect,
-  ElSkeleton,
-  ElTable,
-  ElTableColumn,
-  ElTabPane,
-  ElTabs,
-  ElTag,
-  ElUpload
-]
-
-elementComponents.forEach(component => app.use(component))
-app.use(ElLoading)
 
 // 添加全局错误处理器
 app.config.errorHandler = (error, instance, info) => {
