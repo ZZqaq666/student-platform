@@ -3,6 +3,7 @@ package com.student.platform.learning.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.student.platform.common.dto.BookChapterTreeDTO;
 import com.student.platform.common.dto.BookDTO;
+import com.student.platform.common.dto.UpdateBookRequest;
 import com.student.platform.common.dto.UpdateProgressRequest;
 import com.student.platform.common.dto.UserBookDTO;
 import com.student.platform.common.exception.BusinessException;
@@ -45,6 +46,7 @@ public class BookshelfServiceImpl implements BookshelfService {
 
     private static final String STATUS_ACTIVE = "ACTIVE";
     private static final String STATUS_DISABLED = "DISABLED";
+    private static final String ROLE_ADMIN = "ADMIN";
 
     @Override
     public List<BookDTO> getAllBooks() {
@@ -78,6 +80,55 @@ public class BookshelfServiceImpl implements BookshelfService {
         if (book == null) {
             throw new BusinessException(404, "书籍不存在");
         }
+        return convertToBookDTO(book);
+    }
+
+    /**
+     * 编辑共享目录。book 表没有归属列，改动对所有用户可见，
+     * 因此只允许管理员调用；普通用户想改自己看到的书，属于另一件事
+     * （需要在 user_book 上做每用户覆盖）。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public BookDTO updateBook(Long bookId, UpdateBookRequest request) {
+        User current = getCurrentUser();
+        if (!ROLE_ADMIN.equals(current.getRole())) {
+            throw new BusinessException(403, "仅管理员可编辑书籍目录");
+        }
+
+        if (bookId == null || bookId <= 0) {
+            throw new BusinessException(400, "书籍ID无效");
+        }
+
+        Book book = bookMapper.selectById(bookId);
+        if (book == null) {
+            throw new BusinessException(404, "书籍不存在");
+        }
+
+        // 只覆盖请求里显式给出的字段：null 视为「本次未修改」，
+        // 否则空表单会把已有作者/简介抹成 null。
+        if (request.getTitle() != null) {
+            book.setTitle(request.getTitle());
+        }
+        if (request.getAuthor() != null) {
+            book.setAuthor(request.getAuthor());
+        }
+        if (request.getDescription() != null) {
+            book.setDescription(request.getDescription());
+        }
+        if (request.getMajor() != null) {
+            book.setMajor(request.getMajor());
+        }
+        if (request.getSemester() != null) {
+            book.setSemester(request.getSemester());
+        }
+        if (request.getCourseType() != null) {
+            book.setCourseType(request.getCourseType());
+        }
+        book.setUpdatedAt(LocalDateTime.now());
+
+        bookMapper.updateById(book);
+        log.info("管理员更新书籍目录, bookId: {}, operator: {}", bookId, current.getUsername());
         return convertToBookDTO(book);
     }
 

@@ -1,12 +1,14 @@
 package com.student.platform.learning.controller;
 
 import com.student.platform.common.dto.BookDTO;
+import com.student.platform.common.dto.UpdateBookRequest;
 import com.student.platform.common.dto.UpdateProgressRequest;
 import com.student.platform.common.dto.UserBookDTO;
 import com.student.platform.common.result.Result;
 import com.student.platform.learning.service.BookshelfService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +32,13 @@ public class BookshelfController {
     @Operation(summary = "获取书籍详情", description = "根据ID获取书籍详情")
     public Result<BookDTO> getBookById(@PathVariable Long id) {
         return Result.success(bookshelfService.getBookById(id));
+    }
+
+    @PutMapping("/books/{id}")
+    @Operation(summary = "编辑书籍目录", description = "book 为全局共享目录，仅管理员可修改元信息")
+    public Result<BookDTO> updateBook(@PathVariable Long id,
+                                      @Valid @RequestBody UpdateBookRequest request) {
+        return Result.success(bookshelfService.updateBook(id, request));
     }
 
     @GetMapping("/books/search")
