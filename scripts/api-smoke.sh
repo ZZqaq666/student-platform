@@ -1,5 +1,9 @@
 #!/bin/bash
 # ScholarPal 全量接口联调（v2：修正传参、路径与编码）
+# 测试账号从环境变量读取，不要把口令写进仓库（脚本可能被推到公开仓库）。
+# 本地跑法：SMOKE_USER=xxx SMOKE_PASS=yyy bash scripts/api-smoke.sh
+: "${SMOKE_USER:?请通过环境变量 SMOKE_USER 传入测试账号}"
+: "${SMOKE_PASS:?请通过环境变量 SMOKE_PASS 传入测试账号口令}"
 B=http://localhost:8080/api
 PASS=0; FAIL=0; NOTE=0
 
@@ -20,7 +24,8 @@ m() {
 }
 
 echo "=========== 1) 认证链路 ==========="
-L=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' -d '{"username":"shotuser01","password":"Shot2026x"}')
+L=$(curl -s -X POST $B/auth/login -H 'Content-Type: application/json' \
+  -d "{\"username\":\"$SMOKE_USER\",\"password\":\"$SMOKE_PASS\"}")
 AT=$(echo $L|grep -oE '"token":"[^"]+'|cut -d'"' -f4)
 RT=$(echo $L|grep -oE '"refreshToken":"[^"]+'|cut -d'"' -f4)
 [ -z "$AT" ] && { say "登录" "FAIL 无法取得令牌，终止"; exit 1; }
