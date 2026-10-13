@@ -286,7 +286,7 @@ class StreamingService {
   }
 
   // 基于fetch的流式POST请求
-  streamPost(endpoint, data, onData, onComplete, onError) {
+  streamPost(endpoint, data, onData, onComplete, onError, options = {}) {
     // 检查登录状态
     const token = localStorage.getItem('token');
     if (!token) {
@@ -304,7 +304,8 @@ class StreamingService {
         'Authorization': `Bearer ${token}`,
         'Accept': 'text/event-stream'
       },
-      body: JSON.stringify(data)
+      body: JSON.stringify(data),
+      signal: options.signal
     })
     .then(response => {
       if (!response.ok) {
@@ -355,13 +356,18 @@ class StreamingService {
       return reader.read().then(processChunk);
     })
     .catch(error => {
+      // 主动 abort 不是故障：调用方（切换教材/离开页面）本来就想停掉这条流
+      if (error?.name === 'AbortError') {
+        if (options.onAbort) options.onAbort();
+        return;
+      }
       console.error('POST stream error:', error);
       if (onError) onError(error);
     });
   }
   
   // 流式FormData POST请求（用于文件上传等）
-  streamFormData(endpoint, formData, onData, onComplete, onError) {
+  streamFormData(endpoint, formData, onData, onComplete, onError, options = {}) {
     // 检查登录状态
     const token = localStorage.getItem('token');
     if (!token) {
@@ -378,7 +384,8 @@ class StreamingService {
         'Accept': 'text/event-stream'
         // 注意：不要设置 Content-Type，让浏览器自动设置 multipart/form-data
       },
-      body: formData
+      body: formData,
+      signal: options.signal
     })
     .then(response => {
       if (!response.ok) {
@@ -426,6 +433,10 @@ class StreamingService {
       return reader.read().then(processChunk);
     })
     .catch(error => {
+      if (error?.name === 'AbortError') {
+        if (options.onAbort) options.onAbort();
+        return;
+      }
       console.error('FormData stream error:', error);
       if (onError) onError(error);
     });
@@ -486,23 +497,23 @@ export const streamingApiService = {
   // 流式HTTP接口
   stream: {
     // AI问答流式输出
-    askQuestionStream: (data, onData, onComplete, onError) => {
-      return streamingService.streamPost('/qa/ask/stream', data, onData, onComplete, onError);
+    askQuestionStream: (data, onData, onComplete, onError, options) => {
+      return streamingService.streamPost('/qa/ask/stream', data, onData, onComplete, onError, options);
     },
     
     // 图片问答流式输出
-    askImageQuestionStream: (formData, onData, onComplete, onError) => {
-      return streamingService.streamFormData('/qa/ask/image/stream', formData, onData, onComplete, onError);
+    askImageQuestionStream: (formData, onData, onComplete, onError, options) => {
+      return streamingService.streamFormData('/qa/ask/image/stream', formData, onData, onComplete, onError, options);
     },
     
     // 大文件下载
-    downloadLargeFile: (fileId, onData, onComplete, onError) => {
-      return streamingService.streamPost('/files/download/stream', { fileId }, onData, onComplete, onError);
+    downloadLargeFile: (fileId, onData, onComplete, onError, options) => {
+      return streamingService.streamPost('/files/download/stream', { fileId }, onData, onComplete, onError, options);
     },
     
     // 批量数据导出
-    exportData: (data, onData, onComplete, onError) => {
-      return streamingService.streamPost('/export/stream', data, onData, onComplete, onError);
+    exportData: (data, onData, onComplete, onError, options) => {
+      return streamingService.streamPost('/export/stream', data, onData, onComplete, onError, options);
     }
   },
   

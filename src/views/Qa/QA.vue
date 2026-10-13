@@ -734,6 +734,39 @@ const relatedBooks = computed(() => {
 
 /* ========== sendQuestion ========== */
 let sseConnection = null; let typingTimer = null
+
+// 打字完成的轮询与 30s 兜底计时器。组件卸载时必须清掉——它们会回写
+// aiMsg/isSending，而旧流继续写已卸载组件正是之前泄漏的根源。
+const pendingWatchers = new Set()
+const clearWatchers = () => {
+  pendingWatchers.forEach(({ id, kind }) => kind === 'interval' ? clearInterval(id) : clearTimeout(id))
+  pendingWatchers.clear()
+}
+const startTypingWatcher = (fn, ms) => {
+  const id = setInterval(fn, ms)
+  pendingWatchers.add({ id, kind: 'interval' })
+  return id
+}
+const startTypingFallback = (fn, ms) => {
+  const id = setTimeout(fn, ms)
+  pendingWatchers.add({ id, kind: 'timeout' })
+  return id
+}
+
+// 每次发起流式请求都换一个新的 AbortController，并中止上一条流。
+// 返回的对象带 close()，与既有 closeSSE() 的调用方式兼容。
+const beginStream = () => {
+  closeSSE()
+  const controller = new AbortController()
+  sseConnection = { close: () => controller.abort() }
+  return { signal: controller.signal }
+}
+
+const streamAsk = (payload, onData, onDone, onError) =>
+  streamingApiService.stream.askQuestionStream(payload, onData, onDone, onError, beginStream())
+
+const streamAskImage = (formData, onData, onDone, onError) =>
+  streamingApiService.stream.askImageQuestionStream(formData, onData, onDone, onError, beginStream())
 const inputRef = ref(null)
 const canSend = computed(() => (questionType.value==='image'&&uploadedImage.value)?true:inputText.value.trim().length>0)
 
@@ -766,7 +799,7 @@ const sendQuestion = async (text) => {
   // 获取会话ID：优先使用内存中的，其次从localStorage获取
   let currentSessionId = aiSessionId.value || getStoredSessionId()
 
-  streamingApiService.stream.askQuestionStream(
+  streamAsk(
     { question: t, subject: ctx, userId: userId, sessionId: currentSessionId },
     (msg) => {
       // 从响应中获取sessionId（通过SseMessage对象的sessionId字段传递）
@@ -800,7 +833,7 @@ const sendQuestion = async (text) => {
         }
         
         // 等待打字完成，每100ms检查一次
-        const waitForTyping = setInterval(() => {
+        const waitForTyping = startTypingWatcher(() => {
           if (!typingTimer) {
             aiMsg.status='success';
             isSending.value=false;
@@ -809,7 +842,7 @@ const sendQuestion = async (text) => {
         }, 100);
         
         // 最长等待30秒，超过则强制完成
-        setTimeout(() => {
+        startTypingFallback(() => {
           clearInterval(waitForTyping);
           if (aiMsg.status !== 'success') {
             aiMsg.status='success';
@@ -846,7 +879,7 @@ const regenerate = async (aiMsg) => {
   const userId = authStore.userId
   // 获取会话ID：优先使用内存中的，其次从localStorage获取
   let currentSessionId = aiSessionId.value || getStoredSessionId()
-  streamingApiService.stream.askQuestionStream(
+  streamAsk(
     {question:t,subject:ctx,userId:userId,sessionId:currentSessionId},
     (m)=>{
       // 处理sessionId
@@ -872,14 +905,14 @@ const regenerate = async (aiMsg) => {
         if(!typingTimer){
           startTypingEffect(aiMsg, full);
         }
-        const waitForTyping = setInterval(()=>{
+        const waitForTyping = startTypingWatcher(()=>{
           if(!typingTimer){
             aiMsg.status='success';
             isSending.value=false;
             clearInterval(waitForTyping);
           }
         },100);
-        setTimeout(()=>{
+        startTypingFallback(()=>{
           clearInterval(waitForTyping);
           if(aiMsg.status !== 'success'){
             aiMsg.status='success';
@@ -903,7 +936,7 @@ const retry = async (aiMsg) => {
   const userId = authStore.userId
   // 获取会话ID：优先使用内存中的，其次从localStorage获取
   let currentSessionId = aiSessionId.value || getStoredSessionId()
-  streamingApiService.stream.askQuestionStream(
+  streamAsk(
     {question:t,subject:ctx,userId:userId,sessionId:currentSessionId},
     (m)=>{
       // 处理sessionId
@@ -929,7 +962,7 @@ const retry = async (aiMsg) => {
         if(!typingTimer){
           startTypingEffect(aiMsg, full);
         }
-        const checkComplete = setInterval(()=>{
+        const checkComplete = startTypingWatcher(()=>{
           if(!typingTimer && aiMsg.displayContent?.length >= full.length){
             aiMsg.displayContent=sanitizeText(markdownToPlainText(full));
             aiMsg.status='success';
@@ -937,6 +970,16 @@ const retry = async (aiMsg) => {
             clearInterval(checkComplete);
           }
         },100);
+        // 这条轮询原先没有兜底：条件长期不满足就会以 100ms 一直跑下去
+        startTypingFallback(() => {
+          clearInterval(checkComplete);
+          if (aiMsg.status !== 'success') {
+            stopTyping();
+            aiMsg.displayContent = sanitizeText(markdownToPlainText(full));
+            aiMsg.status='success';
+            isSending.value=false;
+          }
+        },30000);
       }else{
         isSending.value=false;
       }
@@ -1022,7 +1065,7 @@ const submitImageQuestion = async () => {
     const blob = await fetch(uploadedImage.value).then(r => r.blob())
     fd.append('image', blob, 'question.jpg')
     
-    streamingApiService.stream.askImageQuestionStream(
+    streamAskImage(
       fd,
       (msg) => {
         if (msg.error) {
@@ -1053,7 +1096,7 @@ const submitImageQuestion = async () => {
           } else {
             aiMsg.status = 'typing'
             // 等待打字完成，每100ms检查一次
-            const waitForTyping = setInterval(() => {
+            const waitForTyping = startTypingWatcher(() => {
               if (!typingTimer) {
                 aiMsg.status = 'success'
                 isSending.value = false
@@ -1061,7 +1104,7 @@ const submitImageQuestion = async () => {
               }
             }, 100)
             // 最长等待30秒，超过则强制完成
-            setTimeout(() => {
+            startTypingFallback(() => {
               clearInterval(waitForTyping)
               if (aiMsg.status !== 'success') {
                 stopTyping()
@@ -1118,7 +1161,7 @@ onMounted(async () => {
   await fetchExamSubjects()
   await fetchBackendHistory()
 })
-onUnmounted(() => { closeSSE(); stopTyping() })
+onUnmounted(() => { closeSSE(); stopTyping(); clearWatchers() })
 
 const processMathText = (t) => processAiResponse((t||'').replace(/\n{2,}/g,'\n'))
 </script>
