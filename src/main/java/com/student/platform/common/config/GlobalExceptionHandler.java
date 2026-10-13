@@ -8,6 +8,7 @@ import jakarta.validation.ConstraintViolationException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -16,6 +17,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -63,7 +65,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(BusinessException.class)
+    @ExceptionHandler(value = BusinessException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("业务异常 [{}] - 状态码: {}, 消息: {}",
                 request.getRequestURI(), e.getCode(), e.getMessage());
@@ -77,7 +79,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ExceptionHandler(value = MethodArgumentNotValidException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleValidationException(MethodArgumentNotValidException e, HttpServletRequest request) {
         String message = e.getBindingResult().getFieldErrors().stream()
@@ -94,7 +96,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(ConstraintViolationException.class)
+    @ExceptionHandler(value = ConstraintViolationException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleConstraintViolationException(ConstraintViolationException e, HttpServletRequest request) {
         String message = e.getConstraintViolations().stream()
@@ -111,7 +113,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(BindException.class)
+    @ExceptionHandler(value = BindException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleBindException(BindException e, HttpServletRequest request) {
         String message = e.getBindingResult().getFieldErrors().stream()
@@ -128,7 +130,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(MissingServletRequestParameterException.class)
+    @ExceptionHandler(value = MissingServletRequestParameterException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleMissingServletRequestParameterException(
             MissingServletRequestParameterException e, HttpServletRequest request) {
@@ -143,7 +145,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    @ExceptionHandler(value = MethodArgumentTypeMismatchException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleMethodArgumentTypeMismatchException(
             MethodArgumentTypeMismatchException e, HttpServletRequest request) {
@@ -160,7 +162,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler(value = HttpMessageNotReadableException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleHttpMessageNotReadableException(
             HttpMessageNotReadableException e, HttpServletRequest request) {
@@ -175,7 +177,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(AccessDeniedException.class)
+    @ExceptionHandler(value = AccessDeniedException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.FORBIDDEN)
     public Result<Void> handleAccessDeniedException(AccessDeniedException e, HttpServletRequest request) {
         log.warn("访问被拒绝 [{}] - {}", request.getRequestURI(), e.getMessage());
@@ -189,7 +191,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(AuthenticationException.class)
+    @ExceptionHandler(value = AuthenticationException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.UNAUTHORIZED)
     public Result<Void> handleAuthenticationException(AuthenticationException e, HttpServletRequest request) {
         log.warn("认证异常 [{}] - {}", request.getRequestURI(), e.getMessage());
@@ -209,7 +211,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    @ExceptionHandler(value = MaxUploadSizeExceededException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.PAYLOAD_TOO_LARGE)
     public Result<Void> handleMaxUploadSizeExceededException(
             MaxUploadSizeExceededException e, HttpServletRequest request) {
@@ -224,7 +226,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(NoHandlerFoundException.class)
+    @ExceptionHandler(value = NoHandlerFoundException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.NOT_FOUND)
     public Result<Void> handleNoHandlerFoundException(NoHandlerFoundException e, HttpServletRequest request) {
         log.warn("请求的资源不存在 [{}] - 方法: {}, URL: {}",
@@ -239,7 +241,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(IllegalArgumentException.class)
+    @ExceptionHandler(value = IllegalArgumentException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleIllegalArgumentException(IllegalArgumentException e, HttpServletRequest request) {
         log.warn("非法参数 [{}] - {}", request.getRequestURI(), e.getMessage());
@@ -253,7 +255,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(IllegalStateException.class)
+    @ExceptionHandler(value = IllegalStateException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public Result<Void> handleIllegalStateException(IllegalStateException e, HttpServletRequest request) {
         log.warn("非法状态 [{}] - {}", request.getRequestURI(), e.getMessage());
@@ -267,7 +269,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(NullPointerException.class)
+    @ExceptionHandler(value = NullPointerException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<Void> handleNullPointerException(NullPointerException e, HttpServletRequest request) {
         log.error("空指针异常 [{}]", request.getRequestURI(), e);
@@ -281,7 +283,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(DataAccessException.class)
+    @ExceptionHandler(value = DataAccessException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public Result<Void> handleDataAccessException(DataAccessException e, HttpServletRequest request) {
         log.error("数据库访问异常 [{}] - {}", request.getRequestURI(), e.getMessage(), e);
@@ -295,7 +297,7 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(SQLException.class)
+    @ExceptionHandler(value = SQLException.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
     public Result<Void> handleSQLException(SQLException e, HttpServletRequest request) {
         log.error("SQL异常 [{}] - 错误码: {}, 消息: {}", 
@@ -310,11 +312,25 @@ public class GlobalExceptionHandler {
      * @param request HTTP请求
      * @return 错误响应
      */
-    @ExceptionHandler(Exception.class)
+    @ExceptionHandler(value = Exception.class, produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public Result<Void> handleException(Exception e, HttpServletRequest request) {
         log.error("系统异常 [{}] - 类型: {}, 消息: {}",
                 request.getRequestURI(), e.getClass().getName(), e.getMessage(), e);
         return Result.error(500, "系统内部错误，请稍后重试");
+    }
+
+    /**
+     * 未匹配到任何接口时应返回 404，而不是 500。
+     *
+     * Spring Boot 3.2+ 对未命中的路径抛 NoResourceFoundException；没接住就会落到
+     * 上面的兜底分支——客户端拿到误导性的 500，日志则被扫描请求或拼错的 URL 以
+     * ERROR 级别堆栈刷满。
+     */
+    @ExceptionHandler(value = NoResourceFoundException.class, produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public Result<Void> handleNoResourceFoundException(NoResourceFoundException e, HttpServletRequest request) {
+        log.warn("未匹配到接口 [{}] - 资源: {}", request.getRequestURI(), e.getResourcePath());
+        return Result.error(404, "接口不存在");
     }
 }
