@@ -23,7 +23,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
+import jakarta.annotation.Resource;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.RejectedExecutionException;
 
 import java.util.List;
 import java.util.Map;
@@ -39,6 +42,15 @@ public class QaController {
 
     private final QaService qaService;
     private final AiService aiService;
+
+    /**
+     * 非流式问答的等待池。按名注入而不用 final + @Qualifier：
+     * 类上是 @RequiredArgsConstructor 且仓库没有 lombok.config，
+     * @Qualifier 不会被复制进构造参数，而容器里有 3 个 Executor Bean，
+     * 按类型注入会直接歧义失败。
+     */
+    @Resource(name = "aiRequestExecutor")
+    private Executor aiRequestExecutor;
     private final CourseRecommendService courseRecommendService;
     private final SessionService sessionService;
     private final ContextService contextService;
@@ -333,21 +345,35 @@ public class QaController {
     
     @PostMapping("/ask")
     @Operation(summary = "非流式提问", description = "向AI提问并获取完整回答")
-    public Result<QaResultDTO> askQuestion(@RequestBody QaRequest request) {
+    public CompletableFuture<Result<QaResultDTO>> askQuestion(@RequestBody QaRequest request) {
         String context = buildSystemPrompt(request);
         // 如果请求没有提供sessionId，就创建一个新的
         String sessionId = request.getSessionId() != null ? request.getSessionId() : aiService.createSession();
-        String response = aiService.generateResponseWithContext(context, request.getQuestion(), sessionId);
-        
-        // 保存历史记录
-        // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+
+        // 身份必须在切到异步线程之前取好：SecurityContextHolder 与 RequestContextHolder
+        // 都是 ThreadLocal，换到 ai-request- 线程上就取不到了
         Long userId = currentUserIdOrNull();
-        if (userId != null && response != null && !response.isEmpty()) {
-            qaService.saveHistory(userId, sessionId, request.getQuestion(), response, context, request.getBookId(), request.getKnowledgeNodeId(), null);
-            log.info("已保存非流式问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
+
+        try {
+            // 非流式提问必然要等 AI 出完整答案，但不该由 Tomcat 请求线程去等：
+            // 交给 MVC 异步，容器线程立刻归还，等待发生在专用的有界池上。
+            return CompletableFuture.supplyAsync(() -> {
+                String response = aiService.generateResponseWithContext(context, request.getQuestion(), sessionId);
+
+                // 保存历史记录
+                // 安全基线：只认当前登录用户（游客为 null，仅不落历史）
+                if (userId != null && response != null && !response.isEmpty()) {
+                    qaService.saveHistory(userId, sessionId, request.getQuestion(), response, context,
+                            request.getBookId(), request.getKnowledgeNodeId(), null);
+                    log.info("已保存非流式问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
+                }
+
+                return Result.success(new QaResultDTO(response, sessionId));
+            }, aiRequestExecutor);
+        } catch (RejectedExecutionException e) {
+            log.warn("AI 请求线程池已满，拒绝本次提问, userId: {}", userId);
+            return CompletableFuture.completedFuture(Result.error(503, "AI 服务繁忙，请稍后重试"));
         }
-        
-        return Result.success(new QaResultDTO(response, sessionId));
     }
     
     @PostMapping("/save-processed-text")
@@ -437,7 +463,7 @@ public class QaController {
     
     @PostMapping("/ask/image")
     @Operation(summary = "图片问答", description = "上传图片并向AI提问")
-    public Result<String> askImageQuestion(
+    public CompletableFuture<Result<String>> askImageQuestion(
             @RequestParam("image") MultipartFile image, 
             @RequestParam(value = "question", required = false) String question,
             @RequestParam(value = "sessionId", required = false) String sessionId) {
@@ -446,33 +472,44 @@ public class QaController {
             
             // 验证图片大小
             if (image.getSize() > 10 * 1024 * 1024) { // 10MB限制
-                return Result.error("图片大小不能超过10MB");
+                return CompletableFuture.completedFuture(Result.error("图片大小不能超过10MB"));
             }
             
             // 验证图片类型
             String contentType = image.getContentType();
-            if (!contentType.startsWith("image/")) {
-                return Result.error("请上传有效的图片文件");
+            if (contentType == null || !contentType.startsWith("image/")) {
+                return CompletableFuture.completedFuture(Result.error("请上传有效的图片文件"));
             }
             
             // 对问题进行sanitize处理，防止XSS攻击
             String sanitizedQuestion = question != null ? sanitizeInput(question) : null;
-            
-            // 调用AI服务处理图片
-            String response = aiService.generateResponseFromImage(image, sanitizedQuestion);
-            
-            // 保存历史记录
-            // 安全基线：忽略外部传入的 userId，只认当前登录用户（游客为 null，仅不落历史）
+
+            // 字节必须在请求线程上读完：MultipartFile 绑定原始请求的生命周期，
+            // 到异步线程再 getBytes() 时临时文件可能已被清理。
+            byte[] imageBytes = image.getBytes();
+
+            // 身份同样要在切线程前取（ThreadLocal）
             Long userId = currentUserIdOrNull();
-            if (userId != null && response != null && !response.isEmpty()) {
-                qaService.saveHistory(userId, sessionId, sanitizedQuestion != null ? sanitizedQuestion : "[图片提问]", response, null, null, null, null);
-                log.info("已保存图片问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
-            }
-            
-            return Result.success(response);
+
+            return CompletableFuture.supplyAsync(() -> {
+                String response = aiService.generateResponseFromImage(imageBytes, contentType, sanitizedQuestion);
+
+                // 保存历史记录
+                // 安全基线：只认当前登录用户（游客为 null，仅不落历史）
+                if (userId != null && response != null && !response.isEmpty()) {
+                    qaService.saveHistory(userId, sessionId,
+                            sanitizedQuestion != null ? sanitizedQuestion : "[图片提问]", response, null, null, null, null);
+                    log.info("已保存图片问答历史，用户ID: {}, 会话ID: {}", userId, sessionId);
+                }
+
+                return Result.success(response);
+            }, aiRequestExecutor);
+        } catch (RejectedExecutionException e) {
+            log.warn("AI 请求线程池已满，拒绝本次图片提问");
+            return CompletableFuture.completedFuture(Result.error(503, "AI 服务繁忙，请稍后重试"));
         } catch (Exception e) {
             log.error("处理图片问答失败: {}", e.getMessage(), e);
-            return Result.error("处理图片问答失败: " + e.getMessage());
+            return CompletableFuture.completedFuture(Result.error("处理图片问答失败: " + e.getMessage()));
         }
     }
     

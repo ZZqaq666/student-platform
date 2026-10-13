@@ -91,6 +91,12 @@ public interface AiService {
      * @return AI回答内容
      */
     String generateResponseFromImage(MultipartFile image, String question);
+
+    /**
+     * 字节形式重载：调用方（控制器）在请求线程上读完 MultipartFile 后使用，
+     * 这样等待模型返回可以安全地放到异步线程池上。
+     */
+    String generateResponseFromImage(byte[] imageBytes, String contentType, String question);
     
     /**
      * 根据图片生成流式响应

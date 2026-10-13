@@ -6,6 +6,11 @@ server:
 spring:
   application:
     name: student-platform
+  mvc:
+    async:
+      # 非流式问答改为 MVC 异步后，容器线程立刻归还，但异步请求本身有超时。
+      # 不设就落到 Tomcat 默认 30s，AI 生成（最长 120s）会被掐断成 AsyncRequestTimeoutException。
+      request-timeout: 200000
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/student_platform?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${SPRING_DATASOURCE_USERNAME:root}

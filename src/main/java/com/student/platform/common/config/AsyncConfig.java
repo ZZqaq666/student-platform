@@ -38,6 +38,30 @@ public class AsyncConfig {
     }
 
     /**
+     * 非流式 AI 问答的等待专用池。
+     *
+     * 为什么不能复用 applicationTaskExecutor：它配的是 CallerRunsPolicy，一旦
+     * 4~8 个线程加 200 队列被打满，任务会回到调用线程执行——而调用线程正是
+     * Tomcat 请求线程，等于把这里想消除的阻塞原样搬回来，还是静默的。
+     *
+     * 因此用 AbortPolicy：池满时抛 RejectedExecutionException，由 QaController
+     * 转成「AI 服务繁忙」的明确响应，宁可拒绝也不占容器线程。
+     */
+    @Bean("aiRequestExecutor")
+    public Executor aiRequestExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(16);
+        executor.setQueueCapacity(50);
+        executor.setKeepAliveSeconds(120);
+        executor.setThreadNamePrefix("ai-request-");
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.AbortPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(false);
+        executor.initialize();
+        return executor;
+    }
+
+    /**
      * 兜底：未指定线程池名称的 @Async 也走一个有界线程池，
      * 避免 Spring 默认的无界 SimpleAsyncTaskExecutor 无限制起线程。
      */

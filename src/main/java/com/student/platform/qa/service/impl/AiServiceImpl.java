@@ -23,9 +23,9 @@ import reactor.core.publisher.Sinks;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.List;
-import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicReference;
 
 @Service
 @Slf4j
@@ -178,10 +178,33 @@ public class AiServiceImpl implements AiService {
 
     @Override
     public String generateResponseFromImage(MultipartFile image, String question) {
+        if (image == null || image.isEmpty()) {
+            log.warn("图像参数为空");
+            return "请提供有效的图像。";
+        }
+        String contentType = image.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            log.warn("无效的文件类型：{}", contentType);
+            return "请提供有效的图像文件。";
+        }
+        byte[] imageBytes;
+        try {
+            // 必须在请求线程上读完字节：MultipartFile 绑定原始请求的生命周期，
+            // 切到异步线程后请求结束就读不到了。
+            imageBytes = image.getBytes();
+        } catch (java.io.IOException e) {
+            log.error("读取上传图片失败: {}", e.getMessage(), e);
+            return "读取图片失败，请重新上传。";
+        }
+        return generateResponseFromImage(imageBytes, contentType, question);
+    }
+
+    @Override
+    public String generateResponseFromImage(byte[] imageBytes, String contentType, String question) {
         try {
             log.info("从图像生成 AI 响应");
 
-            if (image == null || image.isEmpty()) {
+            if (imageBytes == null || imageBytes.length == 0) {
                 log.warn("图像参数为空");
                 return "请提供有效的图像。";
             }
@@ -190,8 +213,7 @@ public class AiServiceImpl implements AiService {
                 return "请提供有效的问题。";
             }
 
-            String contentType = image.getContentType();
-            if (!contentType.startsWith("image/")) {
+            if (contentType == null || !contentType.startsWith("image/")) {
                 log.warn("无效的文件类型：{}", contentType);
                 return "请提供有效的图像文件。";
             }
@@ -201,7 +223,6 @@ public class AiServiceImpl implements AiService {
                 return "图片问答功能未启用，请联系管理员配置视觉模型。";
             }
 
-            byte[] imageBytes = image.getBytes();
             String base64Image = Base64.getEncoder().encodeToString(imageBytes);
             log.info("图像转换为base64成功，大小: {}KB", imageBytes.length / 1024);
 
@@ -215,49 +236,26 @@ public class AiServiceImpl implements AiService {
 
             log.info("发送多模态消息到视觉模型（含图片），问题: {}", question);
 
-            StringBuilder fullResponse = new StringBuilder();
-            CountDownLatch latch = new CountDownLatch(1);
-            AtomicReference<Throwable> errorRef = new AtomicReference<>();
+            try {
+                String response = chatFuture(
+                        handler -> visionChatModel.chat(chatMessages, handler),
+                        180, "视觉模型生成响应").join();
 
-            visionChatModel.chat(chatMessages, new StreamingChatResponseHandler() {
-                @Override
-                public void onPartialResponse(String partialResponse) {
-                    fullResponse.append(partialResponse);
+                if (response.isEmpty()) {
+                    log.warn("视觉模型返回空响应");
+                    return "AI返回空响应，请重新提问。";
                 }
 
-                @Override
-                public void onError(Throwable error) {
-                    log.error("视觉模型生成响应失败：{}", error.getMessage(), error);
-                    errorRef.set(error);
-                    latch.countDown();
+                log.info("视觉模型响应生成成功，响应长度: {}", response.length());
+                return response;
+            } catch (CompletionException e) {
+                if (e.getCause() instanceof java.util.concurrent.TimeoutException) {
+                    log.warn("视觉模型生成响应超时");
+                    return "AI响应超时，请稍后重试。";
                 }
-
-                @Override
-                public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
-                    log.info("视觉模型响应生成完成，响应ID：{}", response.id());
-                    latch.countDown();
-                }
-            });
-
-            boolean completed = latch.await(180, TimeUnit.SECONDS);
-            if (!completed) {
-                log.warn("视觉模型生成响应超时");
-                return "AI响应超时，请稍后重试。";
-            }
-
-            if (errorRef.get() != null) {
-                log.error("视觉模型生成响应发生错误: {}", errorRef.get().getMessage());
+                log.error("视觉模型生成响应发生错误: {}", e.getMessage());
                 return "AI服务暂时不可用，请稍后重试。";
             }
-
-            String response = fullResponse.toString().trim();
-            if (response.isEmpty()) {
-                log.warn("视觉模型返回空响应");
-                return "AI返回空响应，请重新提问。";
-            }
-
-            log.info("视觉模型响应生成成功，响应长度: {}", response.length());
-            return response;
         } catch (Exception e) {
             log.error("生成响应异常: {}", e.getMessage(), e);
             return "调用AI服务失败：" + e.getMessage();
@@ -407,43 +405,19 @@ public class AiServiceImpl implements AiService {
 
             if (streamingChatModel != null) {
                 String fullPrompt = systemPrompt + "\n\n" + userPrompt;
-                
-                StringBuilder fullResponse = new StringBuilder();
-                CountDownLatch latch = new CountDownLatch(1);
-                AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-                streamingChatModel.chat(fullPrompt, new StreamingChatResponseHandler() {
-                    @Override
-                    public void onPartialResponse(String partialResponse) {
-                        fullResponse.append(partialResponse);
+                String response;
+                try {
+                    response = chatFuture(fullPrompt, 120, "练习题生成").join();
+                } catch (CompletionException e) {
+                    if (e.getCause() instanceof java.util.concurrent.TimeoutException) {
+                        log.warn("生成练习题超时");
+                        return "{\"error\": \"练习题生成超时，请稍后重试。\"}";
                     }
-
-                    @Override
-                    public void onError(Throwable error) {
-                        log.error("生成练习题失败：{}", error.getMessage(), error);
-                        errorRef.set(error);
-                        latch.countDown();
-                    }
-
-                    @Override
-                    public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
-                        log.info("练习题生成完成");
-                        latch.countDown();
-                    }
-                });
-
-                boolean completed = latch.await(120, TimeUnit.SECONDS);
-                if (!completed) {
-                    log.warn("生成练习题超时");
-                    return "{\"error\": \"练习题生成超时，请稍后重试。\"}";
-                }
-
-                if (errorRef.get() != null) {
-                    log.error("生成练习题发生错误: {}", errorRef.get().getMessage());
+                    log.error("生成练习题发生错误: {}", e.getMessage());
                     return "{\"error\": \"练习题生成失败，请稍后重试。\"}";
                 }
 
-                String response = fullResponse.toString().trim();
                 if (response.isEmpty()) {
                     log.warn("AI返回空响应");
                     return "{\"error\": \"未生成练习题，请重新提问。\"}";
@@ -484,16 +458,31 @@ public class AiServiceImpl implements AiService {
         return (sessionId != null ? sessionId + ":" : "") + question.trim();
     }
 
-    private String buildPrompt(String context, String question) {
-        return "基于以下上下文，回答用户问题：\n\n" + context + "\n\n用户问题：" + question;
+    /**
+     * 把流式回调收敛成 CompletableFuture，取代手写 CountDownLatch。
+     *
+     * 原实现每个非流式调用都要 await(120/180s)，把调用它的 Tomcat 请求线程整段占住；
+     * latch 还带来 InterruptedException 吞中断、超时后回调仍在追加 StringBuilder 的隐患。
+     * 用 future 承载后，超时/失败/成功都走同一条完成路径，调用方可以选择 join
+     * （同步语义的服务内部调用）或直接交给 MVC 异步（见 QaController 的 /ask 系列）。
+     *
+     * @param timeoutSeconds 整体超时，超时以 TimeoutException 异常完成
+     * @param label          日志标识
+     */
+    private CompletableFuture<String> chatFuture(String prompt, long timeoutSeconds, String label) {
+        return chatFuture(handler -> streamingChatModel.chat(prompt, handler), timeoutSeconds, label);
     }
 
-    private String generateWithModel(String prompt, String cacheKey, String sessionId, String question) {
+    /**
+     * @param starter 具体由哪个模型、以什么输入发起流式对话
+     */
+    private CompletableFuture<String> chatFuture(
+            java.util.function.Consumer<StreamingChatResponseHandler> starter,
+            long timeoutSeconds, String label) {
+        CompletableFuture<String> future = new CompletableFuture<>();
         StringBuilder fullResponse = new StringBuilder();
-        CountDownLatch latch = new CountDownLatch(1);
-        AtomicReference<Throwable> errorRef = new AtomicReference<>();
 
-        streamingChatModel.chat(prompt, new StreamingChatResponseHandler() {
+        starter.accept(new StreamingChatResponseHandler() {
             @Override
             public void onPartialResponse(String partialResponse) {
                 fullResponse.append(partialResponse);
@@ -501,31 +490,48 @@ public class AiServiceImpl implements AiService {
 
             @Override
             public void onError(Throwable error) {
-                log.error("生成响应失败：{}", error.getMessage(), error);
-                errorRef.set(error);
-                latch.countDown();
+                log.error("{} 失败：{}", label, error.getMessage(), error);
+                future.completeExceptionally(error);
             }
 
             @Override
             public void onCompleteResponse(dev.langchain4j.model.chat.response.ChatResponse response) {
-                log.info("响应生成完成，响应ID：{}", response.id());
-                latch.countDown();
+                log.info("{} 完成，响应ID：{}", label, response == null ? "-" : response.id());
+                future.complete(fullResponse.toString().trim());
             }
         });
 
+        return future.orTimeout(timeoutSeconds, TimeUnit.SECONDS);
+    }
+
+    /**
+     * future 异常完成时同步调用方需要的友好文案。
+     */
+    private String failureMessage(Throwable e, String label) {
+        if (e instanceof java.util.concurrent.TimeoutException
+                || e.getCause() instanceof java.util.concurrent.TimeoutException) {
+            log.warn("{} 超时", label);
+            return label + "超时，请稍后重试。";
+        }
+        log.error("{} 发生错误: {}", label, e.getMessage());
+        return label + "失败，请稍后重试。";
+    }
+
+    private String buildPrompt(String context, String question) {
+        return "基于以下上下文，回答用户问题：\n\n" + context + "\n\n用户问题：" + question;
+    }
+
+    private String generateWithModel(String prompt, String cacheKey, String sessionId, String question) {
+        if (streamingChatModel == null) {
+            // 原先这里会返回 "这是一个模拟的 AI 流式响应：" + prompt 并写入缓存：
+            // 用户看到的是自己提问被回声回来，还会被固化成"正确答案"复用。
+            // 模型没配好属于部署故障，应显式失败，不能伪装成回答。
+            log.error("AI 模型未初始化，拒绝以模拟回答冒充 AI 结果");
+            return "AI 服务未正确配置，请检查 DEEPSEEK_API_KEY。";
+        }
+
         try {
-            boolean completed = latch.await(120, TimeUnit.SECONDS);
-            if (!completed) {
-                log.warn("生成响应超时");
-                return "AI响应超时，请稍后重试。";
-            }
-
-            if (errorRef.get() != null) {
-                log.error("生成响应发生错误: {}", errorRef.get().getMessage());
-                return "AI响应生成失败，请稍后重试。";
-            }
-
-            String response = fullResponse.toString().trim();
+            String response = chatFuture(prompt, 120, "AI响应生成").join();
             if (response.isEmpty()) {
                 log.warn("AI返回空响应");
                 return "AI返回空响应，请重新提问。";
@@ -535,10 +541,8 @@ public class AiServiceImpl implements AiService {
             aiCacheManager.put(cacheKey, response);
             updateSessionMessages(sessionId, question, response);
             return response;
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("生成响应被中断");
-            return "AI响应生成被中断，请稍后重试。";
+        } catch (CompletionException e) {
+            return failureMessage(e, "AI响应生成");
         }
     }
 
