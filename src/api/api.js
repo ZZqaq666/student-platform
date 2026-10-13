@@ -32,6 +32,17 @@ const cache = {
   }
 };
 
+// 书架列表与章节树有 5 分钟缓存：写操作成功后必须失效，
+// 否则删掉的书、改过的教材还会在缓存过期前继续出现在列表里。
+// 请求失败时不清——服务端什么都没改。
+function withCacheInvalidation(mutate) {
+  return async (...args) => {
+    const result = await mutate(...args);
+    cache.clear();
+    return result;
+  };
+}
+
 // 创建axios实例
 const api = axios.create({
   baseURL: '/api', // 基础URL，根据实际情况修改
@@ -402,18 +413,18 @@ export const apiService = {
     getBooksBySubject: (subject) => request.get(`/bookshelf/books/subject/${subject}`, null, { useCache: true }), // 启用缓存
     getUserBooks: () => request.get('/bookshelf/my'), // 不缓存用户数据
     getUserBook: (bookId) => request.get(`/bookshelf/my/${bookId}`), // 不缓存用户数据
-    addBookToShelf: (bookId) => request.post(`/bookshelf/my/${bookId}`),
-    removeBookFromShelf: (bookId) => request.delete(`/bookshelf/my/${bookId}`),
+    addBookToShelf: withCacheInvalidation(bookId => request.post(`/bookshelf/my/${bookId}`)),
+    removeBookFromShelf: withCacheInvalidation(bookId => request.delete(`/bookshelf/my/${bookId}`)),
     updateProgress: (bookId, data) => request.put(`/bookshelf/my/${bookId}/progress`, data),
-    getBookChapters: (bookId) => request.get(`/books/${bookId}/chapters`, null, true), // 启用缓存
-    getBookChapterTree: (bookId) => request.get(`/books/${bookId}/chapters/tree`, null, true), // 启用缓存
+    getBookChapters: (bookId) => request.get(`/books/${bookId}/chapters`, null, { useCache: true }), // 启用缓存
+    getBookChapterTree: (bookId) => request.get(`/books/${bookId}/chapters/tree`, null, { useCache: true }), // 启用缓存
     searchChapters: (bookId, keyword) => request.get(`/books/${bookId}/chapters/search`, { keyword }), // 不缓存搜索结果
-    getBookRecommendations: (bookId) => request.get(`/books/${bookId}/recommendations`, null, true), // 启用缓存
+    getBookRecommendations: (bookId) => request.get(`/books/${bookId}/recommendations`, null, { useCache: true }), // 启用缓存
     getHighFrequencyKnowledge: (bookId, signal) => request.get(`/books/${bookId}/high-frequency`, null, { signal }), // 获取书籍高频知识点
     getRelatedNodes: (bookId, signal) => request.get(`/books/${bookId}/related-nodes`, null, { signal }), // 获取书籍关联知识点
     getTextbooks: (params) => request.get('/bookshelf/books/search', params), // 获取教材列表
-    addBooks: (userId, data) => request.post(`/books/add?userId=${userId}`, data), // 批量添加教材
-    deleteBook: (bookId) => request.delete(`/books/${bookId}`) // 删除书籍
+    addBooks: withCacheInvalidation((userId, data) => request.post(`/books/add?userId=${userId}`, data)), // 批量添加教材
+    deleteBook: withCacheInvalidation(bookId => request.delete(`/books/${bookId}`)) // 删除书籍
   },
   
   // 练习系统相关
