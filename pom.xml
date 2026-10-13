@@ -27,6 +27,7 @@
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <hutool.version>5.8.16</hutool.version>
         <jjwt.version>0.12.3</jjwt.version>
+        <jacoco.version>0.8.12</jacoco.version>
         <springdoc.version>2.8.6</springdoc.version>
     </properties>
 
@@ -167,6 +168,37 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+            <!-- CI 的 test.yml 会上传 target/surefire-reports 与 target/site/jacoco；
+                 没有这两个插件时那些步骤必然失败，这里补上使其真实可用 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <!-- @{argLine} 是延迟替换：这里若直接写死 argLine，会覆盖
+                         jacoco prepare-agent 注入的探针参数，导致「Skipping JaCoCo
+                         execution due to missing execution data file」而没有任何覆盖率数据 -->
+                    <argLine>@{argLine} -Dfile.encoding=UTF-8</argLine>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>${jacoco.version}</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
