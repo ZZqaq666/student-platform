@@ -82,8 +82,11 @@ mybatis-plus:
 springdoc:
   api-docs:
     path: /v3/api-docs
+    # 生产应设为 false：文档白名单放行是为了开发方便，但它等于把全部端点公开
+    enabled: ${API_DOCS_ENABLED:true}
   swagger-ui:
     path: /swagger-ui.html
+    enabled: ${API_DOCS_ENABLED:true}
 
 management:
   endpoints:
